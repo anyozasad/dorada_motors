@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/local_store.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,14 +18,7 @@ class DoradaMotorsApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Dorada Motors',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFE1B329)),
-        inputDecorationTheme: const InputDecorationTheme(
-          floatingLabelStyle: TextStyle(color: Color(0xFF111827)),
-        ),
-      ),
+      theme: AppTheme.light,
       home: const AppRoot(),
     );
   }
