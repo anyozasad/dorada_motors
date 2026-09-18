@@ -1,6 +1,7 @@
 <?php
 
 require_once "conexion.php";
+header("Content-Type: text/html; charset=UTF-8");
 
 function limpiar($dato)
 {
