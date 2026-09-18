@@ -8,10 +8,11 @@ class ApiService {
     if (kIsWeb) {
       return 'http://localhost/dorada_api';
     }
+
     return 'http://10.0.2.2/dorada_api';
   }
 
-  static Future<List<dynamic>> _getList(String endpoint) async {
+  static Future<dynamic> _getJson(String endpoint) async {
     final response = await http.get(
       Uri.parse('$baseUrl/$endpoint'),
       headers: const {'Accept': 'application/json'},
@@ -23,12 +24,20 @@ class ApiService {
 
     final decoded = jsonDecode(response.body);
 
-    if (decoded is List) {
-      return decoded;
+    if (decoded is Map && decoded['estado'] == false) {
+      throw Exception(
+        decoded['mensaje']?.toString() ?? 'Error devuelto por la API',
+      );
     }
 
-    if (decoded is Map && decoded['estado'] == false) {
-      throw Exception(decoded['mensaje'] ?? 'Error devuelto por la API');
+    return decoded;
+  }
+
+  static Future<List<dynamic>> _getList(String endpoint) async {
+    final decoded = await _getJson(endpoint);
+
+    if (decoded is List) {
+      return decoded;
     }
 
     throw Exception('Respuesta inválida de $endpoint');
@@ -44,32 +53,16 @@ class ApiService {
       _getList('pedidos.php');
 
   static Future<Map<String, dynamic>> obtenerDashboard() async {
-    final resultados = await Future.wait<List<dynamic>>([
-      obtenerProductos(),
-      obtenerUsuarios(),
-      obtenerPedidos(),
-    ]);
+    final decoded = await _getJson('dashboard_api.php');
 
-    final productos = resultados[0];
-    final usuarios = resultados[1];
-    final pedidos = resultados[2];
-
-    double totalVentas = 0;
-    for (final item in pedidos) {
-      if (item is Map) {
-        final value = item['total'];
-        totalVentas += double.tryParse(value?.toString() ?? '0') ?? 0;
-      }
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
     }
 
-    final ultimosPedidos = pedidos.take(5).toList();
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
 
-    return {
-      'productos': productos.length,
-      'usuarios': usuarios.length,
-      'pedidos': pedidos.length,
-      'ventas': totalVentas,
-      'ultimos_pedidos': ultimosPedidos,
-    };
+    throw Exception('Respuesta inválida del dashboard');
   }
 }
