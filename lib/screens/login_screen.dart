@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import 'register_screen.dart';
@@ -40,22 +41,37 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _loading = true);
-    final error = await LocalStore.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
 
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
+    try {
+      final response = await ApiService.iniciarSesion(
+        correo: _emailController.text,
+        contrasena: _passwordController.text,
       );
-      return;
-    }
 
-    widget.onAuthenticated();
+      final usuario = Map<String, dynamic>.from(response['usuario'] as Map);
+      final id = int.tryParse(usuario['id_usuario'].toString()) ?? 0;
+      final nombre = [
+        usuario['nombres']?.toString() ?? '',
+        usuario['apellidos']?.toString() ?? '',
+      ].where((e) => e.trim().isNotEmpty).join(' ').trim();
+
+      await LocalStore.saveSession(
+        userId: id,
+        name: nombre.isEmpty ? 'Usuario' : nombre,
+        email: usuario['correo']?.toString() ?? _emailController.text.trim(),
+      );
+
+      if (!mounted) return;
+      setState(() => _loading = false);
+      widget.onAuthenticated();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final mensaje = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje)),
+      );
+    }
   }
 
   Future<void> _openRegister() async {
@@ -82,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         title: const Text('Recuperar contraseña'),
         content: const Text(
-          'La recuperación de contraseña quedará disponible cuando la aplicación se conecte con el servicio de usuarios.',
+          'La recuperación de contraseña se agregará como siguiente módulo del backend.',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
