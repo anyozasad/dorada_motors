@@ -130,7 +130,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $descripcion = trim($_POST["descripcion"] ?? "");
             $precio = (float)($_POST["precio"] ?? 0);
             $stock = (int)($_POST["stock"] ?? 0);
-            $imagen = trim($_POST["imagen_url"] ?? "");
+            $stockMinimo = max(0, (int)($_POST["stock_minimo"] ?? 5));
+            $imagenBase = trim($_POST["imagen_url"] ?? "");
+            $imagen = guardarImagenProducto($_FILES["imagen_archivo"] ?? null, $imagenBase);
 
             if ($idCategoria <= 0 || $idMarca <= 0 || $nombre === "") {
                 redir("Completa los datos obligatorios del producto", "error", "gestion-productos");
@@ -138,10 +140,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $stmt = $conexion->prepare("
                 INSERT INTO producto
-                (id_categoria, id_marca, nombre_producto, descripcion, precio, stock, imagen_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (id_categoria, id_marca, nombre_producto, descripcion, precio, stock, stock_minimo, imagen_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->bind_param("iissdis", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $imagen);
+            $stmt->bind_param("iissdiis", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $stockMinimo, $imagen);
             $stmt->execute();
             redir("Producto registrado correctamente", "ok", "gestion-productos");
         }
@@ -154,14 +156,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $descripcion = trim($_POST["descripcion"] ?? "");
             $precio = (float)($_POST["precio"] ?? 0);
             $stock = (int)($_POST["stock"] ?? 0);
-            $imagen = trim($_POST["imagen_url"] ?? "");
+            $stockMinimo = max(0, (int)($_POST["stock_minimo"] ?? 5));
+            $imagenActual = trim($_POST["imagen_actual"] ?? "");
+            $imagenManual = trim($_POST["imagen_url"] ?? "");
+            $imagenBase = $imagenManual !== "" ? $imagenManual : $imagenActual;
+            $imagen = guardarImagenProducto($_FILES["imagen_archivo"] ?? null, $imagenBase);
 
             $stmt = $conexion->prepare("
                 UPDATE producto
-                SET id_categoria=?, id_marca=?, nombre_producto=?, descripcion=?, precio=?, stock=?, imagen_url=?
+                SET id_categoria=?, id_marca=?, nombre_producto=?, descripcion=?, precio=?, stock=?, stock_minimo=?, imagen_url=?
                 WHERE id_producto=?
             ");
-            $stmt->bind_param("iissdisi", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $imagen, $idProducto);
+            $stmt->bind_param("iissdiisi", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $stockMinimo, $imagen, $idProducto);
             $stmt->execute();
             redir("Producto actualizado correctamente", "ok", "gestion-productos");
         }
@@ -271,6 +277,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             redir("Usuario registrado correctamente", "ok", "usuarios");
         }
 
+        if (isset($_POST["actualizar_estado_usuario"])) {
+            $idUsuario = (int)($_POST["id_usuario"] ?? 0);
+            $estadoUsuario = trim($_POST["estado_usuario"] ?? "Activo");
+
+            if (!in_array($estadoUsuario, ["Activo","Bloqueado"], true)) {
+                redir("Estado de usuario inválido", "error", "usuarios");
+            }
+
+            $stmt = $conexion->prepare("UPDATE usuario SET estado=? WHERE id_usuario=?");
+            $stmt->bind_param("si", $estadoUsuario, $idUsuario);
+            $stmt->execute();
+            redir("Estado del usuario actualizado", "ok", "usuarios");
+        }
+
         /* ================= PEDIDOS ================= */
         if (isset($_POST["actualizar_estado_pedido"])) {
             $idPedido = (int)($_POST["id_pedido"] ?? 0);
@@ -374,10 +394,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
 
             $stmt = $conexion->prepare("
-                INSERT INTO movimiento_stock (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento)
-                VALUES (?, ?, ?, ?, NOW())
+                INSERT INTO movimiento_stock
+                (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento, stock_anterior, stock_nuevo)
+                VALUES (?, ?, ?, ?, NOW(), ?, ?)
             ");
-            $stmt->bind_param("isis", $idProducto, $tipo, $cantidad, $motivo);
+            $stmt->bind_param("isisii", $idProducto, $tipo, $cantidad, $motivo, $stockActual, $nuevoStock);
             $stmt->execute();
 
             $conexion->commit();
@@ -413,17 +434,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("iiidd", $idCompra, $idProducto, $cantidad, $precioCompra, $subtotal);
             $stmt->execute();
 
-            $stmt = $conexion->prepare("UPDATE producto SET stock=stock+? WHERE id_producto=?");
-            $stmt->bind_param("ii", $cantidad, $idProducto);
+            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+            $stmt->bind_param("i", $idProducto);
+            $stmt->execute();
+            $filaStockCompra = $stmt->get_result()->fetch_assoc();
+
+            if (!$filaStockCompra) {
+                $conexion->rollback();
+                redir("Producto no encontrado", "error", "compras");
+            }
+
+            $stockAnteriorCompra = (int)$filaStockCompra["stock"];
+            $stockNuevoCompra = $stockAnteriorCompra + $cantidad;
+
+            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+            $stmt->bind_param("ii", $stockNuevoCompra, $idProducto);
             $stmt->execute();
 
             $motivo = "Compra #" . $idCompra;
             $tipoEntrada = "Entrada";
             $stmt = $conexion->prepare("
-                INSERT INTO movimiento_stock (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento)
-                VALUES (?, ?, ?, ?, NOW())
+                INSERT INTO movimiento_stock
+                (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento, stock_anterior, stock_nuevo)
+                VALUES (?, ?, ?, ?, NOW(), ?, ?)
             ");
-            $stmt->bind_param("isis", $idProducto, $tipoEntrada, $cantidad, $motivo);
+            $stmt->bind_param("isisii", $idProducto, $tipoEntrada, $cantidad, $motivo, $stockAnteriorCompra, $stockNuevoCompra);
             $stmt->execute();
 
             $conexion->commit();
@@ -448,7 +483,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if (!$pedidoComprobante) redir("Pedido no encontrado", "error", "comprobantes");
 
             $total = (float)$pedidoComprobante["total"];
-            $subtotal = round($total / 1.18, 2);
+            $factorIgv = 1 + ($igvEmpresa / 100);
+            $subtotal = $factorIgv > 0 ? round($total / $factorIgv, 2) : $total;
             $igv = round($total - $subtotal, 2);
 
             $stmt = $conexion->prepare("
@@ -467,6 +503,178 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("i", $id);
             $stmt->execute();
             redir("Comprobante eliminado", "ok", "comprobantes");
+        }
+
+        /* ================= DEVOLUCIONES ================= */
+        if (isset($_POST["registrar_devolucion"])) {
+            $idPedido = (int)($_POST["id_pedido_devolucion"] ?? 0);
+            $idProducto = (int)($_POST["id_producto_devolucion"] ?? 0);
+            $cantidad = (int)($_POST["cantidad_devolucion"] ?? 0);
+            $motivo = trim($_POST["motivo_devolucion"] ?? "");
+
+            if ($idPedido <= 0 || $idProducto <= 0 || $cantidad <= 0 || $motivo === "") {
+                redir("Completa los datos de la devolución", "error", "devoluciones");
+            }
+
+            $stmt = $conexion->prepare("
+                SELECT cantidad, precio
+                FROM detalle_pedido
+                WHERE id_pedido=? AND id_producto=?
+                LIMIT 1
+            ");
+            $stmt->bind_param("ii", $idPedido, $idProducto);
+            $stmt->execute();
+            $detalleDev = $stmt->get_result()->fetch_assoc();
+
+            if (!$detalleDev || $cantidad > (int)$detalleDev["cantidad"]) {
+                redir("La cantidad devuelta supera lo comprado en ese pedido", "error", "devoluciones");
+            }
+
+            $stmt = $conexion->prepare("
+                SELECT COALESCE(SUM(cantidad),0) AS devuelto
+                FROM devolucion
+                WHERE id_pedido=? AND id_producto=? AND estado='Aprobada'
+            ");
+            $stmt->bind_param("ii", $idPedido, $idProducto);
+            $stmt->execute();
+            $yaDevuelto = (int)$stmt->get_result()->fetch_assoc()["devuelto"];
+
+            if ($yaDevuelto + $cantidad > (int)$detalleDev["cantidad"]) {
+                redir("Ya existen devoluciones para este producto en el pedido", "error", "devoluciones");
+            }
+
+            $monto = round((float)$detalleDev["precio"] * $cantidad, 2);
+            $idAdmin = (int)($adminSesion["id_admin"] ?? 0);
+
+            $conexion->begin_transaction();
+
+            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+            $stmt->bind_param("i", $idProducto);
+            $stmt->execute();
+            $stockDev = $stmt->get_result()->fetch_assoc();
+
+            if (!$stockDev) {
+                $conexion->rollback();
+                redir("Producto no encontrado", "error", "devoluciones");
+            }
+
+            $stockAnteriorDev = (int)$stockDev["stock"];
+            $stockNuevoDev = $stockAnteriorDev + $cantidad;
+
+            $stmt = $conexion->prepare("
+                INSERT INTO devolucion
+                (id_pedido,id_producto,cantidad,motivo,monto_reembolso,estado,id_admin)
+                VALUES (?,?,?,?,?,'Aprobada',?)
+            ");
+            $stmt->bind_param("iiisdi", $idPedido, $idProducto, $cantidad, $motivo, $monto, $idAdmin);
+            $stmt->execute();
+            $idDevolucion = $conexion->insert_id;
+
+            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+            $stmt->bind_param("ii", $stockNuevoDev, $idProducto);
+            $stmt->execute();
+
+            $tipoEntrada = "Entrada";
+            $motivoStock = "Devolución #" . $idDevolucion;
+            $stmt = $conexion->prepare("
+                INSERT INTO movimiento_stock
+                (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                VALUES (?,?,?,?,NOW(),?,?)
+            ");
+            $stmt->bind_param("isisii", $idProducto, $tipoEntrada, $cantidad, $motivoStock, $stockAnteriorDev, $stockNuevoDev);
+            $stmt->execute();
+
+            $conexion->commit();
+            redir("Devolución registrada. El stock fue restaurado automáticamente", "ok", "devoluciones");
+        }
+
+        /* ================= CONFIGURACIÓN ================= */
+        if (isset($_POST["guardar_configuracion"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el administrador puede cambiar la configuración", "error", "configuracion");
+            }
+
+            $nombreComercial = trim($_POST["nombre_comercial"] ?? "Dorada Motors");
+            $razonSocial = trim($_POST["razon_social_empresa"] ?? "ADN Import's");
+            $rucEmpresa = trim($_POST["ruc_empresa"] ?? "");
+            $direccionEmpresa = trim($_POST["direccion_empresa"] ?? "");
+            $telefonoEmpresa = trim($_POST["telefono_empresa"] ?? "");
+            $correoEmpresa = trim($_POST["correo_empresa"] ?? "");
+            $monedaEmpresa = trim($_POST["moneda_empresa"] ?? "S/");
+            $igvNuevo = max(0, min(100, (float)($_POST["igv_empresa"] ?? 18)));
+
+            $stmt = $conexion->prepare("
+                UPDATE configuracion_empresa
+                SET nombre_comercial=?, razon_social=?, ruc=?, direccion=?, telefono=?, correo=?, moneda=?, igv=?
+                WHERE id_configuracion=1
+            ");
+            $stmt->bind_param("sssssssd", $nombreComercial, $razonSocial, $rucEmpresa, $direccionEmpresa, $telefonoEmpresa, $correoEmpresa, $monedaEmpresa, $igvNuevo);
+            $stmt->execute();
+            redir("Configuración de la empresa actualizada", "ok", "configuracion");
+        }
+
+        if (isset($_POST["crear_admin_usuario"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el administrador puede crear cuentas del personal", "error", "configuracion");
+            }
+
+            $nombresAdmin = trim($_POST["nombres_admin"] ?? "");
+            $correoAdmin = strtolower(trim($_POST["correo_admin"] ?? ""));
+            $claveAdmin = $_POST["contrasena_admin"] ?? "";
+            $rolAdmin = trim($_POST["rol_admin"] ?? "Vendedor");
+
+            if ($nombresAdmin === "" || !filter_var($correoAdmin, FILTER_VALIDATE_EMAIL) || strlen($claveAdmin) < 8) {
+                redir("Completa los datos del usuario administrativo. Contraseña mínima: 8 caracteres", "error", "configuracion");
+            }
+
+            if (!in_array($rolAdmin, ["Administrador","Vendedor","Almacen"], true)) {
+                redir("Rol administrativo inválido", "error", "configuracion");
+            }
+
+            $stmt = $conexion->prepare("SELECT id_admin FROM admin_usuario WHERE correo=? LIMIT 1");
+            $stmt->bind_param("s", $correoAdmin);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                redir("Ese correo administrativo ya existe", "error", "configuracion");
+            }
+
+            $hashAdmin = password_hash($claveAdmin, PASSWORD_DEFAULT);
+            $estadoAdmin = "Activo";
+            $stmt = $conexion->prepare("
+                INSERT INTO admin_usuario (nombres,correo,contrasena,rol,estado)
+                VALUES (?,?,?,?,?)
+            ");
+            $stmt->bind_param("sssss", $nombresAdmin, $correoAdmin, $hashAdmin, $rolAdmin, $estadoAdmin);
+            $stmt->execute();
+            redir("Usuario administrativo creado correctamente", "ok", "configuracion");
+        }
+
+        if (isset($_POST["actualizar_admin_usuario"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el administrador puede cambiar roles", "error", "configuracion");
+            }
+
+            $idAdminEditar = (int)($_POST["id_admin_editar"] ?? 0);
+            $rolAdmin = trim($_POST["rol_admin_editar"] ?? "Vendedor");
+            $estadoAdmin = trim($_POST["estado_admin_editar"] ?? "Activo");
+
+            if ($idAdminEditar === (int)($adminSesion["id_admin"] ?? 0) && $estadoAdmin === "Bloqueado") {
+                redir("No puedes bloquear tu propia cuenta", "error", "configuracion");
+            }
+
+            if (!in_array($rolAdmin, ["Administrador","Vendedor","Almacen"], true) ||
+                !in_array($estadoAdmin, ["Activo","Bloqueado"], true)) {
+                redir("Rol o estado administrativo inválido", "error", "configuracion");
+            }
+
+            $stmt = $conexion->prepare("
+                UPDATE admin_usuario
+                SET rol=?, estado=?
+                WHERE id_admin=?
+            ");
+            $stmt->bind_param("ssi", $rolAdmin, $estadoAdmin, $idAdminEditar);
+            $stmt->execute();
+            redir("Permisos del usuario administrativo actualizados", "ok", "configuracion");
         }
 
     } catch (Throwable $e) {
