@@ -517,7 +517,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $stmt = $conexion->prepare("
-                SELECT cantidad, precio
+                SELECT cantidad, precio_unitario
                 FROM detalle_pedido
                 WHERE id_pedido=? AND id_producto=?
                 LIMIT 1
@@ -543,7 +543,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Ya existen devoluciones para este producto en el pedido", "error", "devoluciones");
             }
 
-            $monto = round((float)$detalleDev["precio"] * $cantidad, 2);
+            $monto = round((float)$detalleDev["precio_unitario"] * $cantidad, 2);
             $idAdmin = (int)($adminSesion["id_admin"] ?? 0);
 
             $conexion->begin_transaction();
@@ -978,7 +978,7 @@ $stmt = $conexion->prepare("
     SELECT
         pr.nombre_producto,
         COALESCE(SUM(dp.cantidad),0) AS unidades,
-        COALESCE(SUM(dp.cantidad * dp.precio),0) AS importe
+        COALESCE(SUM(dp.cantidad * dp.precio_unitario),0) AS importe
     FROM detalle_pedido dp
     INNER JOIN pedido pe ON dp.id_pedido=pe.id_pedido
     INNER JOIN producto pr ON dp.id_producto=pr.id_producto
@@ -1519,7 +1519,7 @@ tbody tr:hover{background:#fafcff}
    <div><small>TOTAL</small><strong>S/ <?= number_format((float)$pedidoDetalle["total"],2) ?></strong></div>
   </div>
   <div class="table-wrap mini-table"><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
-   <?php foreach($pedidoDetalleItems as $item): ?><tr><td><strong><?= h($item["nombre_producto"]) ?></strong></td><td><?= (int)$item["cantidad"] ?></td><td>S/ <?= number_format((float)$item["precio"],2) ?></td><td class="price">S/ <?= number_format((float)$item["precio"]*(int)$item["cantidad"],2) ?></td></tr><?php endforeach; ?>
+   <?php foreach($pedidoDetalleItems as $item): ?><tr><td><strong><?= h($item["nombre_producto"]) ?></strong></td><td><?= (int)$item["cantidad"] ?></td><td>S/ <?= number_format((float)$item["precio_unitario"],2) ?></td><td class="price">S/ <?= number_format((float)$item["precio_unitario"]*(int)$item["cantidad"],2) ?></td></tr><?php endforeach; ?>
   </tbody></table></div>
  </div>
  <?php endif; ?>
