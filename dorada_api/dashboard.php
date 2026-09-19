@@ -1751,6 +1751,7 @@ tbody tr:hover{background:#fafcff}
 </nav>
 
 <script>
+const csrfToken=<?= json_encode(csrfToken()) ?>;
 const buscador=document.getElementById('buscador');
 const sidebar=document.getElementById('sidebar');
 const overlay=document.getElementById('overlay');
@@ -1759,39 +1760,123 @@ const navLinks=document.querySelectorAll('.nav a');
 const mobileLinks=document.querySelectorAll('.mobile-bottom a');
 const panels=document.querySelectorAll('.page-panel');
 const topTitle=document.getElementById('topTitle');
+const filtroCategoriaProducto=document.getElementById('filtroCategoriaProducto');
+const filtroStockProducto=document.getElementById('filtroStockProducto');
+const filtroEstadoPedido=document.getElementById('filtroEstadoPedido');
+
+document.querySelectorAll('form[method="POST"],form[method="post"]').forEach(form=>{
+ if(!form.querySelector('input[name="csrf_token"]')){
+  const input=document.createElement('input');
+  input.type='hidden';
+  input.name='csrf_token';
+  input.value=csrfToken;
+  form.appendChild(input);
+ }
+});
 
 const nombresPanel={
  inicio:'Dashboard',
  'gestion-productos':'Productos',
- inventario:'Inventario',
+ inventario:'Inventario / Kardex',
  proveedores:'Proveedores',
  compras:'Compras',
  categorias:'Categorías',
  marcas:'Marcas',
+ clientes:'Clientes',
  usuarios:'Usuarios',
  pedidos:'Pedidos',
  pagos:'Pagos',
  comprobantes:'Comprobantes',
+ devoluciones:'Devoluciones',
  favoritos:'Favoritos',
  reportes:'Reportes',
+ auditoria:'Auditoría',
  configuracion:'Configuración'
 };
 
 function cerrarMenu(){
- sidebar.classList.remove('open');
- overlay.classList.remove('show');
+ sidebar?.classList.remove('open');
+ overlay?.classList.remove('show');
 }
 
-function filtrarPanel(texto){
+function filaCoincide(fila,tabla){
+ const texto=(buscador?.value||'').toLowerCase().trim();
+ if(texto && !fila.innerText.toLowerCase().includes(texto)) return false;
+
+ if(tabla.id==='tablaProductos'){
+  const categoria=filtroCategoriaProducto?.value||'';
+  const stock=filtroStockProducto?.value||'';
+  if(categoria && fila.dataset.category!==categoria) return false;
+  if(stock && fila.dataset.stock!==stock) return false;
+ }
+
+ if(tabla.id==='tablaPedidos'){
+  const estado=filtroEstadoPedido?.value||'';
+  if(estado && fila.dataset.status!==estado) return false;
+ }
+
+ return true;
+}
+
+function renderTabla(tabla,reset=false){
+ if(!tabla?.tBodies?.length) return;
+ const filas=[...tabla.tBodies[0].rows].filter(f=>!f.querySelector('.empty-cell'));
+ if(filas.length===0) return;
+
+ const porPagina=10;
+ tabla._pagina=reset ? 1 : (tabla._pagina||1);
+ const coinciden=filas.filter(f=>filaCoincide(f,tabla));
+ const totalPaginas=Math.max(1,Math.ceil(coinciden.length/porPagina));
+ if(tabla._pagina>totalPaginas) tabla._pagina=totalPaginas;
+
+ filas.forEach(f=>f.style.display='none');
+ const inicio=(tabla._pagina-1)*porPagina;
+ coinciden.slice(inicio,inicio+porPagina).forEach(f=>f.style.display='');
+
+ let pag=tabla.parentElement?.nextElementSibling;
+ if(!pag || !pag.classList.contains('pagination')){
+  pag=document.createElement('div');
+  pag.className='pagination';
+  tabla.parentElement?.insertAdjacentElement('afterend',pag);
+ }
+
+ pag.innerHTML='';
+ if(coinciden.length<=porPagina){
+  if(coinciden.length>0) pag.innerHTML='<span>'+coinciden.length+' registro(s)</span>';
+  else pag.innerHTML='<span>Sin resultados para el filtro actual</span>';
+  return;
+ }
+
+ const info=document.createElement('span');
+ info.textContent=coinciden.length+' registros · Página '+tabla._pagina+' de '+totalPaginas;
+ pag.appendChild(info);
+
+ const crearBoton=(texto,pagina,activo=false)=>{
+  const b=document.createElement('button');
+  b.type='button';
+  b.textContent=texto;
+  if(activo) b.classList.add('active');
+  b.addEventListener('click',()=>{tabla._pagina=pagina;renderTabla(tabla,false);});
+  return b;
+ };
+
+ if(tabla._pagina>1) pag.appendChild(crearBoton('‹',tabla._pagina-1));
+ const desde=Math.max(1,tabla._pagina-2);
+ const hasta=Math.min(totalPaginas,desde+4);
+ for(let p=desde;p<=hasta;p++) pag.appendChild(crearBoton(String(p),p,p===tabla._pagina));
+ if(tabla._pagina<totalPaginas) pag.appendChild(crearBoton('›',tabla._pagina+1));
+}
+
+function refrescarTablas(reset=true){
  const activo=document.querySelector('.page-panel.active');
  if(!activo) return;
- const t=texto.toLowerCase().trim();
- activo.querySelectorAll('tbody tr').forEach(fila=>{
-  fila.style.display=!t || fila.innerText.toLowerCase().includes(t)?'':'none';
- });
+ activo.querySelectorAll('.table-wrap table').forEach(t=>renderTabla(t,reset));
 }
 
-buscador?.addEventListener('input',()=>filtrarPanel(buscador.value));
+buscador?.addEventListener('input',()=>refrescarTablas(true));
+filtroCategoriaProducto?.addEventListener('change',()=>renderTabla(document.getElementById('tablaProductos'),true));
+filtroStockProducto?.addEventListener('change',()=>renderTabla(document.getElementById('tablaProductos'),true));
+filtroEstadoPedido?.addEventListener('change',()=>renderTabla(document.getElementById('tablaPedidos'),true));
 
 document.addEventListener('keydown',e=>{
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
@@ -1801,7 +1886,7 @@ document.addEventListener('keydown',e=>{
  }
 });
 
-function mostrarPanel(id, actualizarHash=true){
+function mostrarPanel(id,actualizarHash=true){
  const destino=document.getElementById(id) || document.getElementById('inicio');
  panels.forEach(p=>p.classList.remove('active'));
  destino.classList.add('active');
@@ -1810,11 +1895,12 @@ function mostrarPanel(id, actualizarHash=true){
  mobileLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
 
  if(topTitle) topTitle.textContent=nombresPanel[destino.id]||'ADN Import\'s';
- if(buscador){buscador.value='';filtrarPanel('');}
+ if(buscador) buscador.value='';
  if(actualizarHash) history.replaceState(null,'','#'+destino.id);
 
  window.scrollTo({top:0,behavior:'smooth'});
  cerrarMenu();
+ setTimeout(()=>refrescarTablas(true),20);
 }
 
 document.querySelectorAll('a[href^="#"]').forEach(a=>{
@@ -1829,8 +1915,8 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
 });
 
 menuBtn?.addEventListener('click',()=>{
- sidebar.classList.toggle('open');
- overlay.classList.toggle('show');
+ sidebar?.classList.toggle('open');
+ overlay?.classList.toggle('show');
 });
 overlay?.addEventListener('click',cerrarMenu);
 
@@ -1844,15 +1930,36 @@ document.addEventListener('click',e=>{
  if(notifyMenu && !notifyMenu.contains(e.target) && e.target!==notiBtn) notifyMenu.classList.remove('show');
 });
 
+document.querySelectorAll('.status-pill').forEach(el=>{
+ const t=el.textContent.toLowerCase().trim();
+ if(['activo','pagado','completado','entregado','aprobada','registrado','entrada'].includes(t)) el.classList.add('success');
+ else if(['pendiente','procesando','enviado','salida'].includes(t)) el.classList.add('warning');
+ else if(['cancelado','rechazado','bloqueado','agotado'].includes(t)) el.classList.add('danger');
+ else el.classList.add('info');
+});
+
 function exportarTabla(id,nombre){
  const tabla=document.getElementById(id);
  if(!tabla) return;
- const filas=[...tabla.querySelectorAll('tr')].filter(f=>f.style.display!=='none');
- const csv=filas.map(f=>[...f.querySelectorAll('th,td')].map(c=>'"'+c.innerText.replace(/"/g,'""').replace(/\n/g,' ')+'"').join(',')).join('\n');
+
+ const cabecera=[...tabla.querySelectorAll('thead tr')];
+ const datos=[...tabla.querySelectorAll('tbody tr')].filter(f=>!f.querySelector('.empty-cell') && filaCoincide(f,tabla));
+ const filas=[...cabecera,...datos];
+
+ const csv=filas.map(f=>[...f.querySelectorAll('th,td')].map(celda=>{
+  let texto=celda.innerText.replace(/"/g,'""').replace(/\n/g,' ').trim();
+  return '"'+texto+'"';
+ }).join(',')).join('\n');
+
  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
  const url=URL.createObjectURL(blob);
  const a=document.createElement('a');
- a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ a.href=url;
+ a.download=nombre;
+ document.body.appendChild(a);
+ a.click();
+ a.remove();
+ URL.revokeObjectURL(url);
 }
 
 const inicial=location.hash ? location.hash.substring(1) : 'inicio';
