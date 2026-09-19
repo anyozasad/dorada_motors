@@ -1001,6 +1001,10 @@ if (isset($_GET["editar"])) {
 }
 
 $fechaHoy = date("d/m/Y");
+$adminNombre = trim((string)($adminSesion["nombres"] ?? "Administrador"));
+$adminRol = (string)($adminSesion["rol"] ?? "Administrador");
+$partesAdmin = preg_split('/\s+/', $adminNombre) ?: ["A"];
+$inicialesAdmin = strtoupper(substr($partesAdmin[0] ?? "A",0,1) . substr($partesAdmin[count($partesAdmin)-1] ?? "",0,1));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -1047,6 +1051,10 @@ a{text-decoration:none;color:inherit}
 .brand-title{font-size:18px;font-weight:900}.brand-title b{color:var(--gold)}
 .brand-sub{font-size:10px;color:#aebed0;margin-top:3px}
 .nav{display:flex;flex-direction:column;gap:5px}
+.nav-group{font-size:8px;letter-spacing:1.25px;font-weight:900;color:#738091;padding:13px 12px 3px;margin-top:2px}
+.logout-btn{padding:9px 11px;border-radius:10px;background:#fff1ee;color:#bb321f;font-size:10px;font-weight:900;border:1px solid #ffd7d0}
+.logout-btn:hover{background:#ffe7e2}
+
 .nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:12px;color:#d7e2ee;font-weight:700;font-size:13px}
 .nav a:hover,.nav a.active{background:linear-gradient(90deg,#ff6a00,#c92b18);color:#fff}
 .nav-icon{width:20px;text-align:center}
@@ -1167,20 +1175,48 @@ tbody tr:hover{background:#fafcff}
   <div><div class="brand-title">ADN <b>IMPORT'S</b></div><div class="brand-sub">Dorada Motors · Administración</div></div>
  </div>
  <nav class="nav" id="nav">
+  <span class="nav-group">PRINCIPAL</span>
   <a href="#inicio" class="active"><span class="nav-icon">⌂</span>Dashboard</a>
-  <a href="#gestion-productos"><span class="nav-icon">◇</span>Productos</a>
-  <a href="#inventario"><span class="nav-icon">▤</span>Inventario</a>
-  <a href="#proveedores"><span class="nav-icon">▣</span>Proveedores</a>
-  <a href="#compras"><span class="nav-icon">＋</span>Compras</a>
-  <a href="#categorias"><span class="nav-icon">▦</span>Categorías</a>
-  <a href="#marcas"><span class="nav-icon">◆</span>Marcas</a>
-  <a href="#usuarios"><span class="nav-icon">♙</span>Usuarios</a>
-  <a href="#pedidos"><span class="nav-icon">🛒</span>Pedidos</a>
-  <a href="#pagos"><span class="nav-icon">▣</span>Pagos</a>
-  <a href="#comprobantes"><span class="nav-icon">▧</span>Comprobantes</a>
-  <a href="#favoritos"><span class="nav-icon">♥</span>Favoritos</a>
+
+  <?php if(puede("pedidos") || puede("pagos") || puede("comprobantes")): ?>
+  <span class="nav-group">VENTAS</span>
+  <?php if(puede("pedidos")): ?><a href="#pedidos"><span class="nav-icon">🛒</span>Pedidos</a><?php endif; ?>
+  <?php if(puede("pagos")): ?><a href="#pagos"><span class="nav-icon">▣</span>Pagos</a><?php endif; ?>
+  <?php if(puede("comprobantes")): ?><a href="#comprobantes"><span class="nav-icon">▧</span>Comprobantes</a><?php endif; ?>
+  <?php if(puede("devoluciones")): ?><a href="#devoluciones"><span class="nav-icon">↩</span>Devoluciones</a><?php endif; ?>
+  <?php endif; ?>
+
+  <?php if(puede("gestion-productos") || puede("categorias") || puede("marcas")): ?>
+  <span class="nav-group">CATÁLOGO</span>
+  <?php if(puede("gestion-productos")): ?><a href="#gestion-productos"><span class="nav-icon">◇</span>Productos</a><?php endif; ?>
+  <?php if(puede("categorias")): ?><a href="#categorias"><span class="nav-icon">▦</span>Categorías</a><?php endif; ?>
+  <?php if(puede("marcas")): ?><a href="#marcas"><span class="nav-icon">◆</span>Marcas</a><?php endif; ?>
+  <?php endif; ?>
+
+  <?php if(puede("inventario") || puede("compras") || puede("proveedores")): ?>
+  <span class="nav-group">INVENTARIO</span>
+  <?php if(puede("inventario")): ?><a href="#inventario"><span class="nav-icon">▤</span>Stock / Kardex</a><?php endif; ?>
+  <?php if(puede("compras")): ?><a href="#compras"><span class="nav-icon">＋</span>Compras</a><?php endif; ?>
+  <?php if(puede("proveedores")): ?><a href="#proveedores"><span class="nav-icon">🚚</span>Proveedores</a><?php endif; ?>
+  <?php endif; ?>
+
+  <?php if(puede("clientes") || puede("usuarios") || puede("favoritos")): ?>
+  <span class="nav-group">CLIENTES</span>
+  <?php if(puede("clientes")): ?><a href="#clientes"><span class="nav-icon">👤</span>Clientes</a><?php endif; ?>
+  <?php if(puede("usuarios")): ?><a href="#usuarios"><span class="nav-icon">♙</span>Usuarios</a><?php endif; ?>
+  <?php if(puede("favoritos")): ?><a href="#favoritos"><span class="nav-icon">♥</span>Favoritos</a><?php endif; ?>
+  <?php endif; ?>
+
+  <?php if(puede("reportes")): ?>
+  <span class="nav-group">ANÁLISIS</span>
   <a href="#reportes"><span class="nav-icon">▥</span>Reportes</a>
+  <?php endif; ?>
+
+  <?php if($adminRol === "Administrador"): ?>
+  <span class="nav-group">SISTEMA</span>
+  <a href="#auditoria"><span class="nav-icon">☷</span>Auditoría</a>
   <a href="#configuracion"><span class="nav-icon">⚙</span>Configuración</a>
+  <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
  <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v2.0<br>PHP · MySQL · Flutter</div>
@@ -1202,7 +1238,8 @@ tbody tr:hover{background:#fafcff}
     <a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a>
    </div>
   </div>
-  <a class="admin" href="#configuracion" title="Configuración"><div class="avatar">AI</div><div><strong>Administrador</strong><small>ADN Import's</small></div></a>
+  <a class="admin" href="<?= $adminRol === "Administrador" ? "#configuracion" : "#inicio" ?>" title="Cuenta"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
+  <a class="logout-btn" href="admin_logout.php" title="Cerrar sesión">Salir</a>
  </div>
 </header>
 
@@ -1213,7 +1250,7 @@ tbody tr:hover{background:#fafcff}
 <section class="brand-hero">
  <div class="hero-copy">
   <div class="eyebrow">Panel de administración</div>
-  <h1>¡Bienvenido, Administrador!</h1>
+  <h1>¡Bienvenido, <?= h(explode(" ", $adminNombre)[0] ?: "Administrador") ?>!</h1>
   <p>Gestiona ventas, productos, stock, pedidos y proveedores desde un solo lugar.</p>
   <div class="hero-tags">
    <span>● PHP conectado</span><span>● MySQL activo</span><span>● API lista para Flutter</span>
@@ -1235,7 +1272,7 @@ tbody tr:hover{background:#fafcff}
 </section>
 
 <section class="ops-strip">
- <a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong><p>Productos con 5 unidades o menos</p></div><b>→</b></a>
+ <a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a>
  <a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a>
  <a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a>
 </section>
