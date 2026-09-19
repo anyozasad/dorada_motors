@@ -1348,25 +1348,62 @@ tbody tr:hover{background:#fafcff}
 </section>
 </div>
 
+<?php if(puede("gestion-productos")): ?>
 <section id="gestion-productos" class="card page-panel">
- <div class="section-title"><div><div class="eyebrow">CRUD</div><h2><?= $productoEditar ? "Editar producto" : "Gestión de productos" ?></h2></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaProductos','productos_adn.csv')">Exportar CSV</button><span class="badge">CREATE · READ · UPDATE · DELETE</span></div></div>
- <form method="POST" class="form-grid">
-  <?php if($productoEditar): ?><input type="hidden" name="id_producto" value="<?= h($productoEditar["id_producto"]) ?>"><?php endif; ?>
-  <div class="field"><label>NOMBRE</label><input type="text" name="nombre_producto" required value="<?= h($productoEditar["nombre_producto"]??"") ?>"></div>
-  <div class="field"><label>CATEGORÍA</label><select name="id_categoria" required><option value="">Seleccione</option><?php foreach($categorias as $c): ?><option value="<?= h($c["id_categoria"]) ?>" <?= $productoEditar && (int)$productoEditar["id_categoria"]===(int)$c["id_categoria"]?"selected":"" ?>><?= h($c["nombre_categoria"]) ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>MARCA</label><select name="id_marca" required><option value="">Seleccione</option><?php foreach($marcas as $m): ?><option value="<?= h($m["id_marca"]) ?>" <?= $productoEditar && (int)$productoEditar["id_marca"]===(int)$m["id_marca"]?"selected":"" ?>><?= h($m["nombre_marca"]) ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>PRECIO</label><input type="number" step="0.01" min="0" name="precio" required value="<?= h($productoEditar["precio"]??"") ?>"></div>
-  <div class="field"><label>STOCK</label><input type="number" min="0" name="stock" required value="<?= h($productoEditar["stock"]??"") ?>"></div>
-  <div class="field"><label>IMAGEN</label><input type="text" name="imagen_url" value="<?= h($productoEditar["imagen_url"]??"") ?>" placeholder="producto.png"></div>
-  <div class="field full"><label>DESCRIPCIÓN</label><textarea name="descripcion"><?= h($productoEditar["descripcion"]??"") ?></textarea></div>
-  <div class="form-actions"><?php if($productoEditar): ?><button class="btn btn-gold" name="actualizar_producto">Guardar cambios</button><a class="btn btn-light" href="dashboard.php#gestion-productos">Cancelar</a><?php else: ?><button class="btn btn-primary" name="registrar_producto">+ Agregar producto</button><?php endif; ?></div>
+ <div class="section-intro">
+  <div><h2><?= $productoEditar ? "Editar producto" : "Productos" ?></h2><p>Administra catálogo, precios, imágenes y niveles mínimos de inventario.</p></div>
+  <div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaProductos','productos_adn.csv')">Exportar CSV</button><span class="badge"><?= $totalProductos ?> productos</span></div>
+ </div>
+
+ <form method="POST" enctype="multipart/form-data" class="form-grid product-form">
+  <?php if($productoEditar): ?>
+   <input type="hidden" name="id_producto" value="<?= h($productoEditar["id_producto"]) ?>">
+   <input type="hidden" name="imagen_actual" value="<?= h($productoEditar["imagen_url"]??"") ?>">
+  <?php endif; ?>
+
+  <div class="field"><label>NOMBRE DEL PRODUCTO</label><input type="text" name="nombre_producto" required value="<?= h($productoEditar["nombre_producto"]??"") ?>" placeholder="Ej. Kit de transmisión DTIEX"></div>
+  <div class="field"><label>CATEGORÍA</label><select name="id_categoria" required><option value="">Seleccione</option><?php foreach($categorias as $cat): ?><option value="<?= h($cat["id_categoria"]) ?>" <?= $productoEditar && (int)$productoEditar["id_categoria"]===(int)$cat["id_categoria"]?"selected":"" ?>><?= h($cat["nombre_categoria"]) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>MARCA</label><select name="id_marca" required><option value="">Seleccione</option><?php foreach($marcas as $mar): ?><option value="<?= h($mar["id_marca"]) ?>" <?= $productoEditar && (int)$productoEditar["id_marca"]===(int)$mar["id_marca"]?"selected":"" ?>><?= h($mar["nombre_marca"]) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>PRECIO DE VENTA</label><input type="number" step="0.01" min="0" name="precio" required value="<?= h($productoEditar["precio"]??"") ?>" placeholder="0.00"></div>
+  <div class="field"><label>STOCK ACTUAL</label><input type="number" min="0" name="stock" required value="<?= h($productoEditar["stock"]??"") ?>" placeholder="0"></div>
+  <div class="field"><label>STOCK MÍNIMO</label><input type="number" min="0" name="stock_minimo" required value="<?= h($productoEditar["stock_minimo"]??5) ?>" placeholder="5"></div>
+  <div class="field"><label>SUBIR IMAGEN</label><input type="file" name="imagen_archivo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></div>
+  <div class="field"><label>RUTA / URL DE IMAGEN</label><input type="text" name="imagen_url" value="<?= h($productoEditar["imagen_url"]??"") ?>" placeholder="Opcional: uploads/productos/..."></div>
+  <div class="field full"><label>DESCRIPCIÓN</label><textarea name="descripcion" placeholder="Describe compatibilidad, modelo, medida o características."><?= h($productoEditar["descripcion"]??"") ?></textarea></div>
+
+  <div class="form-actions">
+   <?php if($productoEditar): ?>
+    <button class="btn btn-gold" name="actualizar_producto">Guardar cambios</button>
+    <a class="btn btn-light" href="dashboard.php#gestion-productos">Cancelar</a>
+   <?php else: ?>
+    <button class="btn btn-primary" name="registrar_producto">+ Agregar producto</button>
+   <?php endif; ?>
+  </div>
  </form>
- <div class="table-wrap"><table id="tablaProductos"><thead><tr><th>ID</th><th>Producto</th><th>Categoría</th><th>Marca</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead><tbody>
- <?php foreach($productos as $p): $s=(int)$p["stock"];$sc=$s<=0?"zero":($s<=5?"low":"good"); ?>
-  <tr data-search="<?= h(strtolower($p["nombre_producto"]." ".$p["nombre_categoria"]." ".$p["nombre_marca"])) ?>"><td>#P<?= str_pad((string)$p["id_producto"],3,"0",STR_PAD_LEFT) ?></td><td><strong><?= h($p["nombre_producto"]) ?></strong><br><span style="color:#718096;font-size:9px"><?= h($p["descripcion"]) ?></span></td><td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price">S/ <?= number_format((float)$p["precio"],2) ?></td><td><span class="stock <?= $sc ?>"><?= $s ?></span></td><td><div class="actions"><a class="action-btn edit" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">✎</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button class="action-btn delete" name="eliminar_producto">⌫</button></form></div></td></tr>
+
+ <div class="filter-toolbar">
+  <div class="filter-title"><strong>Catálogo</strong><small>Filtra sin perderte entre los registros.</small></div>
+  <select id="filtroCategoriaProducto"><option value="">Todas las categorías</option><?php foreach($categorias as $cat): ?><option value="<?= h(strtolower($cat["nombre_categoria"])) ?>"><?= h($cat["nombre_categoria"]) ?></option><?php endforeach; ?></select>
+  <select id="filtroStockProducto"><option value="">Todo el stock</option><option value="good">Disponible</option><option value="low">Stock bajo</option><option value="zero">Agotado</option></select>
+ </div>
+
+ <div class="table-wrap"><table id="tablaProductos"><thead><tr><th>Producto</th><th>Categoría</th><th>Marca</th><th>Precio</th><th>Stock</th><th>Mínimo</th><th>Acciones</th></tr></thead><tbody>
+ <?php foreach($productos as $p): $s=(int)$p["stock"];$min=(int)($p["stock_minimo"]??5);$sc=$s<=0?"zero":($s<=$min?"low":"good"); ?>
+  <tr data-category="<?= h(strtolower($p["nombre_categoria"])) ?>" data-stock="<?= h($sc) ?>">
+   <td>
+    <div class="product-cell">
+     <?php if(trim((string)($p["imagen_url"]??""))!==""): ?><img src="<?= h($p["imagen_url"]) ?>" alt="" class="product-thumb" onerror="this.style.display='none'"><?php else: ?><span class="product-placeholder">DM</span><?php endif; ?>
+     <div><strong><?= h($p["nombre_producto"]) ?></strong><small>#P<?= str_pad((string)$p["id_producto"],3,"0",STR_PAD_LEFT) ?> · <?= h($p["descripcion"]) ?></small></div>
+    </div>
+   </td>
+   <td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price">S/ <?= number_format((float)$p["precio"],2) ?></td>
+   <td><span class="stock <?= $sc ?>"><?= $s ?></span></td><td><?= $min ?></td>
+   <td><div class="actions"><a class="action-btn edit" title="Editar" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">✎</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button class="action-btn delete" title="Eliminar" name="eliminar_producto">⌫</button></form></div></td>
+  </tr>
  <?php endforeach; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
 <section id="categorias" class="card page-panel">
  <div class="section-title"><h2>Categorías</h2><span class="badge"><?= $totalCategorias ?> registradas</span></div>
