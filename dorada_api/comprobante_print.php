@@ -1,6 +1,7 @@
 <?php
 require_once "conexion.php";
 require_once "auth_admin.php";
+header("Content-Type: text/html; charset=UTF-8");
 
 requerirAdmin();
 
