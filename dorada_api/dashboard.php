@@ -810,6 +810,30 @@ $ventasHoy = (float)$conexion->query("
     FROM pedido
     WHERE DATE(fecha_pedido)=CURDATE()
 ")->fetch_assoc()["total"];
+$ventasMes = (float)$conexion->query("
+    SELECT COALESCE(SUM(total),0) AS total
+    FROM pedido
+    WHERE YEAR(fecha_pedido)=YEAR(CURDATE())
+      AND MONTH(fecha_pedido)=MONTH(CURDATE())
+      AND LOWER(estado_pedido) <> 'cancelado'
+")->fetch_assoc()["total"];
+
+$gananciaEstimada = (float)$conexion->query("
+    SELECT COALESCE(SUM(
+        dp.cantidad * (
+            dp.precio_unitario - COALESCE(costos.costo_promedio, dp.precio_unitario)
+        )
+    ),0) AS ganancia
+    FROM detalle_pedido dp
+    INNER JOIN pedido pe ON dp.id_pedido=pe.id_pedido
+    LEFT JOIN (
+        SELECT id_producto,
+               CASE WHEN SUM(cantidad)>0 THEN SUM(subtotal)/SUM(cantidad) ELSE 0 END AS costo_promedio
+        FROM detalle_compra
+        GROUP BY id_producto
+    ) costos ON dp.id_producto=costos.id_producto
+    WHERE LOWER(pe.estado_pedido) <> 'cancelado'
+")->fetch_assoc()["ganancia"];
 $stockCritico = (int)$conexion->query("
     SELECT COUNT(*) AS total
     FROM producto
@@ -1386,9 +1410,9 @@ tbody tr:hover{background:#fafcff}
  <a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a>
  <a class="metric" href="#usuarios"><div class="metric-icon gold">👥</div><div><div class="metric-label">Usuarios</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Clientes registrados</small></div></a>
  <a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a>
- <a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a>
+ <a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a>
  <a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a>
- <a class="metric" href="#proveedores"><div class="metric-icon orange">🚚</div><div><div class="metric-label">Proveedores</div><div class="metric-value"><?= $totalProveedores ?></div><small>Abastecimiento</small></div></a>
+ <a class="metric" href="#reportes"><div class="metric-icon orange">↗</div><div><div class="metric-label">Margen estimado</div><div class="metric-value">S/ <?= number_format($gananciaEstimada,2) ?></div><small>Según costos de compra registrados</small></div></a>
 </section>
 
 <section class="ops-strip">
