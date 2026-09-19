@@ -95,7 +95,8 @@ $resultado = $conexion->query("
         nombres,
         apellidos,
         correo,
-        telefono
+        telefono,
+        estado
     FROM usuario
     ORDER BY id_usuario DESC
 ");
