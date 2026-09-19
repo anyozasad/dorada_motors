@@ -302,11 +302,108 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST["actualizar_estado_pedido"])) {
             $idPedido = (int)($_POST["id_pedido"] ?? 0);
             $estado = trim($_POST["estado_pedido"] ?? "Pendiente");
+            $estadosValidos = ["Pendiente","Procesando","Pagado","Enviado","Completado","Cancelado"];
 
-            $stmt = $conexion->prepare("UPDATE pedido SET estado_pedido=? WHERE id_pedido=?");
-            $stmt->bind_param("si", $estado, $idPedido);
-            $stmt->execute();
-            redir("Estado del pedido actualizado", "ok", "pedidos");
+            if (!in_array($estado, $estadosValidos, true)) {
+                redir("Estado de pedido inválido", "error", "pedidos");
+            }
+
+            $conexion->begin_transaction();
+
+            try {
+                $stmt = $conexion->prepare("SELECT estado_pedido FROM pedido WHERE id_pedido=? FOR UPDATE");
+                $stmt->bind_param("i",$idPedido);
+                $stmt->execute();
+                $pedidoActual = $stmt->get_result()->fetch_assoc();
+
+                if (!$pedidoActual) {
+                    throw new RuntimeException("Pedido no encontrado");
+                }
+
+                $estadoAnterior = (string)$pedidoActual["estado_pedido"];
+
+                $stmt = $conexion->prepare("
+                    SELECT id_producto,cantidad
+                    FROM detalle_pedido
+                    WHERE id_pedido=?
+                ");
+                $stmt->bind_param("i",$idPedido);
+                $stmt->execute();
+                $lineasPedido = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+                if ($estado === "Cancelado" && $estadoAnterior !== "Cancelado") {
+                    foreach ($lineasPedido as $linea) {
+                        $idProductoPedido = (int)$linea["id_producto"];
+                        $cantidadPedido = (int)$linea["cantidad"];
+
+                        $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+                        $stmt->bind_param("i",$idProductoPedido);
+                        $stmt->execute();
+                        $filaProducto = $stmt->get_result()->fetch_assoc();
+                        if (!$filaProducto) continue;
+
+                        $stockAnterior = (int)$filaProducto["stock"];
+                        $stockNuevo = $stockAnterior + $cantidadPedido;
+
+                        $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                        $stmt->bind_param("ii",$stockNuevo,$idProductoPedido);
+                        $stmt->execute();
+
+                        $tipoMovimiento = "Entrada";
+                        $motivoMovimiento = "Cancelación pedido #" . $idPedido;
+                        $stmt = $conexion->prepare("
+                            INSERT INTO movimiento_stock
+                            (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                            VALUES (?,?,?,?,NOW(),?,?)
+                        ");
+                        $stmt->bind_param("isisii",$idProductoPedido,$tipoMovimiento,$cantidadPedido,$motivoMovimiento,$stockAnterior,$stockNuevo);
+                        $stmt->execute();
+                    }
+                }
+
+                if ($estadoAnterior === "Cancelado" && $estado !== "Cancelado") {
+                    foreach ($lineasPedido as $linea) {
+                        $idProductoPedido = (int)$linea["id_producto"];
+                        $cantidadPedido = (int)$linea["cantidad"];
+
+                        $stmt = $conexion->prepare("SELECT stock,nombre_producto FROM producto WHERE id_producto=? FOR UPDATE");
+                        $stmt->bind_param("i",$idProductoPedido);
+                        $stmt->execute();
+                        $filaProducto = $stmt->get_result()->fetch_assoc();
+
+                        if (!$filaProducto || (int)$filaProducto["stock"] < $cantidadPedido) {
+                            throw new RuntimeException("No hay stock suficiente para reactivar el pedido");
+                        }
+
+                        $stockAnterior = (int)$filaProducto["stock"];
+                        $stockNuevo = $stockAnterior - $cantidadPedido;
+
+                        $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                        $stmt->bind_param("ii",$stockNuevo,$idProductoPedido);
+                        $stmt->execute();
+
+                        $tipoMovimiento = "Salida";
+                        $motivoMovimiento = "Reactivación pedido #" . $idPedido;
+                        $stmt = $conexion->prepare("
+                            INSERT INTO movimiento_stock
+                            (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                            VALUES (?,?,?,?,NOW(),?,?)
+                        ");
+                        $stmt->bind_param("isisii",$idProductoPedido,$tipoMovimiento,$cantidadPedido,$motivoMovimiento,$stockAnterior,$stockNuevo);
+                        $stmt->execute();
+                    }
+                }
+
+                $stmt = $conexion->prepare("UPDATE pedido SET estado_pedido=? WHERE id_pedido=?");
+                $stmt->bind_param("si", $estado, $idPedido);
+                $stmt->execute();
+
+                $conexion->commit();
+                redir("Estado del pedido actualizado", "ok", "pedidos");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                redir($e->getMessage(), "error", "pedidos");
+            }
         }
 
         /* ================= PAGOS ================= */
