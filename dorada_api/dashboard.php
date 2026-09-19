@@ -694,7 +694,7 @@ $totalMarcas = (int)$conexion->query("SELECT COUNT(*) AS total FROM marca")->fet
 
 $totalProveedores = (int)$conexion->query("SELECT COUNT(*) AS total FROM proveedor")->fetch_assoc()["total"];
 $totalCompras = (float)$conexion->query("SELECT COALESCE(SUM(total),0) AS total FROM compra")->fetch_assoc()["total"];
-$stockBajo = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto WHERE stock <= 5")->fetch_assoc()["total"];
+$stockBajo = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto WHERE stock <= stock_minimo")->fetch_assoc()["total"];
 $unidadesStock = (int)$conexion->query("SELECT COALESCE(SUM(stock),0) AS total FROM producto")->fetch_assoc()["total"];
 $pedidosPendientes = (int)$conexion->query("
     SELECT COUNT(*) AS total
@@ -709,7 +709,7 @@ $ventasHoy = (float)$conexion->query("
 $stockCritico = (int)$conexion->query("
     SELECT COUNT(*) AS total
     FROM producto
-    WHERE stock <= 2
+    WHERE stock <= LEAST(stock_minimo,2)
 ")->fetch_assoc()["total"];
 
 /* ================= VENTAS 7 DÍAS ================= */
@@ -777,7 +777,7 @@ $productos = $conexion->query("
 ")->fetch_all(MYSQLI_ASSOC);
 
 $usuarios = $conexion->query("
-    SELECT id_usuario,nombres,apellidos,correo,telefono
+    SELECT id_usuario,nombres,apellidos,correo,telefono,estado
     FROM usuario
     ORDER BY id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
@@ -835,9 +835,9 @@ $comprobantes = $conexion->query("
 ")->fetch_all(MYSQLI_ASSOC);
 
 $productosStockBajo = $conexion->query("
-    SELECT id_producto,nombre_producto,stock,precio
+    SELECT id_producto,nombre_producto,stock,stock_minimo,precio
     FROM producto
-    WHERE stock <= 5
+    WHERE stock <= stock_minimo
     ORDER BY stock ASC,nombre_producto ASC
     LIMIT 8
 ")->fetch_all(MYSQLI_ASSOC);
@@ -850,6 +850,146 @@ $masVendidos = $conexion->query("
     ORDER BY vendidos DESC,p.nombre_producto ASC
     LIMIT 5
 ")->fetch_all(MYSQLI_ASSOC);
+
+$clientes = $conexion->query("
+    SELECT
+        u.id_usuario,
+        u.nombres,
+        u.apellidos,
+        u.correo,
+        u.telefono,
+        u.estado,
+        COUNT(DISTINCT p.id_pedido) AS total_pedidos,
+        COALESCE(SUM(p.total),0) AS total_comprado,
+        MAX(p.fecha_pedido) AS ultima_compra
+    FROM usuario u
+    LEFT JOIN pedido p ON u.id_usuario=p.id_usuario
+    GROUP BY u.id_usuario,u.nombres,u.apellidos,u.correo,u.telefono,u.estado
+    ORDER BY total_comprado DESC,u.id_usuario DESC
+")->fetch_all(MYSQLI_ASSOC);
+
+$devoluciones = $conexion->query("
+    SELECT
+        d.*,
+        p.nombre_producto,
+        pe.id_usuario,
+        u.nombres,
+        u.apellidos
+    FROM devolucion d
+    INNER JOIN producto p ON d.id_producto=p.id_producto
+    INNER JOIN pedido pe ON d.id_pedido=pe.id_pedido
+    INNER JOIN usuario u ON pe.id_usuario=u.id_usuario
+    ORDER BY d.id_devolucion DESC
+")->fetch_all(MYSQLI_ASSOC);
+
+$adminUsuarios = $conexion->query("
+    SELECT id_admin,nombres,correo,rol,estado,ultimo_acceso,creado_en
+    FROM admin_usuario
+    ORDER BY id_admin
+")->fetch_all(MYSQLI_ASSOC);
+
+$bitacora = $conexion->query("
+    SELECT *
+    FROM bitacora
+    ORDER BY id_bitacora DESC
+    LIMIT 100
+")->fetch_all(MYSQLI_ASSOC);
+
+$pedidoDetalle = null;
+$pedidoDetalleItems = [];
+if (isset($_GET["pedido_detalle"])) {
+    $idPedidoDetalle = (int)$_GET["pedido_detalle"];
+
+    $stmt = $conexion->prepare("
+        SELECT p.*,u.nombres,u.apellidos,u.correo,u.telefono
+        FROM pedido p
+        INNER JOIN usuario u ON p.id_usuario=u.id_usuario
+        WHERE p.id_pedido=?
+        LIMIT 1
+    ");
+    $stmt->bind_param("i",$idPedidoDetalle);
+    $stmt->execute();
+    $pedidoDetalle = $stmt->get_result()->fetch_assoc();
+
+    if ($pedidoDetalle) {
+        $stmt = $conexion->prepare("
+            SELECT dp.*,pr.nombre_producto,pr.imagen_url
+            FROM detalle_pedido dp
+            INNER JOIN producto pr ON dp.id_producto=pr.id_producto
+            WHERE dp.id_pedido=?
+            ORDER BY dp.id_detalle
+        ");
+        $stmt->bind_param("i",$idPedidoDetalle);
+        $stmt->execute();
+        $pedidoDetalleItems = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+}
+
+$clienteDetalle = null;
+$clientePedidos = [];
+if (isset($_GET["cliente"])) {
+    $idCliente = (int)$_GET["cliente"];
+
+    $stmt = $conexion->prepare("
+        SELECT id_usuario,nombres,apellidos,correo,telefono,estado
+        FROM usuario
+        WHERE id_usuario=?
+        LIMIT 1
+    ");
+    $stmt->bind_param("i",$idCliente);
+    $stmt->execute();
+    $clienteDetalle = $stmt->get_result()->fetch_assoc();
+
+    if ($clienteDetalle) {
+        $stmt = $conexion->prepare("
+            SELECT id_pedido,fecha_pedido,estado_pedido,total,tipo_entrega
+            FROM pedido
+            WHERE id_usuario=?
+            ORDER BY id_pedido DESC
+        ");
+        $stmt->bind_param("i",$idCliente);
+        $stmt->execute();
+        $clientePedidos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+}
+
+$reporteDesde = $_GET["desde"] ?? date("Y-m-01");
+$reporteHasta = $_GET["hasta"] ?? date("Y-m-d");
+
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $reporteDesde)) $reporteDesde = date("Y-m-01");
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $reporteHasta)) $reporteHasta = date("Y-m-d");
+if ($reporteDesde > $reporteHasta) {
+    [$reporteDesde,$reporteHasta] = [$reporteHasta,$reporteDesde];
+}
+
+$stmt = $conexion->prepare("
+    SELECT
+        COUNT(*) AS pedidos,
+        COALESCE(SUM(total),0) AS ventas,
+        COALESCE(AVG(total),0) AS ticket_promedio
+    FROM pedido
+    WHERE DATE(fecha_pedido) BETWEEN ? AND ?
+");
+$stmt->bind_param("ss",$reporteDesde,$reporteHasta);
+$stmt->execute();
+$reporteResumen = $stmt->get_result()->fetch_assoc();
+
+$stmt = $conexion->prepare("
+    SELECT
+        pr.nombre_producto,
+        COALESCE(SUM(dp.cantidad),0) AS unidades,
+        COALESCE(SUM(dp.cantidad * dp.precio),0) AS importe
+    FROM detalle_pedido dp
+    INNER JOIN pedido pe ON dp.id_pedido=pe.id_pedido
+    INNER JOIN producto pr ON dp.id_producto=pr.id_producto
+    WHERE DATE(pe.fecha_pedido) BETWEEN ? AND ?
+    GROUP BY pr.id_producto,pr.nombre_producto
+    ORDER BY unidades DESC,importe DESC
+    LIMIT 10
+");
+$stmt->bind_param("ss",$reporteDesde,$reporteHasta);
+$stmt->execute();
+$reporteTopProductos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 $productoEditar = null;
 if (isset($_GET["editar"])) {
