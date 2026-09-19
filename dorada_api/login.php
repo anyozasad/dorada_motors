@@ -38,7 +38,8 @@ $stmt = $conexion->prepare("
         apellidos,
         correo,
         contrasena,
-        telefono
+        telefono,
+        estado
     FROM usuario
     WHERE correo = ?
     LIMIT 1
@@ -48,7 +49,7 @@ $stmt->bind_param("s", $correo);
 $stmt->execute();
 $usuario = $stmt->get_result()->fetch_assoc();
 
-if (!$usuario || !password_verify($contrasena, $usuario["contrasena"])) {
+if (!$usuario || ($usuario["estado"] ?? "Activo") !== "Activo" || !password_verify($contrasena, $usuario["contrasena"])) {
     echo json_encode([
         "estado" => false,
         "mensaje" => "Correo o contraseña incorrectos"
@@ -57,6 +58,7 @@ if (!$usuario || !password_verify($contrasena, $usuario["contrasena"])) {
 }
 
 unset($usuario["contrasena"]);
+unset($usuario["estado"]);
 
 echo json_encode([
     "estado" => true,
