@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 
@@ -32,21 +33,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    final error = await LocalStore.registerUser(
-      name: _nameController.text,
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
+    try {
+      final nombreCompleto = _nameController.text.trim();
 
-    if (!mounted) return;
-    setState(() => _loading = false);
+      final response = await ApiService.registrarUsuario(
+        nombres: nombreCompleto,
+        apellidos: '',
+        correo: _emailController.text,
+        contrasena: _passwordController.text,
+      );
 
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
-      return;
+      final id = int.tryParse(response['id_usuario'].toString()) ?? 0;
+
+      await LocalStore.saveSession(
+        userId: id,
+        name: nombreCompleto,
+        email: _emailController.text,
+      );
+
+      if (!mounted) return;
+      setState(() => _loading = false);
+      widget.onRegistered();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final mensaje = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje)),
+      );
     }
-
-    widget.onRegistered();
   }
 
   @override
