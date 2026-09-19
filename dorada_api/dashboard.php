@@ -196,6 +196,173 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             redir("Favorito eliminado", "ok", "favoritos");
         }
 
+
+        /* ================= PROVEEDORES ================= */
+        if (isset($_POST["registrar_proveedor"])) {
+            $razon = trim($_POST["razon_social"] ?? "");
+            $ruc = trim($_POST["ruc"] ?? "");
+            $telefono = trim($_POST["telefono_proveedor"] ?? "");
+            $correo = trim($_POST["correo_proveedor"] ?? "");
+            $direccion = trim($_POST["direccion_proveedor"] ?? "");
+
+            if ($razon === "") redir("Escribe la razón social del proveedor", "error", "proveedores");
+
+            $stmt = $conexion->prepare("
+                INSERT INTO proveedor (razon_social, ruc, telefono, correo, direccion, estado)
+                VALUES (?, ?, ?, ?, ?, 'Activo')
+            ");
+            $stmt->bind_param("sssss", $razon, $ruc, $telefono, $correo, $direccion);
+            $stmt->execute();
+            redir("Proveedor registrado correctamente", "ok", "proveedores");
+        }
+
+        if (isset($_POST["eliminar_proveedor"])) {
+            $id = (int)($_POST["id_proveedor"] ?? 0);
+
+            $stmt = $conexion->prepare("SELECT COUNT(*) AS total FROM compra WHERE id_proveedor=?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $total = (int)$stmt->get_result()->fetch_assoc()["total"];
+
+            if ($total > 0) redir("No se puede eliminar: el proveedor tiene compras registradas", "error", "proveedores");
+
+            $stmt = $conexion->prepare("DELETE FROM proveedor WHERE id_proveedor=?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            redir("Proveedor eliminado", "ok", "proveedores");
+        }
+
+        /* ================= INVENTARIO / STOCK ================= */
+        if (isset($_POST["registrar_movimiento"])) {
+            $idProducto = (int)($_POST["id_producto_stock"] ?? 0);
+            $tipo = trim($_POST["tipo_movimiento"] ?? "Entrada");
+            $cantidad = (int)($_POST["cantidad_movimiento"] ?? 0);
+            $motivo = trim($_POST["motivo_movimiento"] ?? "");
+
+            if ($idProducto <= 0 || $cantidad <= 0 || !in_array($tipo, ["Entrada","Salida"], true)) {
+                redir("Completa correctamente el movimiento de stock", "error", "inventario");
+            }
+
+            $conexion->begin_transaction();
+
+            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+            $stmt->bind_param("i", $idProducto);
+            $stmt->execute();
+            $filaStock = $stmt->get_result()->fetch_assoc();
+
+            if (!$filaStock) {
+                $conexion->rollback();
+                redir("Producto no encontrado", "error", "inventario");
+            }
+
+            $stockActual = (int)$filaStock["stock"];
+            $nuevoStock = $tipo === "Entrada" ? $stockActual + $cantidad : $stockActual - $cantidad;
+
+            if ($nuevoStock < 0) {
+                $conexion->rollback();
+                redir("No hay stock suficiente para registrar esa salida", "error", "inventario");
+            }
+
+            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+            $stmt->bind_param("ii", $nuevoStock, $idProducto);
+            $stmt->execute();
+
+            $stmt = $conexion->prepare("
+                INSERT INTO movimiento_stock (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento)
+                VALUES (?, ?, ?, ?, NOW())
+            ");
+            $stmt->bind_param("isis", $idProducto, $tipo, $cantidad, $motivo);
+            $stmt->execute();
+
+            $conexion->commit();
+            redir("Movimiento de stock registrado correctamente", "ok", "inventario");
+        }
+
+        /* ================= COMPRAS ================= */
+        if (isset($_POST["registrar_compra"])) {
+            $idProveedor = (int)($_POST["id_proveedor_compra"] ?? 0);
+            $idProducto = (int)($_POST["id_producto_compra"] ?? 0);
+            $cantidad = (int)($_POST["cantidad_compra"] ?? 0);
+            $precioCompra = (float)($_POST["precio_compra"] ?? 0);
+
+            if ($idProveedor <= 0 || $idProducto <= 0 || $cantidad <= 0 || $precioCompra < 0) {
+                redir("Completa correctamente los datos de la compra", "error", "compras");
+            }
+
+            $subtotal = $cantidad * $precioCompra;
+            $conexion->begin_transaction();
+
+            $stmt = $conexion->prepare("
+                INSERT INTO compra (id_proveedor, fecha_compra, total, estado)
+                VALUES (?, NOW(), ?, 'Registrado')
+            ");
+            $stmt->bind_param("id", $idProveedor, $subtotal);
+            $stmt->execute();
+            $idCompra = $conexion->insert_id;
+
+            $stmt = $conexion->prepare("
+                INSERT INTO detalle_compra (id_compra, id_producto, cantidad, precio_compra, subtotal)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("iiidd", $idCompra, $idProducto, $cantidad, $precioCompra, $subtotal);
+            $stmt->execute();
+
+            $stmt = $conexion->prepare("UPDATE producto SET stock=stock+? WHERE id_producto=?");
+            $stmt->bind_param("ii", $cantidad, $idProducto);
+            $stmt->execute();
+
+            $motivo = "Compra #" . $idCompra;
+            $tipoEntrada = "Entrada";
+            $stmt = $conexion->prepare("
+                INSERT INTO movimiento_stock (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento)
+                VALUES (?, ?, ?, ?, NOW())
+            ");
+            $stmt->bind_param("isis", $idProducto, $tipoEntrada, $cantidad, $motivo);
+            $stmt->execute();
+
+            $conexion->commit();
+            redir("Compra registrada y stock actualizado", "ok", "compras");
+        }
+
+        /* ================= COMPROBANTES ================= */
+        if (isset($_POST["registrar_comprobante"])) {
+            $idPedido = (int)($_POST["id_pedido_comprobante"] ?? 0);
+            $tipo = trim($_POST["tipo_comprobante"] ?? "Boleta");
+            $numero = trim($_POST["numero_comprobante"] ?? "");
+
+            if ($idPedido <= 0 || $numero === "") {
+                redir("Selecciona un pedido e ingresa el número de comprobante", "error", "comprobantes");
+            }
+
+            $stmt = $conexion->prepare("SELECT total FROM pedido WHERE id_pedido=?");
+            $stmt->bind_param("i", $idPedido);
+            $stmt->execute();
+            $pedidoComprobante = $stmt->get_result()->fetch_assoc();
+
+            if (!$pedidoComprobante) redir("Pedido no encontrado", "error", "comprobantes");
+
+            $total = (float)$pedidoComprobante["total"];
+            $subtotal = round($total / 1.18, 2);
+            $igv = round($total - $subtotal, 2);
+
+            $stmt = $conexion->prepare("
+                INSERT INTO comprobante
+                (id_pedido, tipo_comprobante, numero_comprobante, fecha_emision, subtotal, igv, total)
+                VALUES (?, ?, ?, NOW(), ?, ?, ?)
+            ");
+            $stmt->bind_param("issddd", $idPedido, $tipo, $numero, $subtotal, $igv, $total);
+            $stmt->execute();
+            redir("Comprobante registrado correctamente", "ok", "comprobantes");
+        }
+
+        if (isset($_POST["eliminar_comprobante"])) {
+            $id = (int)($_POST["id_comprobante"] ?? 0);
+            $stmt = $conexion->prepare("DELETE FROM comprobante WHERE id_comprobante=?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            redir("Comprobante eliminado", "ok", "comprobantes");
+        }
+
     } catch (Throwable $e) {
         $mensaje = "Error: " . $e->getMessage();
         $tipoMensaje = "error";
@@ -210,6 +377,11 @@ $totalVentas = (float)$conexion->query("SELECT COALESCE(SUM(total),0) AS total F
 $totalPagos = (float)$conexion->query("SELECT COALESCE(SUM(monto),0) AS total FROM pago WHERE estado_pago='Pagado'")->fetch_assoc()["total"];
 $totalCategorias = (int)$conexion->query("SELECT COUNT(*) AS total FROM categoria")->fetch_assoc()["total"];
 $totalMarcas = (int)$conexion->query("SELECT COUNT(*) AS total FROM marca")->fetch_assoc()["total"];
+
+$totalProveedores = (int)$conexion->query("SELECT COUNT(*) AS total FROM proveedor")->fetch_assoc()["total"];
+$totalCompras = (float)$conexion->query("SELECT COALESCE(SUM(total),0) AS total FROM compra")->fetch_assoc()["total"];
+$stockBajo = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto WHERE stock <= 5")->fetch_assoc()["total"];
+$unidadesStock = (int)$conexion->query("SELECT COALESCE(SUM(stock),0) AS total FROM producto")->fetch_assoc()["total"];
 
 /* ================= VENTAS 7 DÍAS ================= */
 $ventasConsulta = $conexion->query("
@@ -278,6 +450,35 @@ $favoritos = $conexion->query("
     INNER JOIN usuario u ON f.id_usuario=u.id_usuario
     INNER JOIN producto p ON f.id_producto=p.id_producto
     ORDER BY f.id_favorito DESC
+")->fetch_all(MYSQLI_ASSOC);
+
+
+$proveedores = $conexion->query("
+    SELECT * FROM proveedor
+    ORDER BY id_proveedor DESC
+")->fetch_all(MYSQLI_ASSOC);
+
+$compras = $conexion->query("
+    SELECT c.id_compra,c.fecha_compra,c.total,c.estado,p.razon_social
+    FROM compra c
+    INNER JOIN proveedor p ON c.id_proveedor=p.id_proveedor
+    ORDER BY c.id_compra DESC
+")->fetch_all(MYSQLI_ASSOC);
+
+$movimientos = $conexion->query("
+    SELECT ms.*,p.nombre_producto
+    FROM movimiento_stock ms
+    INNER JOIN producto p ON ms.id_producto=p.id_producto
+    ORDER BY ms.id_movimiento DESC
+    LIMIT 30
+")->fetch_all(MYSQLI_ASSOC);
+
+$comprobantes = $conexion->query("
+    SELECT c.*,p.id_usuario,u.nombres,u.apellidos
+    FROM comprobante c
+    INNER JOIN pedido p ON c.id_pedido=p.id_pedido
+    INNER JOIN usuario u ON p.id_usuario=u.id_usuario
+    ORDER BY c.id_comprobante DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
 $masVendidos = $conexion->query("
@@ -366,7 +567,7 @@ a{text-decoration:none;color:inherit}
 .bar{width:min(44px,80%);min-height:4px;border-radius:9px 9px 3px 3px;background:linear-gradient(180deg,#e2b94e,#17395f);position:relative}
 .bar-tip{opacity:0;position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);background:#10233e;color:#fff;padding:6px 8px;border-radius:8px;font-size:10px;white-space:nowrap}
 .bar:hover .bar-tip{opacity:1}.day{font-size:10px;color:var(--muted);font-weight:700}
-.quick-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .quick{border:1px solid var(--border);border-radius:14px;padding:13px 10px;min-height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:11px;font-weight:800;text-align:center;transition:.2s}
 .quick:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
 .quick.blue{background:#eef5ff;color:#245fae}.quick.gold{background:#fff5dd;color:#9d7108}.quick.purple{background:#f1edff;color:#674bc9}.quick.green{background:#e9f9f1;color:#158a5a}
@@ -398,6 +599,21 @@ tbody tr:hover{background:#fafcff}
 .mobile-bottom{display:none}
 
 
+
+.ops-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.ops-card{background:#fff;border:1px solid var(--border);border-radius:15px;padding:14px 15px;display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:12px;box-shadow:var(--shadow);transition:.18s}
+.ops-card:hover{transform:translateY(-2px);border-color:#d8c07a}
+.ops-card small{font-size:9px;letter-spacing:.7px;color:var(--muted);font-weight:900}
+.ops-card strong{display:block;font-size:18px;margin-top:2px;color:#10233e}
+.ops-card p{margin:2px 0 0;font-size:10px;color:var(--muted)}
+.ops-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:900}
+.ops-icon.warn{background:#fff1d4;color:#a56d00}.ops-icon.blue2{background:#e8f1ff;color:#2878e6}.ops-icon.green2{background:#ddf7eb;color:#16885b}
+.section-intro{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px;padding:14px 16px;background:linear-gradient(135deg,#102d50,#18436f);border-radius:14px;color:#fff}
+.section-intro h2{margin:0 0 4px;font-size:18px}.section-intro p{margin:0;color:#c8d7e7;font-size:11px}
+.section-intro .badge{background:rgba(255,255,255,.12);color:#f5d57c}
+.two-col{display:grid;grid-template-columns:minmax(300px,.72fr) minmax(0,1.28fr);gap:14px}
+.kpi-inline{display:flex;gap:8px;flex-wrap:wrap}.pill{padding:6px 9px;border-radius:999px;background:#f4f7fb;border:1px solid var(--border);font-size:10px;font-weight:800;color:var(--muted)}
+
 .page-panel{display:none;animation:panelIn .18s ease}
 .page-panel.active{display:block}
 @keyframes panelIn{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -407,7 +623,7 @@ tbody tr:hover{background:#fafcff}
 .quick span{line-height:1.2}
 .section-title{position:sticky;top:70px;background:#fff;z-index:8;padding:4px 0 10px}
 
-@media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr)}.grid-main,.grid-bottom{grid-template-columns:1fr}}
+@media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr)}.grid-main,.grid-bottom,.two-col{grid-template-columns:1fr}.ops-strip{grid-template-columns:1fr 1fr}.quick-actions{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:820px){
  body{padding-bottom:74px}.app{grid-template-columns:1fr}.sidebar{position:fixed;left:-260px;width:235px;transition:.25s}.sidebar.open{left:0}.overlay.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:45}
  .topbar{height:64px;padding:0 14px}.mobile-menu{display:grid;place-items:center}.search{display:none}.admin div:last-child{display:none}.content{padding:15px}.heading{align-items:flex-start}.heading h1{font-size:22px}.date-chip{display:none}
@@ -416,12 +632,12 @@ tbody tr:hover{background:#fafcff}
  .mobile-bottom{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;height:68px;background:#fff;border-top:1px solid var(--border);z-index:40;box-shadow:0 -8px 22px rgba(15,39,70,.08)}
  .mobile-bottom a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:9px;font-weight:800}.mobile-bottom a.active{color:#a7780a}
 }
-@media(max-width:480px){.metrics{grid-template-columns:1fr 1fr}.metric-icon{width:38px;height:38px}.metric-value{font-size:17px}.metric-label{font-size:10px}.quick-actions{grid-template-columns:repeat(2,1fr)}.stats-row{grid-template-columns:1fr}}
+@media(max-width:480px){.ops-strip{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.metric-icon{width:38px;height:38px}.metric-value{font-size:17px}.metric-label{font-size:10px}.quick-actions{grid-template-columns:repeat(2,1fr)}.stats-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<div class="toast" id="toast">Sin notificaciones pendientes.</div>
+<div class="toast" id="toast"><?= $stockBajo > 0 ? "Atención: ".$stockBajo." producto(s) con stock bajo." : "Inventario sin alertas de stock." ?></div>
 <div class="overlay" id="overlay"></div>
 
 <div class="app">
@@ -430,11 +646,15 @@ tbody tr:hover{background:#fafcff}
  <nav class="nav" id="nav">
   <a href="#inicio" class="active"><span class="nav-icon">⌂</span>Dashboard</a>
   <a href="#gestion-productos"><span class="nav-icon">◇</span>Productos</a>
+  <a href="#inventario"><span class="nav-icon">▤</span>Inventario</a>
+  <a href="#proveedores"><span class="nav-icon">▣</span>Proveedores</a>
+  <a href="#compras"><span class="nav-icon">＋</span>Compras</a>
   <a href="#categorias"><span class="nav-icon">▦</span>Categorías</a>
   <a href="#marcas"><span class="nav-icon">◆</span>Marcas</a>
   <a href="#usuarios"><span class="nav-icon">♙</span>Usuarios</a>
   <a href="#pedidos"><span class="nav-icon">🛒</span>Pedidos</a>
   <a href="#pagos"><span class="nav-icon">▣</span>Pagos</a>
+  <a href="#comprobantes"><span class="nav-icon">▧</span>Comprobantes</a>
   <a href="#favoritos"><span class="nav-icon">♥</span>Favoritos</a>
   <a href="#reportes"><span class="nav-icon">▥</span>Reportes</a>
  </nav>
@@ -468,6 +688,12 @@ tbody tr:hover{background:#fafcff}
  <a class="metric" href="#reportes"><div class="metric-icon green">$</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div></div></a>
 </section>
 
+<section class="ops-strip">
+ <a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong><p>Productos con 5 unidades o menos</p></div><b>→</b></a>
+ <a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a>
+ <a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a>
+</section>
+
 <section class="grid-main">
  <article class="card">
   <div class="card-head"><h2>Ventas de los últimos 7 días</h2><span class="badge">Últimos 7 días</span></div>
@@ -481,9 +707,11 @@ tbody tr:hover{background:#fafcff}
   <div class="card-head"><h2>Acciones rápidas</h2></div>
   <div class="quick-actions">
    <a class="quick blue" href="#gestion-productos">◇<span>Nuevo producto</span></a>
-   <a class="quick gold" href="#categorias">◆<span>Categorías</span></a>
-   <a class="quick purple" href="#usuarios">♙<span>Usuarios</span></a>
-   <a class="quick green" href="#pedidos">🛒<span>Ver pedidos</span></a>
+   <a class="quick gold" href="#compras">＋<span>Nueva compra</span></a>
+   <a class="quick purple" href="#usuarios">♙<span>Nuevo usuario</span></a>
+   <a class="quick green" href="#inventario">▤<span>Movimiento stock</span></a>
+   <a class="quick gold" href="#proveedores">▣<span>Proveedor</span></a>
+   <a class="quick blue" href="#comprobantes">▧<span>Comprobante</span></a>
   </div>
  </article>
 </section>
@@ -575,12 +803,79 @@ tbody tr:hover{background:#fafcff}
  </tbody></table></div>
 </section>
 
+
+<section id="inventario" class="card page-panel">
+ <div class="section-intro">
+  <div><h2>Inventario y stock</h2><p>Controla entradas, salidas y existencias reales de tus repuestos.</p></div>
+  <span class="badge"><?= $unidadesStock ?> unidades</span>
+ </div>
+ <div class="two-col">
+  <div>
+   <form method="POST" class="form-grid" style="grid-template-columns:1fr">
+    <div class="field"><label>PRODUCTO</label><select name="id_producto_stock" required><option value="">Seleccione producto</option><?php foreach($productos as $p): ?><option value="<?= h($p["id_producto"]) ?>"><?= h($p["nombre_producto"]) ?> — Stock: <?= (int)$p["stock"] ?></option><?php endforeach; ?></select></div>
+    <div class="field"><label>TIPO DE MOVIMIENTO</label><select name="tipo_movimiento"><option>Entrada</option><option>Salida</option></select></div>
+    <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_movimiento" required></div>
+    <div class="field"><label>MOTIVO</label><input type="text" name="motivo_movimiento" placeholder="Ej. Ajuste de inventario"></div>
+    <div class="form-actions"><button class="btn btn-primary" name="registrar_movimiento">Registrar movimiento</button></div>
+   </form>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Fecha</th></tr></thead><tbody>
+   <?php if(!$movimientos): ?><tr><td colspan="6" style="text-align:center;color:#718096">No hay movimientos de stock.</td></tr><?php else: foreach($movimientos as $mv): ?><tr><td><?= h($mv["id_movimiento"]) ?></td><td><?= h($mv["nombre_producto"]) ?></td><td><span class="status <?= $mv["tipo_movimiento"]==="Entrada"?"ok":"warn" ?>"><?= h($mv["tipo_movimiento"]) ?></span></td><td><?= (int)$mv["cantidad"] ?></td><td><?= h($mv["motivo"]) ?></td><td><?= h($mv["fecha_movimiento"]) ?></td></tr><?php endforeach; endif; ?>
+  </tbody></table></div>
+ </div>
+</section>
+
+<section id="proveedores" class="card page-panel">
+ <div class="section-intro"><div><h2>Proveedores</h2><p>Registra las empresas que abastecen los productos de Dorada Motors.</p></div><span class="badge"><?= $totalProveedores ?> registrados</span></div>
+ <form method="POST" class="form-grid">
+  <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social" required placeholder="Nombre del proveedor"></div>
+  <div class="field"><label>RUC</label><input name="ruc" placeholder="RUC"></div>
+  <div class="field"><label>TELÉFONO</label><input name="telefono_proveedor"></div>
+  <div class="field"><label>CORREO</label><input type="email" name="correo_proveedor"></div>
+  <div class="field full"><label>DIRECCIÓN</label><input name="direccion_proveedor"></div>
+  <div class="form-actions"><button class="btn btn-primary" name="registrar_proveedor">+ Registrar proveedor</button></div>
+ </form>
+ <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>RUC</th><th>Teléfono</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <?php if(!$proveedores): ?><tr><td colspan="7" style="text-align:center;color:#718096">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td><?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status ok"><?= h($pr["estado"]) ?></span></td><td><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger" name="eliminar_proveedor">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+ </tbody></table></div>
+</section>
+
+<section id="compras" class="card page-panel">
+ <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra compras a proveedores y aumenta automáticamente el stock.</p></div><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div>
+ <form method="POST" class="form-grid">
+  <div class="field"><label>PROVEEDOR</label><select name="id_proveedor_compra" required><option value="">Seleccione proveedor</option><?php foreach($proveedores as $pr): ?><option value="<?= h($pr["id_proveedor"]) ?>"><?= h($pr["razon_social"]) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>PRODUCTO</label><select name="id_producto_compra" required><option value="">Seleccione producto</option><?php foreach($productos as $p): ?><option value="<?= h($p["id_producto"]) ?>"><?= h($p["nombre_producto"]) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_compra" required></div>
+  <div class="field"><label>PRECIO DE COMPRA</label><input type="number" min="0" step="0.01" name="precio_compra" required></div>
+  <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
+ </form>
+ <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead><tbody>
+ <?php if(!$compras): ?><tr><td colspan="5" style="text-align:center;color:#718096">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr><td>#<?= h($co["id_compra"]) ?></td><td><?= h($co["razon_social"]) ?></td><td><?= h($co["fecha_compra"]) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><span class="status ok"><?= h($co["estado"]) ?></span></td></tr><?php endforeach; endif; ?>
+ </tbody></table></div>
+</section>
+
+<section id="comprobantes" class="card page-panel">
+ <div class="section-intro"><div><h2>Comprobantes</h2><p>Genera el registro de boletas o facturas vinculadas a un pedido.</p></div><span class="badge"><?= count($comprobantes) ?> emitidos</span></div>
+ <form method="POST" class="form-grid">
+  <div class="field"><label>PEDIDO</label><select name="id_pedido_comprobante" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $p): ?><option value="<?= h($p["id_pedido"]) ?>">#<?= h($p["id_pedido"]) ?> — <?= h($p["nombres"]." ".$p["apellidos"]) ?> — S/ <?= number_format((float)$p["total"],2) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>TIPO</label><select name="tipo_comprobante"><option>Boleta</option><option>Factura</option></select></div>
+  <div class="field"><label>NÚMERO</label><input name="numero_comprobante" required placeholder="B001-000001"></div>
+  <div class="form-actions"><button class="btn btn-primary" name="registrar_comprobante">+ Emitir comprobante</button></div>
+ </form>
+ <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Tipo</th><th>Número</th><th>IGV</th><th>Total</th><th>Acción</th></tr></thead><tbody>
+ <?php if(!$comprobantes): ?><tr><td colspan="8" style="text-align:center;color:#718096">No hay comprobantes.</td></tr><?php else: foreach($comprobantes as $cp): ?><tr><td><?= h($cp["id_comprobante"]) ?></td><td>#<?= h($cp["id_pedido"]) ?></td><td><?= h($cp["nombres"]." ".$cp["apellidos"]) ?></td><td><?= h($cp["tipo_comprobante"]) ?></td><td><?= h($cp["numero_comprobante"]) ?></td><td>S/ <?= number_format((float)$cp["igv"],2) ?></td><td class="price">S/ <?= number_format((float)$cp["total"],2) ?></td><td><form method="POST" onsubmit="return confirm('¿Eliminar comprobante?');"><input type="hidden" name="id_comprobante" value="<?= h($cp["id_comprobante"]) ?>"><button class="btn btn-danger" name="eliminar_comprobante">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+ </tbody></table></div>
+</section>
+
 <section id="reportes" class="card page-panel">
  <div class="section-title"><h2>Reportes rápidos</h2><span class="badge">Resumen actual</span></div>
  <div class="stats-row">
   <div class="mini-stat"><small>VENTAS REGISTRADAS</small><strong>S/ <?= number_format($totalVentas,2) ?></strong></div>
   <div class="mini-stat"><small>PAGOS CONFIRMADOS</small><strong>S/ <?= number_format($totalPagos,2) ?></strong></div>
   <div class="mini-stat"><small>PRODUCTOS EN CATÁLOGO</small><strong><?= $totalProductos ?></strong></div>
+  <div class="mini-stat"><small>UNIDADES EN STOCK</small><strong><?= $unidadesStock ?></strong></div>
+  <div class="mini-stat"><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong></div>
+  <div class="mini-stat"><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong></div>
  </div>
 </section>
 
@@ -591,8 +886,8 @@ tbody tr:hover{background:#fafcff}
 <nav class="mobile-bottom">
  <a href="#inicio" class="active">⌂<b>Dashboard</b></a>
  <a href="#gestion-productos">◇<b>Productos</b></a>
+ <a href="#inventario">▤<b>Stock</b></a>
  <a href="#pedidos">🛒<b>Pedidos</b></a>
- <a href="#reportes">☰<b>Más</b></a>
 </nav>
 
 <script>
