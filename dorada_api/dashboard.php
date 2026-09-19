@@ -1377,9 +1377,9 @@ tbody tr:hover{background:#fafcff}
    <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<?php if($stockBajo+$pedidosPendientes>0): ?><span class="notification-count"><?= $stockBajo+$pedidosPendientes ?></span><?php endif; ?></button>
    <div class="notify-menu" id="notifyMenu">
     <div class="notify-head"><strong>Notificaciones</strong><span>En tiempo real</span></div>
-    <a href="#inventario"><b>⚠ Stock bajo</b><small><?= $stockBajo ?> producto(s) requieren atención</small></a>
-    <a href="#pedidos"><b>🛒 Pedidos por atender</b><small><?= $pedidosPendientes ?> pendiente(s) o en proceso</small></a>
-    <a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a>
+    <?php if(puede("inventario")): ?><a href="#inventario"><b>⚠ Stock bajo</b><small><?= $stockBajo ?> producto(s) requieren atención</small></a><?php endif; ?>
+    <?php if(puede("pedidos")): ?><a href="#pedidos"><b>🛒 Pedidos por atender</b><small><?= $pedidosPendientes ?> pendiente(s) o en proceso</small></a><?php endif; ?>
+    <?php if(puede("reportes")): ?><a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a><?php endif; ?>
    </div>
   </div>
   <a class="admin" href="<?= $adminRol === "Administrador" ? "#configuracion" : "#inicio" ?>" title="Cuenta"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
@@ -1407,18 +1407,18 @@ tbody tr:hover{background:#fafcff}
 </section>
 
 <section class="metrics">
- <a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a>
- <a class="metric" href="#usuarios"><div class="metric-icon gold">👥</div><div><div class="metric-label">Usuarios</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Clientes registrados</small></div></a>
- <a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a>
- <a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a>
- <a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a>
- <a class="metric" href="#reportes"><div class="metric-icon orange">↗</div><div><div class="metric-label">Margen estimado</div><div class="metric-value">S/ <?= number_format($gananciaEstimada,2) ?></div><small>Según costos de compra registrados</small></div></a>
+ <?php if(puede("gestion-productos")): ?><a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a><?php endif; ?>
+ <?php if(puede("clientes") || puede("usuarios")): ?><a class="metric" href="<?= puede("clientes")?"#clientes":"#usuarios" ?>"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
+ <?php if(puede("pedidos")): ?><a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a><?php endif; ?>
+ <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a><?php endif; ?>
+ <?php if(puede("inventario")): ?><a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a><?php endif; ?>
+ <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon orange">↗</div><div><div class="metric-label">Margen estimado</div><div class="metric-value">S/ <?= number_format($gananciaEstimada,2) ?></div><small>Según costos registrados</small></div></a><?php endif; ?>
 </section>
 
 <section class="ops-strip">
- <a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a>
- <a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a>
- <a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a>
+ <?php if(puede("inventario")): ?><a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a><?php endif; ?>
+ <?php if(puede("proveedores")): ?><a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a><?php endif; ?>
+ <?php if(puede("compras")): ?><a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a><?php endif; ?>
 </section>
 
 <section class="grid-main">
