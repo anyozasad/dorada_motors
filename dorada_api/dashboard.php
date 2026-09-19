@@ -1,12 +1,104 @@
 <?php
 require_once "conexion.php";
+require_once "auth_admin.php";
+
+requerirAdmin();
+
 header("Content-Type: text/html; charset=UTF-8");
 
 function h($valor) {
     return htmlspecialchars((string)$valor, ENT_QUOTES, "UTF-8");
 }
 
+function guardarImagenProducto(?array $archivo, string $actual = ""): string {
+    if (!$archivo || ($archivo["error"] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return $actual;
+    }
+
+    if (($archivo["error"] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException("No se pudo subir la imagen del producto.");
+    }
+
+    if (($archivo["size"] ?? 0) > 3 * 1024 * 1024) {
+        throw new RuntimeException("La imagen no puede superar los 3 MB.");
+    }
+
+    $temporal = $archivo["tmp_name"] ?? "";
+    $mime = $temporal && function_exists("mime_content_type")
+        ? mime_content_type($temporal)
+        : ($archivo["type"] ?? "");
+
+    $permitidos = [
+        "image/jpeg" => "jpg",
+        "image/png" => "png",
+        "image/webp" => "webp",
+    ];
+
+    if (!isset($permitidos[$mime])) {
+        throw new RuntimeException("Usa una imagen JPG, PNG o WEBP.");
+    }
+
+    $directorio = __DIR__ . "/uploads/productos";
+    if (!is_dir($directorio) && !mkdir($directorio, 0775, true) && !is_dir($directorio)) {
+        throw new RuntimeException("No se pudo crear la carpeta de imágenes.");
+    }
+
+    $nombre = "producto_" . bin2hex(random_bytes(8)) . "." . $permitidos[$mime];
+    $destino = $directorio . "/" . $nombre;
+
+    if (!move_uploaded_file($temporal, $destino)) {
+        throw new RuntimeException("No se pudo guardar la imagen.");
+    }
+
+    return "uploads/productos/" . $nombre;
+}
+
+$adminSesion = adminActual();
+$configEmpresa = $conexion->query("
+    SELECT * FROM configuracion_empresa
+    WHERE id_configuracion=1
+")->fetch_assoc() ?: [];
+$igvEmpresa = (float)($configEmpresa["igv"] ?? 18);
+
+$accionesSistema = [
+    "registrar_producto" => ["gestion-productos", "Crear producto"],
+    "actualizar_producto" => ["gestion-productos", "Actualizar producto"],
+    "eliminar_producto" => ["gestion-productos", "Eliminar producto"],
+    "registrar_categoria" => ["categorias", "Crear categoría"],
+    "eliminar_categoria" => ["categorias", "Eliminar categoría"],
+    "registrar_marca" => ["marcas", "Crear marca"],
+    "eliminar_marca" => ["marcas", "Eliminar marca"],
+    "registrar_usuario" => ["usuarios", "Crear usuario"],
+    "actualizar_estado_usuario" => ["usuarios", "Cambiar estado de usuario"],
+    "actualizar_estado_pedido" => ["pedidos", "Cambiar estado de pedido"],
+    "actualizar_estado_pago" => ["pagos", "Cambiar estado de pago"],
+    "eliminar_favorito" => ["favoritos", "Eliminar favorito"],
+    "registrar_proveedor" => ["proveedores", "Crear proveedor"],
+    "eliminar_proveedor" => ["proveedores", "Eliminar proveedor"],
+    "registrar_movimiento" => ["inventario", "Registrar movimiento de stock"],
+    "registrar_compra" => ["compras", "Registrar compra"],
+    "registrar_comprobante" => ["comprobantes", "Emitir comprobante"],
+    "eliminar_comprobante" => ["comprobantes", "Eliminar comprobante"],
+    "registrar_devolucion" => ["devoluciones", "Registrar devolución"],
+    "guardar_configuracion" => ["configuracion", "Actualizar configuración"],
+    "crear_admin_usuario" => ["configuracion", "Crear usuario administrativo"],
+    "actualizar_admin_usuario" => ["configuracion", "Actualizar usuario administrativo"],
+];
+
+$accionAuditoriaPendiente = null;
+
 function redir($msg, $tipo = "ok", $ancla = "inicio") {
+    global $conexion, $accionAuditoriaPendiente;
+
+    if ($tipo === "ok" && is_array($accionAuditoriaPendiente)) {
+        registrarBitacora(
+            $conexion,
+            $accionAuditoriaPendiente[0],
+            $accionAuditoriaPendiente[1],
+            $msg
+        );
+    }
+
     header("Location: dashboard.php?msg=" . urlencode($msg) . "&tipo=" . urlencode($tipo) . "#" . $ancla);
     exit;
 }
@@ -15,6 +107,20 @@ $mensaje = $_GET["msg"] ?? "";
 $tipoMensaje = $_GET["tipo"] ?? "ok";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    if (!csrfValido($_POST["csrf_token"] ?? null)) {
+        redir("La sesión del formulario venció. Actualiza la página e inténtalo otra vez.", "error", "inicio");
+    }
+
+    foreach ($accionesSistema as $campo => $meta) {
+        if (isset($_POST[$campo])) {
+            $accionAuditoriaPendiente = $meta;
+            if (!puede($meta[0]) && rolActual() !== "Administrador") {
+                redir("Tu rol no tiene permiso para realizar esta acción.", "error", "inicio");
+            }
+            break;
+        }
+    }
+
     try {
         /* ================= PRODUCTOS ================= */
         if (isset($_POST["registrar_producto"])) {
