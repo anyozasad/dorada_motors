@@ -65,6 +65,7 @@ class _AppRootState extends State<AppRoot> {
   }
 
   void _logout() {
+    LocalStore.logout();
     setState(() {
       _session = null;
       _mode = AppMode.login;
