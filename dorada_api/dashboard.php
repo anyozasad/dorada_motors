@@ -1405,38 +1405,119 @@ tbody tr:hover{background:#fafcff}
 </section>
 <?php endif; ?>
 
+<?php if(puede("categorias")): ?>
 <section id="categorias" class="card page-panel">
- <div class="section-title"><h2>Categorías</h2><span class="badge"><?= $totalCategorias ?> registradas</span></div>
- <form method="POST" class="inline-form" style="margin-bottom:14px"><input type="text" name="nombre_categoria" placeholder="Nueva categoría" required><button class="btn btn-primary" name="registrar_categoria">+ Agregar categoría</button></form>
+ <div class="section-intro"><div><h2>Categorías</h2><p>Organiza el catálogo para que productos y búsquedas sean fáciles de entender.</p></div><span class="badge"><?= $totalCategorias ?> registradas</span></div>
+ <form method="POST" class="inline-form action-bar"><input type="text" name="nombre_categoria" placeholder="Nombre de la nueva categoría" required><button class="btn btn-primary" name="registrar_categoria">+ Agregar categoría</button></form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Categoría</th><th>Acción</th></tr></thead><tbody>
- <?php foreach($categorias as $c): ?><tr><td><?= h($c["id_categoria"]) ?></td><td><?= h($c["nombre_categoria"]) ?></td><td><form method="POST" onsubmit="return confirm('¿Eliminar categoría?');"><input type="hidden" name="id_categoria" value="<?= h($c["id_categoria"]) ?>"><button class="btn btn-danger" name="eliminar_categoria">Eliminar</button></form></td></tr><?php endforeach; ?>
+ <?php foreach($categorias as $cat): ?><tr><td>#<?= h($cat["id_categoria"]) ?></td><td><strong><?= h($cat["nombre_categoria"]) ?></strong></td><td><form method="POST" onsubmit="return confirm('¿Eliminar categoría?');"><input type="hidden" name="id_categoria" value="<?= h($cat["id_categoria"]) ?>"><button class="btn btn-danger" name="eliminar_categoria">Eliminar</button></form></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
+<?php if(puede("marcas")): ?>
 <section id="marcas" class="card page-panel">
- <div class="section-title"><h2>Marcas</h2><span class="badge"><?= $totalMarcas ?> registradas</span></div>
- <form method="POST" class="inline-form" style="margin-bottom:14px"><input type="text" name="nombre_marca" placeholder="Nueva marca" required><button class="btn btn-primary" name="registrar_marca">+ Agregar marca</button></form>
+ <div class="section-intro"><div><h2>Marcas</h2><p>Controla las marcas disponibles en el catálogo de repuestos.</p></div><span class="badge"><?= $totalMarcas ?> registradas</span></div>
+ <form method="POST" class="inline-form action-bar"><input type="text" name="nombre_marca" placeholder="Nombre de la nueva marca" required><button class="btn btn-primary" name="registrar_marca">+ Agregar marca</button></form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Marca</th><th>Acción</th></tr></thead><tbody>
- <?php foreach($marcas as $m): ?><tr><td><?= h($m["id_marca"]) ?></td><td><?= h($m["nombre_marca"]) ?></td><td><form method="POST" onsubmit="return confirm('¿Eliminar marca?');"><input type="hidden" name="id_marca" value="<?= h($m["id_marca"]) ?>"><button class="btn btn-danger" name="eliminar_marca">Eliminar</button></form></td></tr><?php endforeach; ?>
+ <?php foreach($marcas as $mar): ?><tr><td>#<?= h($mar["id_marca"]) ?></td><td><strong><?= h($mar["nombre_marca"]) ?></strong></td><td><form method="POST" onsubmit="return confirm('¿Eliminar marca?');"><input type="hidden" name="id_marca" value="<?= h($mar["id_marca"]) ?>"><button class="btn btn-danger" name="eliminar_marca">Eliminar</button></form></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
+<?php if(puede("clientes")): ?>
+<section id="clientes" class="card page-panel">
+ <div class="section-intro"><div><h2>Clientes</h2><p>Consulta compras, frecuencia y actividad de cada cliente.</p></div><span class="badge"><?= count($clientes) ?> clientes</span></div>
+
+ <?php if($clienteDetalle): ?>
+ <div class="detail-card">
+  <div class="detail-head">
+   <div><small>CLIENTE #<?= h($clienteDetalle["id_usuario"]) ?></small><h3><?= h($clienteDetalle["nombres"]." ".$clienteDetalle["apellidos"]) ?></h3><p><?= h($clienteDetalle["correo"]) ?> · <?= h($clienteDetalle["telefono"]) ?></p></div>
+   <a class="btn btn-light" href="dashboard.php#clientes">Cerrar detalle</a>
+  </div>
+  <div class="detail-grid">
+   <div><small>ESTADO</small><strong><?= h($clienteDetalle["estado"]) ?></strong></div>
+   <div><small>PEDIDOS</small><strong><?= count($clientePedidos) ?></strong></div>
+   <div><small>TOTAL COMPRADO</small><strong>S/ <?= number_format(array_sum(array_map(fn($x)=>(float)$x["total"],$clientePedidos)),2) ?></strong></div>
+  </div>
+  <div class="table-wrap mini-table"><table><thead><tr><th>Pedido</th><th>Fecha</th><th>Entrega</th><th>Estado</th><th>Total</th></tr></thead><tbody>
+   <?php if(!$clientePedidos): ?><tr><td colspan="5">Este cliente todavía no tiene pedidos.</td></tr><?php else: foreach($clientePedidos as $cped): ?><tr><td><a class="link-action" href="dashboard.php?pedido_detalle=<?= h($cped["id_pedido"]) ?>#pedidos">#<?= h($cped["id_pedido"]) ?></a></td><td><?= h($cped["fecha_pedido"]) ?></td><td><?= h($cped["tipo_entrega"]??"") ?></td><td><span class="status-pill"><?= h($cped["estado_pedido"]) ?></span></td><td class="price">S/ <?= number_format((float)$cped["total"],2) ?></td></tr><?php endforeach; endif; ?>
+  </tbody></table></div>
+ </div>
+ <?php endif; ?>
+
+ <div class="table-wrap"><table id="tablaClientes"><thead><tr><th>Cliente</th><th>Contacto</th><th>Pedidos</th><th>Total comprado</th><th>Última compra</th><th>Estado</th><th></th></tr></thead><tbody>
+ <?php foreach($clientes as $cl): ?><tr>
+  <td><strong><?= h($cl["nombres"]." ".$cl["apellidos"]) ?></strong><small class="table-sub">Cliente #<?= h($cl["id_usuario"]) ?></small></td>
+  <td><?= h($cl["correo"]) ?><small class="table-sub"><?= h($cl["telefono"]) ?></small></td>
+  <td><?= (int)$cl["total_pedidos"] ?></td>
+  <td class="price">S/ <?= number_format((float)$cl["total_comprado"],2) ?></td>
+  <td><?= $cl["ultima_compra"] ? h(date("d/m/Y",strtotime($cl["ultima_compra"]))) : "Sin compras" ?></td>
+  <td><span class="status-pill <?= strtolower($cl["estado"])==="activo"?"success":"danger" ?>"><?= h($cl["estado"]) ?></span></td>
+  <td><a class="btn btn-light btn-small" href="dashboard.php?cliente=<?= h($cl["id_usuario"]) ?>#clientes">Ver historial</a></td>
+ </tr><?php endforeach; ?>
+ </tbody></table></div>
+</section>
+<?php endif; ?>
+
+<?php if(puede("usuarios")): ?>
 <section id="usuarios" class="card page-panel">
- <div class="section-title"><h2>Usuarios</h2><span class="badge"><?= $totalUsuarios ?> registrados</span></div>
+ <div class="section-intro"><div><h2>Usuarios de la aplicación</h2><p>Cuentas de clientes que pueden iniciar sesión desde Flutter.</p></div><span class="badge"><?= $totalUsuarios ?> registrados</span></div>
  <form method="POST" class="form-grid">
-  <div class="field"><label>NOMBRES</label><input name="nombres" required></div><div class="field"><label>APELLIDOS</label><input name="apellidos"></div><div class="field"><label>CORREO</label><input type="email" name="correo" required></div><div class="field"><label>TELÉFONO</label><input name="telefono"></div><div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" required></div><div class="form-actions"><button class="btn btn-primary" name="registrar_usuario">+ Registrar usuario</button></div>
+  <div class="field"><label>NOMBRES</label><input name="nombres" required></div>
+  <div class="field"><label>APELLIDOS</label><input name="apellidos"></div>
+  <div class="field"><label>CORREO</label><input type="email" name="correo" required></div>
+  <div class="field"><label>TELÉFONO</label><input name="telefono"></div>
+  <div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="6" required></div>
+  <div class="form-actions"><button class="btn btn-primary" name="registrar_usuario">+ Registrar usuario</button></div>
  </form>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Teléfono</th></tr></thead><tbody>
- <?php foreach($usuarios as $u): ?><tr><td><?= h($u["id_usuario"]) ?></td><td><?= h($u["nombres"]." ".$u["apellidos"]) ?></td><td><?= h($u["correo"]) ?></td><td><?= h($u["telefono"]) ?></td></tr><?php endforeach; ?>
+ <div class="table-wrap"><table><thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <?php foreach($usuarios as $usr): ?><tr>
+  <td>#<?= h($usr["id_usuario"]) ?></td><td><strong><?= h($usr["nombres"]." ".$usr["apellidos"]) ?></strong></td><td><?= h($usr["correo"]) ?></td><td><?= h($usr["telefono"]) ?></td>
+  <td><span class="status-pill <?= strtolower($usr["estado"])==="activo"?"success":"danger" ?>"><?= h($usr["estado"]) ?></span></td>
+  <td><form method="POST" class="inline-form"><input type="hidden" name="id_usuario" value="<?= h($usr["id_usuario"]) ?>"><select name="estado_usuario"><option value="Activo" <?= $usr["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $usr["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light" name="actualizar_estado_usuario">Guardar</button></form></td>
+ </tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
+<?php if(puede("pedidos")): ?>
 <section id="pedidos" class="card page-panel">
- <div class="section-title"><h2>Pedidos</h2><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPedidos','pedidos_adn.csv')">Exportar CSV</button><span class="badge"><?= $totalPedidos ?> registrados</span></div></div>
- <div class="table-wrap"><table id="tablaPedidos"><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php foreach($pedidos as $p): ?><tr><td>#<?= h($p["id_pedido"]) ?></td><td><?= h($p["nombres"]." ".$p["apellidos"]) ?></td><td><?= h($p["fecha_pedido"]) ?></td><td class="price">S/ <?= number_format((float)$p["total"],2) ?></td><td><?= h($p["estado_pedido"]) ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_pedido" value="<?= h($p["id_pedido"]) ?>"><select name="estado_pedido"><option>Pendiente</option><option>Procesando</option><option>Pagado</option><option>Enviado</option><option>Completado</option><option>Cancelado</option></select><button class="btn btn-primary" name="actualizar_estado_pedido">Actualizar</button></form></td></tr><?php endforeach; ?>
+ <div class="section-intro"><div><h2>Pedidos</h2><p>Consulta el detalle y actualiza el avance de cada venta.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPedidos','pedidos_adn.csv')">Exportar CSV</button><span class="badge"><?= $totalPedidos ?> registrados</span></div></div>
+
+ <?php if($pedidoDetalle): ?>
+ <div class="detail-card order-detail">
+  <div class="detail-head">
+   <div><small>PEDIDO #<?= h($pedidoDetalle["id_pedido"]) ?></small><h3><?= h($pedidoDetalle["nombres"]." ".$pedidoDetalle["apellidos"]) ?></h3><p><?= h($pedidoDetalle["correo"]) ?> · <?= h($pedidoDetalle["telefono"]) ?></p></div>
+   <a class="btn btn-light" href="dashboard.php#pedidos">Cerrar detalle</a>
+  </div>
+  <div class="order-progress">
+   <?php $pasos=["Pendiente","Procesando","Pagado","Enviado","Completado"]; $indiceActual=array_search($pedidoDetalle["estado_pedido"],$pasos,true); foreach($pasos as $idx=>$paso): ?>
+    <div class="progress-step <?= $indiceActual!==false && $idx<=$indiceActual?"done":"" ?>"><span><?= $idx+1 ?></span><small><?= h($paso) ?></small></div>
+   <?php endforeach; ?>
+  </div>
+  <div class="detail-grid">
+   <div><small>FECHA</small><strong><?= h($pedidoDetalle["fecha_pedido"]) ?></strong></div>
+   <div><small>ENTREGA</small><strong><?= h($pedidoDetalle["tipo_entrega"]??"No definido") ?></strong></div>
+   <div><small>ESTADO</small><strong><?= h($pedidoDetalle["estado_pedido"]) ?></strong></div>
+   <div><small>TOTAL</small><strong>S/ <?= number_format((float)$pedidoDetalle["total"],2) ?></strong></div>
+  </div>
+  <div class="table-wrap mini-table"><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
+   <?php foreach($pedidoDetalleItems as $item): ?><tr><td><strong><?= h($item["nombre_producto"]) ?></strong></td><td><?= (int)$item["cantidad"] ?></td><td>S/ <?= number_format((float)$item["precio"],2) ?></td><td class="price">S/ <?= number_format((float)$item["precio"]*(int)$item["cantidad"],2) ?></td></tr><?php endforeach; ?>
+  </tbody></table></div>
+ </div>
+ <?php endif; ?>
+
+ <div class="filter-toolbar">
+  <div class="filter-title"><strong>Listado de pedidos</strong><small>Filtra por estado para atender primero lo pendiente.</small></div>
+  <select id="filtroEstadoPedido"><option value="">Todos los estados</option><?php foreach(["Pendiente","Procesando","Pagado","Enviado","Completado","Cancelado"] as $est): ?><option value="<?= h(strtolower($est)) ?>"><?= h($est) ?></option><?php endforeach; ?></select>
+ </div>
+
+ <div class="table-wrap"><table id="tablaPedidos"><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+ <?php foreach($pedidos as $ped): ?><tr data-status="<?= h(strtolower($ped["estado_pedido"])) ?>"><td>#<?= h($ped["id_pedido"]) ?></td><td><strong><?= h($ped["nombres"]." ".$ped["apellidos"]) ?></strong></td><td><?= h(date("d/m/Y H:i",strtotime($ped["fecha_pedido"]))) ?></td><td class="price">S/ <?= number_format((float)$ped["total"],2) ?></td><td><span class="status-pill"><?= h($ped["estado_pedido"]) ?></span></td><td><div class="order-actions"><a class="btn btn-light btn-small" href="dashboard.php?pedido_detalle=<?= h($ped["id_pedido"]) ?>#pedidos">Ver detalle</a><form method="POST" class="inline-form"><input type="hidden" name="id_pedido" value="<?= h($ped["id_pedido"]) ?>"><select name="estado_pedido"><?php foreach(["Pendiente","Procesando","Pagado","Enviado","Completado","Cancelado"] as $est): ?><option value="<?= h($est) ?>" <?= $ped["estado_pedido"]===$est?"selected":"" ?>><?= h($est) ?></option><?php endforeach; ?></select><button class="btn btn-primary btn-small" name="actualizar_estado_pedido">Actualizar</button></form></div></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
 <section id="pagos" class="card page-panel">
  <div class="section-title"><h2>Pagos</h2><span class="badge">S/ <?= number_format($totalPagos,2) ?> pagados</span></div>
