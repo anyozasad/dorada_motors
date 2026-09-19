@@ -1,6 +1,7 @@
 <?php
 
 include("conexion.php");
+require_once "sistema_bootstrap.php";
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     echo json_encode([
