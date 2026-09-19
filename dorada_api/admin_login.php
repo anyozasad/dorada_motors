@@ -1,6 +1,7 @@
 <?php
 require_once "conexion.php";
 require_once "sistema_bootstrap.php";
+header("Content-Type: text/html; charset=UTF-8");
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_name("adn_admin_session");
