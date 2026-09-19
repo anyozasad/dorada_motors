@@ -33,6 +33,44 @@ class ApiService {
     return decoded;
   }
 
+  static Future<dynamic> _postJson(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/$endpoint'),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('Respuesta inválida del servidor en $endpoint');
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (decoded is Map && decoded['mensaje'] != null) {
+        throw Exception(decoded['mensaje'].toString());
+      }
+      throw Exception('HTTP ${response.statusCode} al consultar $endpoint');
+    }
+
+    if (decoded is Map && decoded['estado'] == false) {
+      throw Exception(
+        decoded['mensaje']?.toString() ?? 'Error devuelto por la API',
+      );
+    }
+
+    return decoded;
+  }
+
   static Future<List<dynamic>> _getList(String endpoint) async {
     final decoded = await _getJson(endpoint);
 
@@ -51,6 +89,44 @@ class ApiService {
 
   static Future<List<dynamic>> obtenerPedidos() =>
       _getList('pedidos.php');
+
+  static Future<Map<String, dynamic>> iniciarSesion({
+    required String correo,
+    required String contrasena,
+  }) async {
+    final decoded = await _postJson('login.php', {
+      'correo': correo.trim().toLowerCase(),
+      'contrasena': contrasena,
+    });
+
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+
+    throw Exception('Respuesta inválida del inicio de sesión');
+  }
+
+  static Future<Map<String, dynamic>> registrarUsuario({
+    required String nombres,
+    required String apellidos,
+    required String correo,
+    required String contrasena,
+    String telefono = '',
+  }) async {
+    final decoded = await _postJson('usuarios.php', {
+      'nombres': nombres.trim(),
+      'apellidos': apellidos.trim(),
+      'correo': correo.trim().toLowerCase(),
+      'contrasena': contrasena,
+      'telefono': telefono.trim(),
+    });
+
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+
+    throw Exception('Respuesta inválida al registrar usuario');
+  }
 
   static Future<Map<String, dynamic>> obtenerDashboard() async {
     final decoded = await _getJson('dashboard_api.php');
