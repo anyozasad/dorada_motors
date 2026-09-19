@@ -1,6 +1,7 @@
 <?php
 
 include("conexion.php");
+require_once "sistema_bootstrap.php";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $datos = json_decode(file_get_contents("php://input"), true);
