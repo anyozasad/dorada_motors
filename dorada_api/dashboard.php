@@ -258,12 +258,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST["registrar_usuario"])) {
             $nombres = trim($_POST["nombres"] ?? "");
             $apellidos = trim($_POST["apellidos"] ?? "");
-            $correo = trim($_POST["correo"] ?? "");
+            $correo = strtolower(trim($_POST["correo"] ?? ""));
             $telefono = trim($_POST["telefono"] ?? "");
             $contrasenaPlano = $_POST["contrasena"] ?? "";
 
-            if ($nombres === "" || $correo === "" || $contrasenaPlano === "") {
-                redir("Completa nombres, correo y contraseña", "error", "usuarios");
+            if ($nombres === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($contrasenaPlano) < 6) {
+                redir("Completa los datos. La contraseña debe tener mínimo 6 caracteres", "error", "usuarios");
+            }
+
+            $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE correo=? LIMIT 1");
+            $stmt->bind_param("s",$correo);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                redir("Ese correo ya está registrado", "error", "usuarios");
             }
 
             $contrasena = password_hash($contrasenaPlano, PASSWORD_DEFAULT);
@@ -1744,10 +1751,10 @@ tbody tr:hover{background:#fafcff}
 </div>
 
 <nav class="mobile-bottom">
- <a href="#inicio" class="active">⌂<b>Dashboard</b></a>
- <a href="#gestion-productos">◇<b>Productos</b></a>
- <a href="#inventario">▤<b>Stock</b></a>
- <a href="#pedidos">🛒<b>Pedidos</b></a>
+ <a href="#inicio" class="active">⌂<b>Inicio</b></a>
+ <?php if(puede("gestion-productos")): ?><a href="#gestion-productos">◇<b>Productos</b></a><?php elseif(puede("clientes")): ?><a href="#clientes">👤<b>Clientes</b></a><?php endif; ?>
+ <?php if(puede("pedidos")): ?><a href="#pedidos">🛒<b>Pedidos</b></a><?php elseif(puede("inventario")): ?><a href="#inventario">▤<b>Stock</b></a><?php endif; ?>
+ <?php if(puede("reportes")): ?><a href="#reportes">▥<b>Reportes</b></a><?php elseif($adminRol==="Administrador"): ?><a href="#configuracion">⚙<b>Ajustes</b></a><?php endif; ?>
 </nav>
 
 <script>
