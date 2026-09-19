@@ -1,75 +1,114 @@
 <?php
 
 include("conexion.php");
+require_once "sistema_bootstrap.php";
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-
-    $datos = json_decode(
-        file_get_contents("php://input"),
-        true
-    );
-
-    $id_usuario = $datos["id_usuario"];
-    $id_producto = $datos["id_producto"];
-    $tipo = $datos["tipo_registro"];
-
-    $sql = "INSERT INTO carrito_favorito
-            (
-                id_usuario,
-                id_producto,
-                tipo_registro,
-                fecha_registro
-            )
-            VALUES (?, ?, ?, NOW())";
-
-    $stmt = $conexion->prepare($sql);
-
-    $stmt->bind_param(
-        "iis",
-        $id_usuario,
-        $id_producto,
-        $tipo
-    );
-
-    if ($stmt->execute()) {
-
-        echo json_encode([
-            "estado" => true,
-            "mensaje" => "Producto agregado"
-        ]);
-    } else {
-
-        echo json_encode([
-            "estado" => false,
-            "mensaje" => "No se pudo agregar"
-        ]);
-    }
-
+function responderFavorito(array $data, int $status = 200): void {
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-$resultado = $conexion->query("
-    SELECT
-        cf.id_carrito_favorito,
-        cf.id_usuario,
-        cf.tipo_registro,
-        cf.fecha_registro,
+$metodo = $_SERVER["REQUEST_METHOD"];
 
-        p.id_producto,
-        p.nombre_producto,
-        p.precio,
-        p.imagen_url
+if ($metodo === "POST") {
+    $datos = json_decode(file_get_contents("php://input"), true);
 
-    FROM carrito_favorito cf
+    if (!is_array($datos)) {
+        responderFavorito(["estado"=>false,"mensaje"=>"Datos inválidos"], 400);
+    }
 
-    INNER JOIN producto p
-        ON cf.id_producto = p.id_producto
-");
+    $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    $idProducto = (int)($datos["id_producto"] ?? 0);
+    $accion = strtolower(trim($datos["accion"] ?? "agregar"));
+
+    if ($idUsuario <= 0 || $idProducto <= 0) {
+        responderFavorito(["estado"=>false,"mensaje"=>"Faltan usuario o producto"], 400);
+    }
+
+    if ($accion === "quitar" || $accion === "eliminar") {
+        $stmt = $conexion->prepare("DELETE FROM favorito WHERE id_usuario=? AND id_producto=?");
+        $stmt->bind_param("ii",$idUsuario,$idProducto);
+        $stmt->execute();
+
+        responderFavorito(["estado"=>true,"mensaje"=>"Favorito eliminado"]);
+    }
+
+    $stmt = $conexion->prepare("
+        INSERT IGNORE INTO favorito (id_usuario,id_producto,fecha_registro)
+        VALUES (?,?,NOW())
+    ");
+    $stmt->bind_param("ii",$idUsuario,$idProducto);
+    $stmt->execute();
+
+    responderFavorito(["estado"=>true,"mensaje"=>"Producto guardado en favoritos"]);
+}
+
+if ($metodo === "DELETE") {
+    $datos = json_decode(file_get_contents("php://input"), true) ?: [];
+    $idUsuario = (int)($datos["id_usuario"] ?? $_GET["id_usuario"] ?? 0);
+    $idProducto = (int)($datos["id_producto"] ?? $_GET["id_producto"] ?? 0);
+
+    if ($idUsuario <= 0 || $idProducto <= 0) {
+        responderFavorito(["estado"=>false,"mensaje"=>"Faltan usuario o producto"], 400);
+    }
+
+    $stmt = $conexion->prepare("DELETE FROM favorito WHERE id_usuario=? AND id_producto=?");
+    $stmt->bind_param("ii",$idUsuario,$idProducto);
+    $stmt->execute();
+
+    responderFavorito(["estado"=>true,"mensaje"=>"Favorito eliminado"]);
+}
+
+$idUsuario = (int)($_GET["id_usuario"] ?? 0);
+
+if ($idUsuario > 0) {
+    $stmt = $conexion->prepare("
+        SELECT
+            f.id_favorito,
+            f.id_usuario,
+            f.fecha_registro,
+            p.id_producto,
+            p.nombre_producto,
+            p.precio,
+            p.stock,
+            p.imagen_url,
+            m.nombre_marca,
+            c.nombre_categoria
+        FROM favorito f
+        INNER JOIN producto p ON f.id_producto=p.id_producto
+        INNER JOIN marca m ON p.id_marca=m.id_marca
+        INNER JOIN categoria c ON p.id_categoria=c.id_categoria
+        WHERE f.id_usuario=?
+        ORDER BY f.id_favorito DESC
+    ");
+    $stmt->bind_param("i",$idUsuario);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+} else {
+    $resultado = $conexion->query("
+        SELECT
+            f.id_favorito,
+            f.id_usuario,
+            f.fecha_registro,
+            p.id_producto,
+            p.nombre_producto,
+            p.precio,
+            p.stock,
+            p.imagen_url,
+            m.nombre_marca,
+            c.nombre_categoria
+        FROM favorito f
+        INNER JOIN producto p ON f.id_producto=p.id_producto
+        INNER JOIN marca m ON p.id_marca=m.id_marca
+        INNER JOIN categoria c ON p.id_categoria=c.id_categoria
+        ORDER BY f.id_favorito DESC
+    ");
+}
 
 $datos = [];
-
 while ($fila = $resultado->fetch_assoc()) {
     $datos[] = $fila;
 }
 
-echo json_encode($datos);
+echo json_encode($datos, JSON_UNESCAPED_UNICODE);
