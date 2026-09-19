@@ -2,6 +2,12 @@
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_name("adn_admin_session");
+    session_set_cookie_params([
+        "httponly" => true,
+        "secure" => (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off"),
+        "samesite" => "Lax",
+        "path" => "/",
+    ]);
     session_start();
 }
 
