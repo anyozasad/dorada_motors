@@ -1519,44 +1519,91 @@ tbody tr:hover{background:#fafcff}
 </section>
 <?php endif; ?>
 
+<?php if(puede("pagos")): ?>
 <section id="pagos" class="card page-panel">
- <div class="section-title"><h2>Pagos</h2><span class="badge">S/ <?= number_format($totalPagos,2) ?> pagados</span></div>
+ <div class="section-intro"><div><h2>Pagos</h2><p>Controla montos y confirma el estado de cada pago recibido.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPagos','pagos_adn.csv')">Exportar CSV</button><span class="badge">S/ <?= number_format($totalPagos,2) ?> confirmados</span></div></div>
  <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$pagos): ?><tr><td colspan="7" style="text-align:center;color:#718096">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr><td><?= h($pg["id_pago"]) ?></td><td>#<?= h($pg["id_pedido"]) ?></td><td><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><?= h($pg["estado_pago"]) ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_pago" value="<?= h($pg["id_pago"]) ?>"><select name="estado_pago"><option>Pendiente</option><option>Pagado</option><option>Rechazado</option></select><button class="btn btn-primary" name="actualizar_estado_pago">Actualizar</button></form></td></tr><?php endforeach; endif; ?>
+ <?php if(!$pagos): ?><tr><td colspan="7" class="empty-cell">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr>
+  <td>#<?= h($pg["id_pago"]) ?></td><td><a class="link-action" href="dashboard.php?pedido_detalle=<?= h($pg["id_pedido"]) ?>#pedidos">#<?= h($pg["id_pedido"]) ?></a></td><td><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><span class="status-pill"><?= h($pg["estado_pago"]) ?></span></td>
+  <td><form method="POST" class="inline-form"><input type="hidden" name="id_pago" value="<?= h($pg["id_pago"]) ?>"><select name="estado_pago"><?php foreach(["Pendiente","Pagado","Rechazado"] as $estPago): ?><option value="<?= h($estPago) ?>" <?= $pg["estado_pago"]===$estPago?"selected":"" ?>><?= h($estPago) ?></option><?php endforeach; ?></select><button class="btn btn-primary btn-small" name="actualizar_estado_pago">Actualizar</button></form></td>
+ </tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
+<?php if(puede("comprobantes")): ?>
+<section id="comprobantes" class="card page-panel">
+ <div class="section-intro"><div><h2>Comprobantes</h2><p>Emite boletas o facturas usando el IGV configurado de <?= number_format($igvEmpresa,2) ?>%.</p></div><span class="badge"><?= count($comprobantes) ?> emitidos</span></div>
+ <form method="POST" class="form-grid">
+  <div class="field"><label>PEDIDO</label><select name="id_pedido_comprobante" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $ped): ?><option value="<?= h($ped["id_pedido"]) ?>">#<?= h($ped["id_pedido"]) ?> — <?= h($ped["nombres"]." ".$ped["apellidos"]) ?> — S/ <?= number_format((float)$ped["total"],2) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>TIPO</label><select name="tipo_comprobante"><option>Boleta</option><option>Factura</option></select></div>
+  <div class="field"><label>NÚMERO</label><input name="numero_comprobante" required placeholder="B001-000001"></div>
+  <div class="form-actions"><button class="btn btn-primary" name="registrar_comprobante">+ Emitir comprobante</button></div>
+ </form>
+ <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Tipo</th><th>Número</th><th>Subtotal</th><th>IGV</th><th>Total</th><th></th></tr></thead><tbody>
+ <?php if(!$comprobantes): ?><tr><td colspan="9" class="empty-cell">No hay comprobantes.</td></tr><?php else: foreach($comprobantes as $cp): ?><tr><td>#<?= h($cp["id_comprobante"]) ?></td><td>#<?= h($cp["id_pedido"]) ?></td><td><?= h($cp["nombres"]." ".$cp["apellidos"]) ?></td><td><?= h($cp["tipo_comprobante"]) ?></td><td><strong><?= h($cp["numero_comprobante"]) ?></strong></td><td>S/ <?= number_format((float)$cp["subtotal"],2) ?></td><td>S/ <?= number_format((float)$cp["igv"],2) ?></td><td class="price">S/ <?= number_format((float)$cp["total"],2) ?></td><td><div class="actions"><a class="btn btn-light btn-small" target="_blank" href="comprobante_print.php?id=<?= h($cp["id_comprobante"]) ?>">Imprimir</a><form method="POST" onsubmit="return confirm('¿Eliminar comprobante?');"><input type="hidden" name="id_comprobante" value="<?= h($cp["id_comprobante"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_comprobante">Eliminar</button></form></div></td></tr><?php endforeach; endif; ?>
+ </tbody></table></div>
+</section>
+<?php endif; ?>
+
+<?php if(puede("devoluciones")): ?>
+<section id="devoluciones" class="card page-panel">
+ <div class="section-intro"><div><h2>Devoluciones y reembolsos</h2><p>Registra productos devueltos y restaura automáticamente las unidades al inventario.</p></div><span class="badge"><?= count($devoluciones) ?> registros</span></div>
+ <div class="two-col">
+  <form method="POST" class="form-grid" style="grid-template-columns:1fr">
+   <div class="field"><label>PEDIDO</label><select name="id_pedido_devolucion" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $ped): ?><option value="<?= h($ped["id_pedido"]) ?>">#<?= h($ped["id_pedido"]) ?> — <?= h($ped["nombres"]." ".$ped["apellidos"]) ?></option><?php endforeach; ?></select></div>
+   <div class="field"><label>PRODUCTO</label><select name="id_producto_devolucion" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?></option><?php endforeach; ?></select></div>
+   <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_devolucion" required></div>
+   <div class="field"><label>MOTIVO</label><textarea name="motivo_devolucion" required placeholder="Ej. Producto defectuoso, cambio de modelo..."></textarea></div>
+   <div class="form-actions"><button class="btn btn-primary" name="registrar_devolucion">Registrar devolución</button></div>
+  </form>
+  <div class="info-panel"><span class="info-icon">↩</span><h3>¿Qué ocurre al registrar?</h3><p>El sistema valida que el producto pertenezca al pedido, calcula el reembolso según el precio vendido, registra la devolución y devuelve las unidades al stock.</p></div>
+ </div>
+ <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Reembolso</th><th>Fecha</th></tr></thead><tbody>
+ <?php if(!$devoluciones): ?><tr><td colspan="8" class="empty-cell">No hay devoluciones registradas.</td></tr><?php else: foreach($devoluciones as $dev): ?><tr><td>#<?= h($dev["id_devolucion"]) ?></td><td>#<?= h($dev["id_pedido"]) ?></td><td><?= h($dev["nombres"]." ".$dev["apellidos"]) ?></td><td><?= h($dev["nombre_producto"]) ?></td><td><?= (int)$dev["cantidad"] ?></td><td><?= h($dev["motivo"]) ?></td><td class="price">S/ <?= number_format((float)$dev["monto_reembolso"],2) ?></td><td><?= h($dev["fecha_devolucion"]) ?></td></tr><?php endforeach; endif; ?>
+ </tbody></table></div>
+</section>
+<?php endif; ?>
+
+<?php if(puede("favoritos")): ?>
 <section id="favoritos" class="card page-panel">
- <div class="section-title"><h2>Favoritos</h2><span class="badge"><?= count($favoritos) ?> registros</span></div>
+ <div class="section-intro"><div><h2>Favoritos</h2><p>Productos guardados por los clientes desde la aplicación.</p></div><span class="badge"><?= count($favoritos) ?> registros</span></div>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Usuario</th><th>Producto</th><th>Precio</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$favoritos): ?><tr><td colspan="6" style="text-align:center;color:#718096">No hay favoritos registrados.</td></tr><?php else: foreach($favoritos as $f): ?><tr><td><?= h($f["id_favorito"]) ?></td><td><?= h($f["nombres"]." ".$f["apellidos"]) ?></td><td><?= h($f["nombre_producto"]) ?></td><td class="price">S/ <?= number_format((float)$f["precio"],2) ?></td><td><?= h($f["fecha_registro"]) ?></td><td><form method="POST"><input type="hidden" name="id_favorito" value="<?= h($f["id_favorito"]) ?>"><button class="btn btn-danger" name="eliminar_favorito">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+ <?php if(!$favoritos): ?><tr><td colspan="6" class="empty-cell">No hay favoritos registrados.</td></tr><?php else: foreach($favoritos as $fav): ?><tr><td>#<?= h($fav["id_favorito"]) ?></td><td><?= h($fav["nombres"]." ".$fav["apellidos"]) ?></td><td><strong><?= h($fav["nombre_producto"]) ?></strong></td><td class="price">S/ <?= number_format((float)$fav["precio"],2) ?></td><td><?= h($fav["fecha_registro"]) ?></td><td><form method="POST"><input type="hidden" name="id_favorito" value="<?= h($fav["id_favorito"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_favorito">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
-
+<?php if(puede("inventario")): ?>
 <section id="inventario" class="card page-panel">
  <div class="section-intro">
-  <div><h2>Inventario y stock</h2><p>Controla entradas, salidas y existencias reales de tus repuestos.</p></div>
-  <span class="badge"><?= $unidadesStock ?> unidades</span>
+  <div><h2>Inventario y Kardex</h2><p>Controla existencias y conserva el historial de cada entrada y salida.</p></div>
+  <div class="kpi-inline"><span class="pill"><?= $unidadesStock ?> unidades</span><span class="pill danger-soft"><?= $stockBajo ?> bajo mínimo</span></div>
  </div>
- <div class="two-col">
+ <div class="two-col inventory-layout">
   <div>
    <form method="POST" class="form-grid" style="grid-template-columns:1fr">
-    <div class="field"><label>PRODUCTO</label><select name="id_producto_stock" required><option value="">Seleccione producto</option><?php foreach($productos as $p): ?><option value="<?= h($p["id_producto"]) ?>"><?= h($p["nombre_producto"]) ?> — Stock: <?= (int)$p["stock"] ?></option><?php endforeach; ?></select></div>
+    <div class="field"><label>PRODUCTO</label><select name="id_producto_stock" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?> — Stock: <?= (int)$prod["stock"] ?> / Mín: <?= (int)($prod["stock_minimo"]??5) ?></option><?php endforeach; ?></select></div>
     <div class="field"><label>TIPO DE MOVIMIENTO</label><select name="tipo_movimiento"><option>Entrada</option><option>Salida</option></select></div>
     <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_movimiento" required></div>
-    <div class="field"><label>MOTIVO</label><input type="text" name="motivo_movimiento" placeholder="Ej. Ajuste de inventario"></div>
+    <div class="field"><label>MOTIVO</label><input type="text" name="motivo_movimiento" placeholder="Ej. Ajuste, pérdida, ingreso manual"></div>
     <div class="form-actions"><button class="btn btn-primary" name="registrar_movimiento">Registrar movimiento</button></div>
    </form>
+   <div class="inventory-summary">
+    <?php foreach(array_slice($productosStockBajo,0,5) as $sb): ?><div><span class="stock-dot <?= (int)$sb["stock"]<=0?"danger":"warning" ?>"></span><strong><?= h($sb["nombre_producto"]) ?></strong><small><?= (int)$sb["stock"] ?> / mín. <?= (int)$sb["stock_minimo"] ?></small></div><?php endforeach; ?>
+    <?php if(!$productosStockBajo): ?><div class="empty-state">✓ No hay productos debajo del mínimo.</div><?php endif; ?>
+   </div>
   </div>
-  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Fecha</th></tr></thead><tbody>
-   <?php if(!$movimientos): ?><tr><td colspan="6" style="text-align:center;color:#718096">No hay movimientos de stock.</td></tr><?php else: foreach($movimientos as $mv): ?><tr><td><?= h($mv["id_movimiento"]) ?></td><td><?= h($mv["nombre_producto"]) ?></td><td><span class="status <?= $mv["tipo_movimiento"]==="Entrada"?"ok":"warn" ?>"><?= h($mv["tipo_movimiento"]) ?></span></td><td><?= (int)$mv["cantidad"] ?></td><td><?= h($mv["motivo"]) ?></td><td><?= h($mv["fecha_movimiento"]) ?></td></tr><?php endforeach; endif; ?>
+  <div class="table-wrap"><table id="tablaKardex"><thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cant.</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead><tbody>
+   <?php if(!$movimientos): ?><tr><td colspan="7" class="empty-cell">No hay movimientos de stock.</td></tr><?php else: foreach($movimientos as $mv): ?><tr><td><?= h($mv["fecha_movimiento"]) ?></td><td><strong><?= h($mv["nombre_producto"]) ?></strong></td><td><span class="status-pill <?= $mv["tipo_movimiento"]==="Entrada"?"success":"warning" ?>"><?= h($mv["tipo_movimiento"]) ?></span></td><td><?= (int)$mv["cantidad"] ?></td><td><?= $mv["stock_anterior"]!==null?(int)$mv["stock_anterior"]:"-" ?></td><td><strong><?= $mv["stock_nuevo"]!==null?(int)$mv["stock_nuevo"]:"-" ?></strong></td><td><?= h($mv["motivo"]) ?></td></tr><?php endforeach; endif; ?>
   </tbody></table></div>
  </div>
 </section>
+<?php endif; ?>
 
+<?php if(puede("proveedores")): ?>
 <section id="proveedores" class="card page-panel">
- <div class="section-intro"><div><h2>Proveedores</h2><p>Registra las empresas que abastecen los productos de Dorada Motors.</p></div><span class="badge"><?= $totalProveedores ?> registrados</span></div>
+ <div class="section-intro"><div><h2>Proveedores</h2><p>Empresas que abastecen los repuestos de <?= h($configEmpresa["nombre_comercial"]??"Dorada Motors") ?>.</p></div><span class="badge"><?= $totalProveedores ?> registrados</span></div>
  <form method="POST" class="form-grid">
   <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social" required placeholder="Nombre del proveedor"></div>
   <div class="field"><label>RUC</label><input name="ruc" placeholder="RUC"></div>
@@ -1566,62 +1613,115 @@ tbody tr:hover{background:#fafcff}
   <div class="form-actions"><button class="btn btn-primary" name="registrar_proveedor">+ Registrar proveedor</button></div>
  </form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>RUC</th><th>Teléfono</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$proveedores): ?><tr><td colspan="7" style="text-align:center;color:#718096">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td><?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status ok"><?= h($pr["estado"]) ?></span></td><td><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger" name="eliminar_proveedor">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+ <?php if(!$proveedores): ?><tr><td colspan="7" class="empty-cell">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td>#<?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status-pill success"><?= h($pr["estado"]) ?></span></td><td><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_proveedor">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
+<?php if(puede("compras")): ?>
 <section id="compras" class="card page-panel">
- <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra compras a proveedores y aumenta automáticamente el stock.</p></div><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div>
+ <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra la reposición de mercadería; el stock aumenta automáticamente.</p></div><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div>
  <form method="POST" class="form-grid">
   <div class="field"><label>PROVEEDOR</label><select name="id_proveedor_compra" required><option value="">Seleccione proveedor</option><?php foreach($proveedores as $pr): ?><option value="<?= h($pr["id_proveedor"]) ?>"><?= h($pr["razon_social"]) ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>PRODUCTO</label><select name="id_producto_compra" required><option value="">Seleccione producto</option><?php foreach($productos as $p): ?><option value="<?= h($p["id_producto"]) ?>"><?= h($p["nombre_producto"]) ?></option><?php endforeach; ?></select></div>
+  <div class="field"><label>PRODUCTO</label><select name="id_producto_compra" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?> · Stock <?= (int)$prod["stock"] ?></option><?php endforeach; ?></select></div>
   <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_compra" required></div>
   <div class="field"><label>PRECIO DE COMPRA</label><input type="number" min="0" step="0.01" name="precio_compra" required></div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
  </form>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead><tbody>
- <?php if(!$compras): ?><tr><td colspan="5" style="text-align:center;color:#718096">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr><td>#<?= h($co["id_compra"]) ?></td><td><?= h($co["razon_social"]) ?></td><td><?= h($co["fecha_compra"]) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><span class="status ok"><?= h($co["estado"]) ?></span></td></tr><?php endforeach; endif; ?>
+ <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead><tbody>
+ <?php if(!$compras): ?><tr><td colspan="5" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["fecha_compra"]) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><span class="status-pill success"><?= h($co["estado"]) ?></span></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
+<?php endif; ?>
 
-<section id="comprobantes" class="card page-panel">
- <div class="section-intro"><div><h2>Comprobantes</h2><p>Genera el registro de boletas o facturas vinculadas a un pedido.</p></div><span class="badge"><?= count($comprobantes) ?> emitidos</span></div>
- <form method="POST" class="form-grid">
-  <div class="field"><label>PEDIDO</label><select name="id_pedido_comprobante" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $p): ?><option value="<?= h($p["id_pedido"]) ?>">#<?= h($p["id_pedido"]) ?> — <?= h($p["nombres"]." ".$p["apellidos"]) ?> — S/ <?= number_format((float)$p["total"],2) ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>TIPO</label><select name="tipo_comprobante"><option>Boleta</option><option>Factura</option></select></div>
-  <div class="field"><label>NÚMERO</label><input name="numero_comprobante" required placeholder="B001-000001"></div>
-  <div class="form-actions"><button class="btn btn-primary" name="registrar_comprobante">+ Emitir comprobante</button></div>
+<?php if(puede("reportes")): ?>
+<section id="reportes" class="card page-panel">
+ <div class="section-intro"><div><h2>Reportes y análisis</h2><p>Selecciona un periodo y revisa ventas, pedidos y productos más vendidos.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="window.print()">Imprimir</button><span class="badge"><?= h($reporteDesde) ?> → <?= h($reporteHasta) ?></span></div></div>
+
+ <form method="GET" action="dashboard.php#reportes" class="report-filter">
+  <div class="field"><label>DESDE</label><input type="date" name="desde" value="<?= h($reporteDesde) ?>"></div>
+  <div class="field"><label>HASTA</label><input type="date" name="hasta" value="<?= h($reporteHasta) ?>"></div>
+  <button class="btn btn-primary">Aplicar periodo</button>
  </form>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Tipo</th><th>Número</th><th>IGV</th><th>Total</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$comprobantes): ?><tr><td colspan="8" style="text-align:center;color:#718096">No hay comprobantes.</td></tr><?php else: foreach($comprobantes as $cp): ?><tr><td><?= h($cp["id_comprobante"]) ?></td><td>#<?= h($cp["id_pedido"]) ?></td><td><?= h($cp["nombres"]." ".$cp["apellidos"]) ?></td><td><?= h($cp["tipo_comprobante"]) ?></td><td><?= h($cp["numero_comprobante"]) ?></td><td>S/ <?= number_format((float)$cp["igv"],2) ?></td><td class="price">S/ <?= number_format((float)$cp["total"],2) ?></td><td><form method="POST" onsubmit="return confirm('¿Eliminar comprobante?');"><input type="hidden" name="id_comprobante" value="<?= h($cp["id_comprobante"]) ?>"><button class="btn btn-danger" name="eliminar_comprobante">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+
+ <div class="stats-row report-stats">
+  <div class="mini-stat"><small>VENTAS DEL PERIODO</small><strong>S/ <?= number_format((float)$reporteResumen["ventas"],2) ?></strong></div>
+  <div class="mini-stat"><small>PEDIDOS DEL PERIODO</small><strong><?= (int)$reporteResumen["pedidos"] ?></strong></div>
+  <div class="mini-stat"><small>TICKET PROMEDIO</small><strong>S/ <?= number_format((float)$reporteResumen["ticket_promedio"],2) ?></strong></div>
+  <div class="mini-stat"><small>UNIDADES EN STOCK</small><strong><?= $unidadesStock ?></strong></div>
+  <div class="mini-stat"><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong></div>
+  <div class="mini-stat"><small>COMPRAS ACUMULADAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong></div>
+ </div>
+
+ <div class="two-col report-grid">
+  <div class="table-wrap"><table id="tablaReporteProductos"><thead><tr><th>Producto</th><th>Unidades</th><th>Importe</th></tr></thead><tbody>
+   <?php if(!$reporteTopProductos): ?><tr><td colspan="3" class="empty-cell">No hay ventas en el periodo.</td></tr><?php else: foreach($reporteTopProductos as $rp): ?><tr><td><strong><?= h($rp["nombre_producto"]) ?></strong></td><td><?= (int)$rp["unidades"] ?></td><td class="price">S/ <?= number_format((float)$rp["importe"],2) ?></td></tr><?php endforeach; endif; ?>
+  </tbody></table></div>
+  <div class="report-actions-card">
+   <span class="report-icon">▥</span><h3>Exportar información</h3><p>Puedes imprimir el reporte o exportar las tablas principales para trabajar en Excel.</p>
+   <button type="button" class="btn btn-light" onclick="exportarTabla('tablaReporteProductos','reporte_productos_adn.csv')">Exportar productos CSV</button>
+   <button type="button" class="btn btn-light" onclick="exportarTabla('tablaPedidos','pedidos_adn.csv')">Exportar pedidos CSV</button>
+  </div>
+ </div>
+</section>
+<?php endif; ?>
+
+<?php if($adminRol === "Administrador"): ?>
+<section id="auditoria" class="card page-panel">
+ <div class="section-intro"><div><h2>Auditoría / Bitácora</h2><p>Historial de acciones realizadas por el personal dentro del panel administrativo.</p></div><span class="badge">Últimos <?= count($bitacora) ?> eventos</span></div>
+ <div class="table-wrap"><table id="tablaAuditoria"><thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Módulo</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead><tbody>
+ <?php if(!$bitacora): ?><tr><td colspan="7" class="empty-cell">Aún no hay acciones registradas.</td></tr><?php else: foreach($bitacora as $log): ?><tr><td><?= h($log["fecha"]) ?></td><td><?= h($log["usuario"]) ?></td><td><span class="status-pill"><?= h($log["rol"]) ?></span></td><td><?= h($log["modulo"]) ?></td><td><strong><?= h($log["accion"]) ?></strong></td><td><?= h($log["detalle"]) ?></td><td><?= h($log["ip"]) ?></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 
 <section id="configuracion" class="card page-panel">
- <div class="section-intro"><div><h2>Configuración del sistema</h2><p>Información clara para comprobar que frontend, backend y base de datos están comunicados.</p></div><span class="badge">Sistema activo</span></div>
- <div class="system-grid">
-  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BACKEND</small><strong>PHP conectado</strong><p>API disponible en /dorada_api/</p></div></div>
-  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BASE DE DATOS</small><strong>MySQL conectado</strong><p>Base: dorada_motors</p></div></div>
-  <div class="system-card"><span class="system-icon ok">✓</span><div><small>FRONTEND</small><strong>Flutter preparado</strong><p>Consume endpoints JSON del backend</p></div></div>
-  <div class="system-card"><span class="system-icon warn">!</span><div><small>ALERTAS</small><strong><?= $stockBajo ?> stock bajo</strong><p><?= $pedidosPendientes ?> pedidos por atender</p></div></div>
- </div>
- <div class="help-card">
-  <div><strong>Flujo del sistema</strong><p>Flutter → PHP/API → MySQL. El panel web administra los mismos datos que utiliza la aplicación.</p></div>
-  <button type="button" class="btn btn-primary" onclick="mostrarPanel('inicio',true)">Volver al dashboard</button>
- </div>
-</section>
+ <div class="section-intro"><div><h2>Configuración y seguridad</h2><p>Datos de la empresa, roles del personal, respaldo y estado de la arquitectura.</p></div><span class="badge">Administrador</span></div>
 
-<section id="reportes" class="card page-panel">
- <div class="section-title"><div><div class="eyebrow">Análisis</div><h2>Reportes rápidos</h2></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="window.print()">Imprimir reporte</button><span class="badge">Resumen actual</span></div></div>
- <div class="stats-row">
-  <div class="mini-stat"><small>VENTAS REGISTRADAS</small><strong>S/ <?= number_format($totalVentas,2) ?></strong></div>
-  <div class="mini-stat"><small>PAGOS CONFIRMADOS</small><strong>S/ <?= number_format($totalPagos,2) ?></strong></div>
-  <div class="mini-stat"><small>PRODUCTOS EN CATÁLOGO</small><strong><?= $totalProductos ?></strong></div>
-  <div class="mini-stat"><small>UNIDADES EN STOCK</small><strong><?= $unidadesStock ?></strong></div>
-  <div class="mini-stat"><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong></div>
-  <div class="mini-stat"><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong></div>
+ <div class="system-grid">
+  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BACKEND</small><strong>PHP conectado</strong><p>API /dorada_api/</p></div></div>
+  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BASE DE DATOS</small><strong>MySQL conectado</strong><p>dorada_motors</p></div></div>
+  <div class="system-card"><span class="system-icon ok">✓</span><div><small>FRONTEND</small><strong>Flutter</strong><p>Consume endpoints JSON</p></div></div>
+  <div class="system-card"><span class="system-icon warn">!</span><div><small>ATENCIÓN</small><strong><?= $stockBajo ?> stock bajo</strong><p><?= $pedidosPendientes ?> pedidos por atender</p></div></div>
+ </div>
+
+ <div class="config-grid">
+  <article class="config-card">
+   <div class="card-head"><h2>Datos de la empresa</h2><span class="badge">Comprobantes</span></div>
+   <form method="POST" class="form-grid">
+    <div class="field"><label>NOMBRE COMERCIAL</label><input name="nombre_comercial" value="<?= h($configEmpresa["nombre_comercial"]??"Dorada Motors") ?>" required></div>
+    <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social_empresa" value="<?= h($configEmpresa["razon_social"]??"ADN Import's") ?>" required></div>
+    <div class="field"><label>RUC</label><input name="ruc_empresa" value="<?= h($configEmpresa["ruc"]??"") ?>"></div>
+    <div class="field"><label>TELÉFONO</label><input name="telefono_empresa" value="<?= h($configEmpresa["telefono"]??"") ?>"></div>
+    <div class="field"><label>CORREO</label><input type="email" name="correo_empresa" value="<?= h($configEmpresa["correo"]??"") ?>"></div>
+    <div class="field"><label>MONEDA</label><input name="moneda_empresa" value="<?= h($configEmpresa["moneda"]??"S/") ?>"></div>
+    <div class="field"><label>IGV %</label><input type="number" step="0.01" min="0" max="100" name="igv_empresa" value="<?= h($configEmpresa["igv"]??18) ?>"></div>
+    <div class="field full"><label>DIRECCIÓN</label><input name="direccion_empresa" value="<?= h($configEmpresa["direccion"]??"") ?>"></div>
+    <div class="form-actions"><button class="btn btn-primary" name="guardar_configuracion">Guardar configuración</button></div>
+   </form>
+  </article>
+
+  <article class="config-card">
+   <div class="card-head"><h2>Crear usuario del personal</h2><span class="badge">Roles</span></div>
+   <form method="POST" class="form-grid">
+    <div class="field"><label>NOMBRE</label><input name="nombres_admin" required></div>
+    <div class="field"><label>CORREO</label><input type="email" name="correo_admin" required></div>
+    <div class="field"><label>CONTRASEÑA</label><input type="password" minlength="8" name="contrasena_admin" required></div>
+    <div class="field"><label>ROL</label><select name="rol_admin"><option>Vendedor</option><option>Almacen</option><option>Administrador</option></select></div>
+    <div class="form-actions"><button class="btn btn-primary" name="crear_admin_usuario">Crear usuario</button></div>
+   </form>
+  </article>
+ </div>
+
+ <div class="table-wrap"><table><thead><tr><th>Personal</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Permisos</th></tr></thead><tbody>
+ <?php foreach($adminUsuarios as $au): ?><tr><td><strong><?= h($au["nombres"]) ?></strong><small class="table-sub">#<?= h($au["id_admin"]) ?></small></td><td><?= h($au["correo"]) ?></td><td><?= h($au["rol"]) ?></td><td><span class="status-pill <?= $au["estado"]==="Activo"?"success":"danger" ?>"><?= h($au["estado"]) ?></span></td><td><?= h($au["ultimo_acceso"]??"Nunca") ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_admin_editar" value="<?= h($au["id_admin"]) ?>"><select name="rol_admin_editar"><?php foreach(["Administrador","Vendedor","Almacen"] as $rolOp): ?><option value="<?= h($rolOp) ?>" <?= $au["rol"]===$rolOp?"selected":"" ?>><?= h($rolOp) ?></option><?php endforeach; ?></select><select name="estado_admin_editar"><option value="Activo" <?= $au["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $au["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light btn-small" name="actualizar_admin_usuario">Guardar</button></form></td></tr><?php endforeach; ?>
+ </tbody></table></div>
+
+ <div class="help-card backup-card">
+  <div><strong>Respaldo de base de datos</strong><p>Descarga un archivo SQL con las tablas y registros actuales del sistema.</p></div>
+  <a class="btn btn-primary" href="backup.php">Descargar respaldo SQL</a>
  </div>
 </section>
+<?php endif; ?>
 
 </div>
 </main>
