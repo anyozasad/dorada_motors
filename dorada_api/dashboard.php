@@ -320,8 +320,8 @@ body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);c
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 a{text-decoration:none;color:inherit}
-.app{min-height:100vh;display:grid;grid-template-columns:235px minmax(0,1fr)}
-.sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,#0b2745,#0b2c4d);color:#fff;padding:22px 16px;display:flex;flex-direction:column;overflow:auto;z-index:50}
+.app{min-height:100vh;display:grid;grid-template-columns:218px minmax(0,1fr)}
+.sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,#0b2745,#0b2c4d);color:#fff;padding:18px 14px;display:flex;flex-direction:column;overflow:auto;z-index:50;border-right:1px solid rgba(255,255,255,.05)}
 .brand{display:flex;align-items:center;gap:11px;padding:0 7px 24px}
 .brand-mark{width:38px;height:38px;border:2px solid var(--gold);border-radius:12px 4px;display:grid;place-items:center;color:var(--gold);font-weight:900;transform:rotate(45deg)}
 .brand-mark span{transform:rotate(-45deg)}
@@ -346,10 +346,10 @@ a{text-decoration:none;color:inherit}
 .admin{display:flex;align-items:center;gap:10px;padding-left:10px;border-left:1px solid var(--border)}
 .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--gold));color:#fff;display:grid;place-items:center;font-weight:900}
 .admin small{display:block;color:var(--muted);font-size:10px}.admin strong{font-size:12px}
-.content{padding:24px;max-width:1480px;margin:auto}
+.content{padding:22px;max-width:1380px;margin:auto}
 .heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:18px}
 .eyebrow{font-size:11px;font-weight:900;letter-spacing:1.2px;color:#a67a12;text-transform:uppercase;margin-bottom:5px}
-.heading h1{font-size:27px;margin:0 0 5px;font-weight:900}.heading p{margin:0;color:var(--muted);font-size:13px}
+.heading h1{font-size:25px;margin:0 0 5px;font-weight:900}.heading p{margin:0;color:var(--muted);font-size:13px}
 .date-chip{background:#fff;border:1px solid var(--border);border-radius:11px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700}
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
 .metric{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:13px}
@@ -361,13 +361,13 @@ a{text-decoration:none;color:inherit}
 .card{background:#fff;border:1px solid var(--border);border-radius:17px;box-shadow:var(--shadow);padding:18px;min-width:0;margin-bottom:16px}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .card-head h2{font-size:15px;margin:0;font-weight:900}.card-head a{font-size:11px;color:var(--blue);font-weight:800}
-.chart{height:220px;display:flex;align-items:flex-end;gap:12px;padding:16px 4px 0;border-bottom:1px solid var(--border);background:linear-gradient(to top,rgba(229,234,241,.65) 1px,transparent 1px);background-size:100% 25%}
+.chart{height:190px;display:flex;align-items:flex-end;gap:12px;padding:16px 4px 0;border-bottom:1px solid var(--border);background:linear-gradient(to top,rgba(229,234,241,.65) 1px,transparent 1px);background-size:100% 25%}
 .chart-item{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px}
 .bar{width:min(44px,80%);min-height:4px;border-radius:9px 9px 3px 3px;background:linear-gradient(180deg,#e2b94e,#17395f);position:relative}
 .bar-tip{opacity:0;position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);background:#10233e;color:#fff;padding:6px 8px;border-radius:8px;font-size:10px;white-space:nowrap}
 .bar:hover .bar-tip{opacity:1}.day{font-size:10px;color:var(--muted);font-weight:700}
 .quick-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.quick{border:1px solid var(--border);border-radius:14px;padding:15px 10px;min-height:89px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:11px;font-weight:800;text-align:center;transition:.2s}
+.quick{border:1px solid var(--border);border-radius:14px;padding:13px 10px;min-height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:11px;font-weight:800;text-align:center;transition:.2s}
 .quick:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
 .quick.blue{background:#eef5ff;color:#245fae}.quick.gold{background:#fff5dd;color:#9d7108}.quick.purple{background:#f1edff;color:#674bc9}.quick.green{background:#e9f9f1;color:#158a5a}
 .table-wrap{overflow:auto}
@@ -396,6 +396,16 @@ tbody tr:hover{background:#fafcff}
 .toast{position:fixed;right:18px;top:84px;background:#10233e;color:#fff;padding:12px 15px;border-radius:12px;box-shadow:var(--shadow);z-index:100;display:none;font-size:12px}
 .overlay{display:none}
 .mobile-bottom{display:none}
+
+
+.page-panel{display:none;animation:panelIn .18s ease}
+.page-panel.active{display:block}
+@keyframes panelIn{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:none}}
+.page-panel.card{margin-bottom:0}
+.nav a.active{box-shadow:0 6px 16px rgba(215,166,42,.16)}
+.metric{transition:.18s}.metric:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,39,70,.10)}
+.quick span{line-height:1.2}
+.section-title{position:sticky;top:70px;background:#fff;z-index:8;padding:4px 0 10px}
 
 @media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr)}.grid-main,.grid-bottom{grid-template-columns:1fr}}
 @media(max-width:820px){
@@ -445,7 +455,8 @@ tbody tr:hover{background:#fafcff}
 <div class="content">
 <?php if ($mensaje !== ""): ?><div class="alert <?= $tipoMensaje === "error" ? "error" : "ok" ?>"><?= h($mensaje) ?></div><?php endif; ?>
 
-<section id="inicio" class="heading">
+<div id="inicio" class="page-panel active">
+<section class="heading">
  <div><div class="eyebrow">Panel de administración</div><h1>¡Bienvenido de nuevo, Administrador!</h1><p>Aquí tienes un resumen general de la actividad de Dorada Motors.</p></div>
  <div class="date-chip">📅 <?= h($fechaHoy) ?></div>
 </section>
@@ -495,8 +506,9 @@ tbody tr:hover{background:#fafcff}
   </div>
  </article>
 </section>
+</div>
 
-<section id="gestion-productos" class="card">
+<section id="gestion-productos" class="card page-panel">
  <div class="section-title"><div><div class="eyebrow">CRUD</div><h2><?= $productoEditar ? "Editar producto" : "Gestión de productos" ?></h2></div><span class="badge">CREATE · READ · UPDATE · DELETE</span></div>
  <form method="POST" class="form-grid">
   <?php if($productoEditar): ?><input type="hidden" name="id_producto" value="<?= h($productoEditar["id_producto"]) ?>"><?php endif; ?>
@@ -516,7 +528,7 @@ tbody tr:hover{background:#fafcff}
  </tbody></table></div>
 </section>
 
-<section id="categorias" class="card">
+<section id="categorias" class="card page-panel">
  <div class="section-title"><h2>Categorías</h2><span class="badge"><?= $totalCategorias ?> registradas</span></div>
  <form method="POST" class="inline-form" style="margin-bottom:14px"><input type="text" name="nombre_categoria" placeholder="Nueva categoría" required><button class="btn btn-primary" name="registrar_categoria">+ Agregar categoría</button></form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Categoría</th><th>Acción</th></tr></thead><tbody>
@@ -524,7 +536,7 @@ tbody tr:hover{background:#fafcff}
  </tbody></table></div>
 </section>
 
-<section id="marcas" class="card">
+<section id="marcas" class="card page-panel">
  <div class="section-title"><h2>Marcas</h2><span class="badge"><?= $totalMarcas ?> registradas</span></div>
  <form method="POST" class="inline-form" style="margin-bottom:14px"><input type="text" name="nombre_marca" placeholder="Nueva marca" required><button class="btn btn-primary" name="registrar_marca">+ Agregar marca</button></form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Marca</th><th>Acción</th></tr></thead><tbody>
@@ -532,7 +544,7 @@ tbody tr:hover{background:#fafcff}
  </tbody></table></div>
 </section>
 
-<section id="usuarios" class="card">
+<section id="usuarios" class="card page-panel">
  <div class="section-title"><h2>Usuarios</h2><span class="badge"><?= $totalUsuarios ?> registrados</span></div>
  <form method="POST" class="form-grid">
   <div class="field"><label>NOMBRES</label><input name="nombres" required></div><div class="field"><label>APELLIDOS</label><input name="apellidos"></div><div class="field"><label>CORREO</label><input type="email" name="correo" required></div><div class="field"><label>TELÉFONO</label><input name="telefono"></div><div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" required></div><div class="form-actions"><button class="btn btn-primary" name="registrar_usuario">+ Registrar usuario</button></div>
@@ -542,28 +554,28 @@ tbody tr:hover{background:#fafcff}
  </tbody></table></div>
 </section>
 
-<section id="pedidos" class="card">
+<section id="pedidos" class="card page-panel">
  <div class="section-title"><h2>Pedidos</h2><span class="badge"><?= $totalPedidos ?> registrados</span></div>
  <div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php foreach($pedidos as $p): ?><tr><td>#<?= h($p["id_pedido"]) ?></td><td><?= h($p["nombres"]." ".$p["apellidos"]) ?></td><td><?= h($p["fecha_pedido"]) ?></td><td class="price">S/ <?= number_format((float)$p["total"],2) ?></td><td><?= h($p["estado_pedido"]) ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_pedido" value="<?= h($p["id_pedido"]) ?>"><select name="estado_pedido"><option>Pendiente</option><option>Procesando</option><option>Pagado</option><option>Enviado</option><option>Completado</option><option>Cancelado</option></select><button class="btn btn-primary" name="actualizar_estado_pedido">Actualizar</button></form></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
 
-<section id="pagos" class="card">
+<section id="pagos" class="card page-panel">
  <div class="section-title"><h2>Pagos</h2><span class="badge">S/ <?= number_format($totalPagos,2) ?> pagados</span></div>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$pagos): ?><tr><td colspan="7" style="text-align:center;color:#718096">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr><td><?= h($pg["id_pago"]) ?></td><td>#<?= h($pg["id_pedido"]) ?></td><td><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><?= h($pg["estado_pago"]) ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_pago" value="<?= h($pg["id_pago"]) ?>"><select name="estado_pago"><option>Pendiente</option><option>Pagado</option><option>Rechazado</option></select><button class="btn btn-primary" name="actualizar_estado_pago">Actualizar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 
-<section id="favoritos" class="card">
+<section id="favoritos" class="card page-panel">
  <div class="section-title"><h2>Favoritos</h2><span class="badge"><?= count($favoritos) ?> registros</span></div>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Usuario</th><th>Producto</th><th>Precio</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$favoritos): ?><tr><td colspan="6" style="text-align:center;color:#718096">No hay favoritos registrados.</td></tr><?php else: foreach($favoritos as $f): ?><tr><td><?= h($f["id_favorito"]) ?></td><td><?= h($f["nombres"]." ".$f["apellidos"]) ?></td><td><?= h($f["nombre_producto"]) ?></td><td class="price">S/ <?= number_format((float)$f["precio"],2) ?></td><td><?= h($f["fecha_registro"]) ?></td><td><form method="POST"><input type="hidden" name="id_favorito" value="<?= h($f["id_favorito"]) ?>"><button class="btn btn-danger" name="eliminar_favorito">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 
-<section id="reportes" class="card">
+<section id="reportes" class="card page-panel">
  <div class="section-title"><h2>Reportes rápidos</h2><span class="badge">Resumen actual</span></div>
  <div class="stats-row">
   <div class="mini-stat"><small>VENTAS REGISTRADAS</small><strong>S/ <?= number_format($totalVentas,2) ?></strong></div>
@@ -596,10 +608,47 @@ if(buscador){
 const sidebar=document.getElementById('sidebar');
 const overlay=document.getElementById('overlay');
 const menuBtn=document.getElementById('menuBtn');
-function cerrarMenu(){sidebar.classList.remove('open');overlay.classList.remove('show')}
-menuBtn?.addEventListener('click',()=>{sidebar.classList.toggle('open');overlay.classList.toggle('show')});
+const navLinks=document.querySelectorAll('.nav a');
+const mobileLinks=document.querySelectorAll('.mobile-bottom a');
+const panels=document.querySelectorAll('.page-panel');
+
+function cerrarMenu(){
+ sidebar.classList.remove('open');
+ overlay.classList.remove('show');
+}
+
+function mostrarPanel(id, actualizarHash=true){
+ const destino=document.getElementById(id) || document.getElementById('inicio');
+
+ panels.forEach(p=>p.classList.remove('active'));
+ destino.classList.add('active');
+
+ navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
+ mobileLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
+
+ if(actualizarHash){
+  history.replaceState(null,'','#'+destino.id);
+ }
+
+ window.scrollTo({top:0,behavior:'smooth'});
+ cerrarMenu();
+}
+
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+ a.addEventListener('click',e=>{
+  const id=a.getAttribute('href').substring(1);
+  if(document.getElementById(id)){
+   e.preventDefault();
+   mostrarPanel(id,true);
+  }
+ });
+});
+
+menuBtn?.addEventListener('click',()=>{
+ sidebar.classList.toggle('open');
+ overlay.classList.toggle('show');
+});
 overlay?.addEventListener('click',cerrarMenu);
-document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>{cerrarMenu();document.querySelectorAll('.nav a').forEach(x=>x.classList.remove('active'));a.classList.add('active')}));
 
 const notiBtn=document.getElementById('notiBtn');
 const toast=document.getElementById('toast');
@@ -607,6 +656,9 @@ notiBtn?.addEventListener('click',()=>{
  toast.style.display='block';
  setTimeout(()=>toast.style.display='none',2200);
 });
+
+const inicial=location.hash ? location.hash.substring(1) : 'inicio';
+mostrarPanel(inicial,false);
 </script>
 </body>
 </html>
