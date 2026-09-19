@@ -425,7 +425,6 @@ for ($i=6; $i>=0; $i--) {
         "total"=>$total
     ];
 }
-}
 
 $pedidosConsulta = $conexion->query("
     SELECT DATE(fecha_pedido) AS fecha, COUNT(*) AS total
@@ -449,7 +448,7 @@ for ($i=6; $i>=0; $i--) {
         "dia"=>$diasCortos[(int)date("w", strtotime($fecha))],
         "total"=>$total
     ];
-
+}
 
 /* ================= DATOS ================= */
 $categorias = $conexion->query("SELECT * FROM categoria ORDER BY nombre_categoria")->fetch_all(MYSQLI_ASSOC);
