@@ -1,78 +1,49 @@
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pedido.dart';
 
 class LocalStore {
-  static const _userName = 'user_name';
-  static const _userEmail = 'user_email';
-  static const _userPasswordHash = 'user_password_hash';
+  static const _sessionUserId = 'session_user_id';
+  static const _sessionName = 'session_name';
   static const _sessionEmail = 'session_email';
   static const _favorites = 'favorites';
   static const _cart = 'cart';
   static const _orders = 'orders';
 
-  static String _hashPassword(String value) {
-    return sha256.convert(utf8.encode(value)).toString();
-  }
-
-  static Future<String?> registerUser({
+  static Future<void> saveSession({
+    required int userId,
     required String name,
     required String email,
-    required String password,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final cleanEmail = email.trim().toLowerCase();
-
-    if (name.trim().length < 3) return 'Ingresa tu nombre completo.';
-    if (!cleanEmail.contains('@')) return 'Ingresa un correo válido.';
-    if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
-
-    await prefs.setString(_userName, name.trim());
-    await prefs.setString(_userEmail, cleanEmail);
-    await prefs.setString(_userPasswordHash, _hashPassword(password));
-    await prefs.setString(_sessionEmail, cleanEmail);
-    return null;
-  }
-
-  static Future<String?> login({
-    required String email,
-    required String password,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString(_userEmail);
-    final savedHash = prefs.getString(_userPasswordHash);
-    final cleanEmail = email.trim().toLowerCase();
-
-    if (savedEmail == null || savedHash == null) {
-      return 'Aún no existe una cuenta registrada en este dispositivo.';
-    }
-    if (savedEmail != cleanEmail || savedHash != _hashPassword(password)) {
-      return 'Correo o contraseña incorrectos.';
-    }
-
-    await prefs.setString(_sessionEmail, cleanEmail);
-    return null;
+    await prefs.setString(_sessionUserId, userId.toString());
+    await prefs.setString(_sessionName, name.trim());
+    await prefs.setString(_sessionEmail, email.trim().toLowerCase());
   }
 
   static Future<Map<String, String>?> getSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final sessionEmail = prefs.getString(_sessionEmail);
-    final savedEmail = prefs.getString(_userEmail);
-    final savedName = prefs.getString(_userName);
+    final userId = prefs.getString(_sessionUserId);
+    final name = prefs.getString(_sessionName);
+    final email = prefs.getString(_sessionEmail);
 
-    if (sessionEmail == null || savedEmail == null || savedName == null) {
+    if (userId == null || name == null || email == null) {
       return null;
     }
-    if (sessionEmail != savedEmail) return null;
 
-    return {'name': savedName, 'email': savedEmail};
+    return {
+      'id': userId,
+      'name': name,
+      'email': email,
+    };
   }
 
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sessionUserId);
+    await prefs.remove(_sessionName);
     await prefs.remove(_sessionEmail);
   }
 
