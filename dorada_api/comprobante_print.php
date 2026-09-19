@@ -32,7 +32,7 @@ if (!$comprobante) {
 }
 
 $stmt = $conexion->prepare("
-    SELECT dp.cantidad,dp.precio,pr.nombre_producto
+    SELECT dp.cantidad,dp.precio_unitario,pr.nombre_producto
     FROM detalle_pedido dp
     INNER JOIN producto pr ON dp.id_producto=pr.id_producto
     WHERE dp.id_pedido=?
@@ -96,7 +96,7 @@ function e($v): string {
   <thead><tr><th>Producto</th><th>Cantidad</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
   <tbody>
    <?php foreach($items as $item): ?>
-   <tr><td><?= e($item["nombre_producto"]) ?></td><td><?= (int)$item["cantidad"] ?></td><td class="num">S/ <?= number_format((float)$item["precio"],2) ?></td><td class="num">S/ <?= number_format((float)$item["precio"]*(int)$item["cantidad"],2) ?></td></tr>
+   <tr><td><?= e($item["nombre_producto"]) ?></td><td><?= (int)$item["cantidad"] ?></td><td class="num">S/ <?= number_format((float)$item["precio_unitario"],2) ?></td><td class="num">S/ <?= number_format((float)$item["precio"]*(int)$item["cantidad"],2) ?></td></tr>
    <?php endforeach; ?>
   </tbody>
  </table>
