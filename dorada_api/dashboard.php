@@ -382,6 +382,21 @@ $totalProveedores = (int)$conexion->query("SELECT COUNT(*) AS total FROM proveed
 $totalCompras = (float)$conexion->query("SELECT COALESCE(SUM(total),0) AS total FROM compra")->fetch_assoc()["total"];
 $stockBajo = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto WHERE stock <= 5")->fetch_assoc()["total"];
 $unidadesStock = (int)$conexion->query("SELECT COALESCE(SUM(stock),0) AS total FROM producto")->fetch_assoc()["total"];
+$pedidosPendientes = (int)$conexion->query("
+    SELECT COUNT(*) AS total
+    FROM pedido
+    WHERE LOWER(estado_pedido) IN ('pendiente','procesando')
+")->fetch_assoc()["total"];
+$ventasHoy = (float)$conexion->query("
+    SELECT COALESCE(SUM(total),0) AS total
+    FROM pedido
+    WHERE DATE(fecha_pedido)=CURDATE()
+")->fetch_assoc()["total"];
+$stockCritico = (int)$conexion->query("
+    SELECT COUNT(*) AS total
+    FROM producto
+    WHERE stock <= 2
+")->fetch_assoc()["total"];
 
 /* ================= VENTAS 7 DÍAS ================= */
 $ventasConsulta = $conexion->query("
@@ -410,6 +425,31 @@ for ($i=6; $i>=0; $i--) {
         "total"=>$total
     ];
 }
+}
+
+$pedidosConsulta = $conexion->query("
+    SELECT DATE(fecha_pedido) AS fecha, COUNT(*) AS total
+    FROM pedido
+    WHERE DATE(fecha_pedido) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    GROUP BY DATE(fecha_pedido)
+    ORDER BY fecha
+");
+$pedidosPorFecha = [];
+while ($fila = $pedidosConsulta->fetch_assoc()) {
+    $pedidosPorFecha[$fila["fecha"]] = (int)$fila["total"];
+}
+$pedidos7 = [];
+$maxPedidos = 1;
+for ($i=6; $i>=0; $i--) {
+    $fecha = date("Y-m-d", strtotime("-$i day"));
+    $total = $pedidosPorFecha[$fecha] ?? 0;
+    $maxPedidos = max($maxPedidos, $total);
+    $pedidos7[] = [
+        "fecha"=>$fecha,
+        "dia"=>$diasCortos[(int)date("w", strtotime($fecha))],
+        "total"=>$total
+    ];
+
 
 /* ================= DATOS ================= */
 $categorias = $conexion->query("SELECT * FROM categoria ORDER BY nombre_categoria")->fetch_all(MYSQLI_ASSOC);
@@ -481,6 +521,14 @@ $comprobantes = $conexion->query("
     ORDER BY c.id_comprobante DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
+$productosStockBajo = $conexion->query("
+    SELECT id_producto,nombre_producto,stock,precio
+    FROM producto
+    WHERE stock <= 5
+    ORDER BY stock ASC,nombre_producto ASC
+    LIMIT 8
+")->fetch_all(MYSQLI_ASSOC);
+
 $masVendidos = $conexion->query("
     SELECT p.nombre_producto, COALESCE(SUM(dp.cantidad),0) AS vendidos
     FROM producto p
@@ -509,7 +557,7 @@ $fechaHoy = date("d/m/Y");
 <title>Dorada Motors | Panel Administrativo</title>
 <style>
 :root{
- --navy:#0f2746;--navy2:#17395f;--gold:#d7a62a;--gold2:#b98516;--gold-soft:#fff4d6;
+ --navy:#151820;--navy2:#242933;--gold:#ff6a00;--gold2:#c92b18;--gold-soft:#fff0e5;
  --bg:#f4f7fb;--surface:#fff;--text:#13233a;--muted:#718096;--border:#e5eaf1;
  --green:#17a56b;--green-soft:#ddf7eb;--blue:#2878e6;--blue-soft:#e8f1ff;
  --purple:#7357e8;--purple-soft:#efeaff;--red:#df3848;--red-soft:#ffe8ea;
@@ -522,15 +570,32 @@ button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 a{text-decoration:none;color:inherit}
 .app{min-height:100vh;display:grid;grid-template-columns:218px minmax(0,1fr)}
-.sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,#0b2745,#0b2c4d);color:#fff;padding:18px 14px;display:flex;flex-direction:column;overflow:auto;z-index:50;border-right:1px solid rgba(255,255,255,.05)}
+.sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,#11151b,#1b2028);color:#fff;padding:18px 14px;display:flex;flex-direction:column;overflow:auto;z-index:50;border-right:1px solid rgba(255,255,255,.05)}
 .brand{display:flex;align-items:center;gap:11px;padding:0 7px 24px}
+.brand-logo{width:52px;height:52px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,106,0,.5);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.mobile-brand-logo{display:none;width:42px;height:42px;object-fit:cover;border-radius:10px}
+.top-title{font-size:13px;font-weight:900;color:var(--text);white-space:nowrap}
+.search kbd{position:absolute;right:9px;top:50%;transform:translateY(-50%);padding:3px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;background:#fff;color:var(--muted);font-size:9px;font-family:inherit}
+.notify-wrap{position:relative}.notification-count{position:absolute;right:-5px;top:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#e22f22;color:#fff;border:2px solid #fff;font-size:9px;font-weight:900;display:grid;place-items:center}
+.notify-menu{display:none;position:absolute;right:0;top:48px;width:310px;background:#fff;border:1px solid var(--border);border-radius:15px;box-shadow:0 18px 45px rgba(15,24,35,.18);padding:9px;z-index:100}
+.notify-menu.show{display:block}.notify-head{display:flex;align-items:center;justify-content:space-between;padding:8px 9px 10px}.notify-head span{font-size:9px;color:var(--muted)}
+.notify-menu a{display:flex;flex-direction:column;gap:3px;padding:10px;border-radius:10px}.notify-menu a:hover{background:#f7f8fa}.notify-menu b{font-size:11px}.notify-menu small{font-size:10px;color:var(--muted)}
+.brand-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;margin-bottom:16px;padding:22px 24px;border-radius:20px;background:radial-gradient(circle at 80% 20%,rgba(255,106,0,.28),transparent 30%),linear-gradient(135deg,#11141a,#262a31);color:#fff;box-shadow:0 14px 40px rgba(17,20,26,.16);overflow:hidden}
+.brand-hero h1{margin:3px 0 7px;font-size:28px;line-height:1.05}.brand-hero p{margin:0;color:#d5d8dd;font-size:13px}.hero-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}.hero-tags span{font-size:9px;font-weight:800;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.08);color:#e8edf2}.hero-tags span::first-letter{color:#42c77a}
+.hero-brand{display:flex;align-items:center;gap:12px}.hero-brand img{width:100px;height:100px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 30px rgba(0,0,0,.28)}.hero-brand small{display:none}
+.metric small{display:block;margin-top:3px;font-size:9px;color:var(--muted);font-weight:700}.metric-icon.red{background:#ffe9e6;color:#d43122}.metric-icon.orange{background:#fff0e5;color:#ef6200}
+.home-tools{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:16px}.compact-list{display:flex;flex-direction:column}.compact-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;padding:10px 3px;border-bottom:1px solid var(--border)}.compact-row:hover{background:#fafbfc}.compact-row strong{display:block;font-size:10px}.compact-row small{display:block;margin-top:2px;font-size:9px;color:var(--muted)}.compact-row>b{font-size:10px}.product-dot{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,#ff6a00,#c92b18)}.payment-dot{width:28px;height:28px;border-radius:9px;background:#e9f8f0;color:#168a5c;display:grid;place-items:center;font-size:9px;font-weight:900}.critical-text{color:#d53124}.warning-text{color:#c47d00}.empty-state{padding:18px;text-align:center;color:var(--muted);font-size:11px}
+.section-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.system-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.system-card{display:flex;align-items:flex-start;gap:11px;padding:16px;border:1px solid var(--border);border-radius:14px;background:#fafbfc}.system-card small{display:block;font-size:9px;color:var(--muted);font-weight:900;letter-spacing:.5px}.system-card strong{display:block;margin-top:3px;font-size:13px}.system-card p{margin:3px 0 0;font-size:10px;color:var(--muted);line-height:1.35}.system-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:900;flex:0 0 auto}.system-icon.ok{background:#e7f7ee;color:#13885a}.system-icon.warn{background:#fff0e4;color:#e05e00}.help-card{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#fff5ed,#fff);border:1px solid #ffd7be}.help-card strong{font-size:13px}.help-card p{margin:4px 0 0;color:var(--muted);font-size:10px}
+.order-bar{background:linear-gradient(180deg,#ff6a00,#c92b18)}
+
 .brand-mark{width:38px;height:38px;border:2px solid var(--gold);border-radius:12px 4px;display:grid;place-items:center;color:var(--gold);font-weight:900;transform:rotate(45deg)}
 .brand-mark span{transform:rotate(-45deg)}
 .brand-title{font-size:18px;font-weight:900}.brand-title b{color:var(--gold)}
 .brand-sub{font-size:10px;color:#aebed0;margin-top:3px}
 .nav{display:flex;flex-direction:column;gap:5px}
 .nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:12px;color:#d7e2ee;font-weight:700;font-size:13px}
-.nav a:hover,.nav a.active{background:linear-gradient(90deg,var(--gold),var(--gold2));color:#10233e}
+.nav a:hover,.nav a.active{background:linear-gradient(90deg,#ff6a00,#c92b18);color:#fff}
 .nav-icon{width:20px;text-align:center}
 .motto{margin:18px 0;padding:14px;border-radius:15px;background:rgba(255,255,255,.05);color:#efc65b;text-align:center;font-style:italic;line-height:1.4}
 .sidebar-bottom{margin-top:auto;border-top:1px solid rgba(255,255,255,.1);padding-top:16px;color:#b8c7d7;font-size:11px}
@@ -552,7 +617,7 @@ a{text-decoration:none;color:inherit}
 .eyebrow{font-size:11px;font-weight:900;letter-spacing:1.2px;color:#a67a12;text-transform:uppercase;margin-bottom:5px}
 .heading h1{font-size:25px;margin:0 0 5px;font-weight:900}.heading p{margin:0;color:var(--muted);font-size:13px}
 .date-chip{background:#fff;border:1px solid var(--border);border-radius:11px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700}
-.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:16px}
 .metric{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:13px}
 .metric-icon{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;font-size:22px}
 .metric-icon.blue{background:var(--blue-soft);color:var(--blue)}.metric-icon.gold{background:var(--gold-soft);color:#a87500}.metric-icon.purple{background:var(--purple-soft);color:var(--purple)}.metric-icon.green{background:var(--green-soft);color:var(--green)}
@@ -623,26 +688,31 @@ tbody tr:hover{background:#fafcff}
 .quick span{line-height:1.2}
 .section-title{position:sticky;top:70px;background:#fff;z-index:8;padding:4px 0 10px}
 
-@media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr)}.grid-main,.grid-bottom,.two-col{grid-template-columns:1fr}.ops-strip{grid-template-columns:1fr 1fr}.quick-actions{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:1180px){.metrics{grid-template-columns:repeat(3,1fr)}.grid-main,.grid-bottom,.two-col{grid-template-columns:1fr}.ops-strip{grid-template-columns:1fr 1fr}.quick-actions{grid-template-columns:repeat(3,1fr)}.home-tools{grid-template-columns:1fr 1fr}.system-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.home-tools{grid-template-columns:1fr}.quick-actions{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:820px){
  body{padding-bottom:74px}.app{grid-template-columns:1fr}.sidebar{position:fixed;left:-260px;width:235px;transition:.25s}.sidebar.open{left:0}.overlay.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:45}
- .topbar{height:64px;padding:0 14px}.mobile-menu{display:grid;place-items:center}.search{display:none}.admin div:last-child{display:none}.content{padding:15px}.heading{align-items:flex-start}.heading h1{font-size:22px}.date-chip{display:none}
- .metrics{grid-template-columns:repeat(2,1fr);gap:10px}.metric{padding:13px;gap:9px}.metric-icon{width:42px;height:42px}.metric-value{font-size:19px}.grid-main,.grid-bottom{gap:12px}.chart{height:180px;gap:6px}
+ .topbar{height:64px;padding:0 14px}.mobile-menu{display:grid;place-items:center}.mobile-brand-logo{display:block}.top-title{display:none}.search{display:none}.admin div:last-child{display:none}.content{padding:15px}.heading{align-items:flex-start}.heading h1{font-size:22px}.date-chip{display:none}
+ .brand-hero{grid-template-columns:1fr;padding:18px}.hero-brand{position:absolute;opacity:.13;right:24px}.hero-brand img{width:100px;height:100px}.metrics{grid-template-columns:repeat(2,1fr);gap:10px}.metric{padding:13px;gap:9px}.metric-icon{width:42px;height:42px}.metric-value{font-size:19px}.grid-main,.grid-bottom{gap:12px}.chart{height:180px;gap:6px}
  .card{padding:14px}.form-grid{grid-template-columns:1fr}.field.full,.form-actions{grid-column:auto}
  .mobile-bottom{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;height:68px;background:#fff;border-top:1px solid var(--border);z-index:40;box-shadow:0 -8px 22px rgba(15,39,70,.08)}
  .mobile-bottom a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:9px;font-weight:800}.mobile-bottom a.active{color:#a7780a}
 }
-@media(max-width:480px){.ops-strip{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.metric-icon{width:38px;height:38px}.metric-value{font-size:17px}.metric-label{font-size:10px}.quick-actions{grid-template-columns:repeat(2,1fr)}.stats-row{grid-template-columns:1fr}}
+@media(max-width:480px){.ops-strip{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr 1fr}.system-grid{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.metric-icon{width:38px;height:38px}.metric-value{font-size:17px}.metric-label{font-size:10px}.quick-actions{grid-template-columns:repeat(2,1fr)}.stats-row{grid-template-columns:1fr}}
+@media print{.sidebar,.topbar,.mobile-bottom,.btn,.section-actions{display:none!important}.app{display:block}.content{padding:0;max-width:none}.page-panel{display:none!important}#reportes{display:block!important;box-shadow:none;border:0}.card{box-shadow:none}.stats-row{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>
 
-<div class="toast" id="toast"><?= $stockBajo > 0 ? "Atención: ".$stockBajo." producto(s) con stock bajo." : "Inventario sin alertas de stock." ?></div>
+<div class="toast" id="toast">Panel actualizado correctamente.</div>
 <div class="overlay" id="overlay"></div>
 
 <div class="app">
 <aside class="sidebar" id="sidebar">
- <div class="brand"><div class="brand-mark"><span>D</span></div><div><div class="brand-title">Dorada <b>Motors</b></div><div class="brand-sub">Panel de Administración</div></div></div>
+ <div class="brand">
+  <img src="logo_adn_imports.png" alt="ADN Import's" class="brand-logo">
+  <div><div class="brand-title">ADN <b>IMPORT'S</b></div><div class="brand-sub">Dorada Motors · Administración</div></div>
+ </div>
  <nav class="nav" id="nav">
   <a href="#inicio" class="active"><span class="nav-icon">⌂</span>Dashboard</a>
   <a href="#gestion-productos"><span class="nav-icon">◇</span>Productos</a>
@@ -657,18 +727,29 @@ tbody tr:hover{background:#fafcff}
   <a href="#comprobantes"><span class="nav-icon">▧</span>Comprobantes</a>
   <a href="#favoritos"><span class="nav-icon">♥</span>Favoritos</a>
   <a href="#reportes"><span class="nav-icon">▥</span>Reportes</a>
+  <a href="#configuracion"><span class="nav-icon">⚙</span>Configuración</a>
  </nav>
- <div class="motto">“Grandes caminos comienzan aquí”</div>
- <div class="sidebar-bottom"><strong>Dorada Motors</strong>Panel Administrativo v1.0<br>PHP · MySQL · Flutter</div>
+ <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
+ <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v2.0<br>PHP · MySQL · Flutter</div>
 </aside>
 
 <main class="main">
 <header class="topbar">
  <button class="mobile-menu" id="menuBtn" aria-label="Abrir menú">☰</button>
- <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar producto en el sistema..."></div>
+ <img src="logo_adn_imports.png" alt="ADN" class="mobile-brand-logo">
+ <div class="top-title" id="topTitle">Dashboard</div>
+ <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar en la sección actual..."><kbd>Ctrl K</kbd></div>
  <div class="top-actions">
-  <button class="icon-btn" id="notiBtn" title="Notificaciones">♢<span class="notification-dot"></span></button>
-  <a class="admin" href="#usuarios" title="Ver usuarios"><div class="avatar">DM</div><div><strong>Administrador</strong><small>Dorada Motors</small></div></a>
+  <div class="notify-wrap">
+   <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<?php if($stockBajo+$pedidosPendientes>0): ?><span class="notification-count"><?= $stockBajo+$pedidosPendientes ?></span><?php endif; ?></button>
+   <div class="notify-menu" id="notifyMenu">
+    <div class="notify-head"><strong>Notificaciones</strong><span>En tiempo real</span></div>
+    <a href="#inventario"><b>⚠ Stock bajo</b><small><?= $stockBajo ?> producto(s) requieren atención</small></a>
+    <a href="#pedidos"><b>🛒 Pedidos por atender</b><small><?= $pedidosPendientes ?> pendiente(s) o en proceso</small></a>
+    <a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a>
+   </div>
+  </div>
+  <a class="admin" href="#configuracion" title="Configuración"><div class="avatar">AI</div><div><strong>Administrador</strong><small>ADN Import's</small></div></a>
  </div>
 </header>
 
@@ -676,16 +757,28 @@ tbody tr:hover{background:#fafcff}
 <?php if ($mensaje !== ""): ?><div class="alert <?= $tipoMensaje === "error" ? "error" : "ok" ?>"><?= h($mensaje) ?></div><?php endif; ?>
 
 <div id="inicio" class="page-panel active">
-<section class="heading">
- <div><div class="eyebrow">Panel de administración</div><h1>¡Bienvenido de nuevo, Administrador!</h1><p>Aquí tienes un resumen general de la actividad de Dorada Motors.</p></div>
- <div class="date-chip">📅 <?= h($fechaHoy) ?></div>
+<section class="brand-hero">
+ <div class="hero-copy">
+  <div class="eyebrow">Panel de administración</div>
+  <h1>¡Bienvenido, Administrador!</h1>
+  <p>Gestiona ventas, productos, stock, pedidos y proveedores desde un solo lugar.</p>
+  <div class="hero-tags">
+   <span>● PHP conectado</span><span>● MySQL activo</span><span>● API lista para Flutter</span>
+  </div>
+ </div>
+ <div class="hero-brand">
+  <img src="logo_adn_imports.png" alt="Logo ADN Import's">
+  <small><?= h($fechaHoy) ?></small>
+ </div>
 </section>
 
 <section class="metrics">
- <a class="metric" href="#gestion-productos"><div class="metric-icon blue">◇</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div></div></a>
- <a class="metric" href="#usuarios"><div class="metric-icon gold">♙</div><div><div class="metric-label">Usuarios</div><div class="metric-value"><?= $totalUsuarios ?></div></div></a>
- <a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div></div></a>
- <a class="metric" href="#reportes"><div class="metric-icon green">$</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div></div></a>
+ <a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a>
+ <a class="metric" href="#usuarios"><div class="metric-icon gold">👥</div><div><div class="metric-label">Usuarios</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Clientes registrados</small></div></a>
+ <a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a>
+ <a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a>
+ <a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a>
+ <a class="metric" href="#proveedores"><div class="metric-icon orange">🚚</div><div><div class="metric-label">Proveedores</div><div class="metric-value"><?= $totalProveedores ?></div><small>Abastecimiento</small></div></a>
 </section>
 
 <section class="ops-strip">
@@ -704,14 +797,11 @@ tbody tr:hover{background:#fafcff}
   </div>
  </article>
  <article class="card">
-  <div class="card-head"><h2>Acciones rápidas</h2></div>
-  <div class="quick-actions">
-   <a class="quick blue" href="#gestion-productos">◇<span>Nuevo producto</span></a>
-   <a class="quick gold" href="#compras">＋<span>Nueva compra</span></a>
-   <a class="quick purple" href="#usuarios">♙<span>Nuevo usuario</span></a>
-   <a class="quick green" href="#inventario">▤<span>Movimiento stock</span></a>
-   <a class="quick gold" href="#proveedores">▣<span>Proveedor</span></a>
-   <a class="quick blue" href="#comprobantes">▧<span>Comprobante</span></a>
+  <div class="card-head"><h2>Tendencia de pedidos</h2><span class="badge"><?= $pedidosPendientes ?> por atender</span></div>
+  <div class="chart line-bars">
+   <?php foreach($pedidos7 as $dato): $altura=$dato["total"]>0?max(8,($dato["total"]/$maxPedidos)*88):4; ?>
+   <div class="chart-item"><div class="bar order-bar" style="height:<?= number_format($altura,1,'.','') ?>%"><div class="bar-tip"><?= (int)$dato["total"] ?> pedido(s)</div></div><div class="day"><?= h($dato["dia"]) ?></div></div>
+   <?php endforeach; ?>
   </div>
  </article>
 </section>
@@ -734,10 +824,42 @@ tbody tr:hover{background:#fafcff}
   </div>
  </article>
 </section>
+
+<section class="home-tools">
+ <article class="card">
+  <div class="card-head"><h2>Acciones rápidas</h2><span class="badge">1 clic</span></div>
+  <div class="quick-actions">
+   <a class="quick blue" href="#gestion-productos">📦<span>Nuevo producto</span></a>
+   <a class="quick gold" href="#compras">＋<span>Registrar compra</span></a>
+   <a class="quick purple" href="#pedidos">🛒<span>Ver pedidos</span></a>
+   <a class="quick green" href="#inventario">↕<span>Mover stock</span></a>
+   <a class="quick gold" href="#proveedores">🚚<span>Proveedor</span></a>
+   <a class="quick blue" href="#comprobantes">🧾<span>Comprobante</span></a>
+  </div>
+ </article>
+
+ <article class="card">
+  <div class="card-head"><h2>Stock bajo / alertas</h2><a href="#inventario">Ver inventario →</a></div>
+  <div class="compact-list">
+   <?php if(!$productosStockBajo): ?><div class="empty-state">✓ Todo el inventario está en buen nivel.</div><?php else: foreach(array_slice($productosStockBajo,0,5) as $sb): ?>
+    <a href="#inventario" class="compact-row"><span class="product-dot"></span><div><strong><?= h($sb["nombre_producto"]) ?></strong><small>Stock actual</small></div><b class="<?= (int)$sb["stock"]<=2?"critical-text":"warning-text" ?>"><?= (int)$sb["stock"] ?></b></a>
+   <?php endforeach; endif; ?>
+  </div>
+ </article>
+
+ <article class="card">
+  <div class="card-head"><h2>Últimos pagos</h2><a href="#pagos">Ver todos →</a></div>
+  <div class="compact-list">
+   <?php if(!$pagos): ?><div class="empty-state">Aún no hay pagos registrados.</div><?php else: foreach(array_slice($pagos,0,5) as $pg): ?>
+    <a href="#pagos" class="compact-row"><span class="payment-dot">S/</span><div><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong><small><?= h($pg["metodo_pago"]) ?> · <?= h($pg["estado_pago"]) ?></small></div><b>S/ <?= number_format((float)$pg["monto"],2) ?></b></a>
+   <?php endforeach; endif; ?>
+  </div>
+ </article>
+</section>
 </div>
 
 <section id="gestion-productos" class="card page-panel">
- <div class="section-title"><div><div class="eyebrow">CRUD</div><h2><?= $productoEditar ? "Editar producto" : "Gestión de productos" ?></h2></div><span class="badge">CREATE · READ · UPDATE · DELETE</span></div>
+ <div class="section-title"><div><div class="eyebrow">CRUD</div><h2><?= $productoEditar ? "Editar producto" : "Gestión de productos" ?></h2></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaProductos','productos_adn.csv')">Exportar CSV</button><span class="badge">CREATE · READ · UPDATE · DELETE</span></div></div>
  <form method="POST" class="form-grid">
   <?php if($productoEditar): ?><input type="hidden" name="id_producto" value="<?= h($productoEditar["id_producto"]) ?>"><?php endif; ?>
   <div class="field"><label>NOMBRE</label><input type="text" name="nombre_producto" required value="<?= h($productoEditar["nombre_producto"]??"") ?>"></div>
@@ -783,15 +905,15 @@ tbody tr:hover{background:#fafcff}
 </section>
 
 <section id="pedidos" class="card page-panel">
- <div class="section-title"><h2>Pedidos</h2><span class="badge"><?= $totalPedidos ?> registrados</span></div>
- <div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <div class="section-title"><h2>Pedidos</h2><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPedidos','pedidos_adn.csv')">Exportar CSV</button><span class="badge"><?= $totalPedidos ?> registrados</span></div></div>
+ <div class="table-wrap"><table id="tablaPedidos"><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php foreach($pedidos as $p): ?><tr><td>#<?= h($p["id_pedido"]) ?></td><td><?= h($p["nombres"]." ".$p["apellidos"]) ?></td><td><?= h($p["fecha_pedido"]) ?></td><td class="price">S/ <?= number_format((float)$p["total"],2) ?></td><td><?= h($p["estado_pedido"]) ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_pedido" value="<?= h($p["id_pedido"]) ?>"><select name="estado_pedido"><option>Pendiente</option><option>Procesando</option><option>Pagado</option><option>Enviado</option><option>Completado</option><option>Cancelado</option></select><button class="btn btn-primary" name="actualizar_estado_pedido">Actualizar</button></form></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
 
 <section id="pagos" class="card page-panel">
  <div class="section-title"><h2>Pagos</h2><span class="badge">S/ <?= number_format($totalPagos,2) ?> pagados</span></div>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$pagos): ?><tr><td colspan="7" style="text-align:center;color:#718096">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr><td><?= h($pg["id_pago"]) ?></td><td>#<?= h($pg["id_pedido"]) ?></td><td><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><?= h($pg["estado_pago"]) ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_pago" value="<?= h($pg["id_pago"]) ?>"><select name="estado_pago"><option>Pendiente</option><option>Pagado</option><option>Rechazado</option></select><button class="btn btn-primary" name="actualizar_estado_pago">Actualizar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
@@ -867,8 +989,22 @@ tbody tr:hover{background:#fafcff}
  </tbody></table></div>
 </section>
 
+<section id="configuracion" class="card page-panel">
+ <div class="section-intro"><div><h2>Configuración del sistema</h2><p>Información clara para comprobar que frontend, backend y base de datos están comunicados.</p></div><span class="badge">Sistema activo</span></div>
+ <div class="system-grid">
+  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BACKEND</small><strong>PHP conectado</strong><p>API disponible en /dorada_api/</p></div></div>
+  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BASE DE DATOS</small><strong>MySQL conectado</strong><p>Base: dorada_motors</p></div></div>
+  <div class="system-card"><span class="system-icon ok">✓</span><div><small>FRONTEND</small><strong>Flutter preparado</strong><p>Consume endpoints JSON del backend</p></div></div>
+  <div class="system-card"><span class="system-icon warn">!</span><div><small>ALERTAS</small><strong><?= $stockBajo ?> stock bajo</strong><p><?= $pedidosPendientes ?> pedidos por atender</p></div></div>
+ </div>
+ <div class="help-card">
+  <div><strong>Flujo del sistema</strong><p>Flutter → PHP/API → MySQL. El panel web administra los mismos datos que utiliza la aplicación.</p></div>
+  <button type="button" class="btn btn-primary" onclick="mostrarPanel('inicio',true)">Volver al dashboard</button>
+ </div>
+</section>
+
 <section id="reportes" class="card page-panel">
- <div class="section-title"><h2>Reportes rápidos</h2><span class="badge">Resumen actual</span></div>
+ <div class="section-title"><div><div class="eyebrow">Análisis</div><h2>Reportes rápidos</h2></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="window.print()">Imprimir reporte</button><span class="badge">Resumen actual</span></div></div>
  <div class="stats-row">
   <div class="mini-stat"><small>VENTAS REGISTRADAS</small><strong>S/ <?= number_format($totalVentas,2) ?></strong></div>
   <div class="mini-stat"><small>PAGOS CONFIRMADOS</small><strong>S/ <?= number_format($totalPagos,2) ?></strong></div>
@@ -892,38 +1028,66 @@ tbody tr:hover{background:#fafcff}
 
 <script>
 const buscador=document.getElementById('buscador');
-const filas=document.querySelectorAll('#tablaProductos tbody tr[data-search]');
-if(buscador){
- buscador.addEventListener('input',function(){
-  const t=this.value.toLowerCase().trim();
-  filas.forEach(f=>f.style.display=f.dataset.search.includes(t)?'':'none');
- });
-}
-
 const sidebar=document.getElementById('sidebar');
 const overlay=document.getElementById('overlay');
 const menuBtn=document.getElementById('menuBtn');
 const navLinks=document.querySelectorAll('.nav a');
 const mobileLinks=document.querySelectorAll('.mobile-bottom a');
 const panels=document.querySelectorAll('.page-panel');
+const topTitle=document.getElementById('topTitle');
+
+const nombresPanel={
+ inicio:'Dashboard',
+ 'gestion-productos':'Productos',
+ inventario:'Inventario',
+ proveedores:'Proveedores',
+ compras:'Compras',
+ categorias:'Categorías',
+ marcas:'Marcas',
+ usuarios:'Usuarios',
+ pedidos:'Pedidos',
+ pagos:'Pagos',
+ comprobantes:'Comprobantes',
+ favoritos:'Favoritos',
+ reportes:'Reportes',
+ configuracion:'Configuración'
+};
 
 function cerrarMenu(){
  sidebar.classList.remove('open');
  overlay.classList.remove('show');
 }
 
+function filtrarPanel(texto){
+ const activo=document.querySelector('.page-panel.active');
+ if(!activo) return;
+ const t=texto.toLowerCase().trim();
+ activo.querySelectorAll('tbody tr').forEach(fila=>{
+  fila.style.display=!t || fila.innerText.toLowerCase().includes(t)?'':'none';
+ });
+}
+
+buscador?.addEventListener('input',()=>filtrarPanel(buscador.value));
+
+document.addEventListener('keydown',e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+  e.preventDefault();
+  buscador?.focus();
+  buscador?.select();
+ }
+});
+
 function mostrarPanel(id, actualizarHash=true){
  const destino=document.getElementById(id) || document.getElementById('inicio');
-
  panels.forEach(p=>p.classList.remove('active'));
  destino.classList.add('active');
 
  navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
  mobileLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
 
- if(actualizarHash){
-  history.replaceState(null,'','#'+destino.id);
- }
+ if(topTitle) topTitle.textContent=nombresPanel[destino.id]||'ADN Import\'s';
+ if(buscador){buscador.value='';filtrarPanel('');}
+ if(actualizarHash) history.replaceState(null,'','#'+destino.id);
 
  window.scrollTo({top:0,behavior:'smooth'});
  cerrarMenu();
@@ -935,6 +1099,7 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
   if(document.getElementById(id)){
    e.preventDefault();
    mostrarPanel(id,true);
+   document.getElementById('notifyMenu')?.classList.remove('show');
   }
  });
 });
@@ -946,11 +1111,25 @@ menuBtn?.addEventListener('click',()=>{
 overlay?.addEventListener('click',cerrarMenu);
 
 const notiBtn=document.getElementById('notiBtn');
-const toast=document.getElementById('toast');
-notiBtn?.addEventListener('click',()=>{
- toast.style.display='block';
- setTimeout(()=>toast.style.display='none',2200);
+const notifyMenu=document.getElementById('notifyMenu');
+notiBtn?.addEventListener('click',e=>{
+ e.stopPropagation();
+ notifyMenu?.classList.toggle('show');
 });
+document.addEventListener('click',e=>{
+ if(notifyMenu && !notifyMenu.contains(e.target) && e.target!==notiBtn) notifyMenu.classList.remove('show');
+});
+
+function exportarTabla(id,nombre){
+ const tabla=document.getElementById(id);
+ if(!tabla) return;
+ const filas=[...tabla.querySelectorAll('tr')].filter(f=>f.style.display!=='none');
+ const csv=filas.map(f=>[...f.querySelectorAll('th,td')].map(c=>'"'+c.innerText.replace(/"/g,'""').replace(/\n/g,' ')+'"').join(',')).join('\n');
+ const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
 
 const inicial=location.hash ? location.hash.substring(1) : 'inicio';
 mostrarPanel(inicial,false);
