@@ -4,6 +4,12 @@ require_once "sistema_bootstrap.php";
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_name("adn_admin_session");
+    session_set_cookie_params([
+        "httponly" => true,
+        "secure" => (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off"),
+        "samesite" => "Lax",
+        "path" => "/",
+    ]);
     session_start();
 }
 
@@ -42,6 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ");
             $stmt->bind_param("sssss",$nombres,$correo,$hash,$rol,$estado);
             if ($stmt->execute()) {
+                session_regenerate_id(true);
                 $_SESSION["admin"] = [
                     "id_admin" => $conexion->insert_id,
                     "nombres" => $nombres,
@@ -70,6 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (!$admin || $admin["estado"] !== "Activo" || !password_verify($clave, $admin["contrasena"])) {
             $mensaje = "Correo o contraseña incorrectos.";
         } else {
+            session_regenerate_id(true);
             $_SESSION["admin"] = [
                 "id_admin" => (int)$admin["id_admin"],
                 "nombres" => $admin["nombres"],
