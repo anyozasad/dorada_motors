@@ -33,12 +33,13 @@ function rolActual(): string {
 function puede(string $modulo): bool {
     $rol = rolActual();
 
-    if ($rol === "Administrador") return true;
-
     $permisos = [
+        "Administrador" => [
+            "inicio","clientes","usuarios","pedidos","pagos","comprobantes","reportes",
+            "gestion-productos","productos","inventario","compras","proveedores","categorias","marcas"
+        ],
         "Vendedor" => [
-            "inicio","clientes","usuarios","pedidos","pagos",
-            "comprobantes","devoluciones","favoritos","reportes"
+            "inicio","clientes","usuarios","pedidos","pagos","comprobantes","reportes"
         ],
         "Almacen" => [
             "inicio","gestion-productos","productos","inventario","compras",
@@ -68,32 +69,8 @@ function csrfValido(?string $token): bool {
 }
 
 function registrarBitacora(mysqli $conexion, string $modulo, string $accion, string $detalle = ""): void {
-    $admin = adminActual();
-    if (!$admin) return;
-
-    $idAdmin = (int)($admin["id_admin"] ?? 0);
-    $usuario = (string)($admin["correo"] ?? "admin");
-    $rol = (string)($admin["rol"] ?? "Administrador");
-    $ip = $_SERVER["REMOTE_ADDR"] ?? "";
-
-    $stmt = $conexion->prepare("
-        INSERT INTO bitacora
-        (id_admin,usuario,rol,modulo,accion,detalle,ip)
-        VALUES (?,?,?,?,?,?,?)
-    ");
-    if (!$stmt) return;
-
-    $stmt->bind_param(
-        "issssss",
-        $idAdmin,
-        $usuario,
-        $rol,
-        $modulo,
-        $accion,
-        $detalle,
-        $ip
-    );
-    $stmt->execute();
+    // La versión simplificada no usa una tabla de bitácora.
+    return;
 }
 
 function limpiarNext(string $next): string {
