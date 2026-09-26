@@ -59,14 +59,14 @@ try {
  <h1 class="title">Preparar base de datos</h1>
 
  <?php if($ok): ?>
-  <div class="msg ok"><strong>✓ Base de datos lista.</strong><br>Se creó/verificó <b>dorada_motors</b>, sus tablas, categorías y marcas iniciales.</div>
+  <div class="msg ok"><strong>✓ Base de datos lista.</strong><br>Se creó/verificó <b>dorada_motors</b> con 13 tablas principales, categorías y marcas iniciales.</div>
   <ul class="list">
-   <li>✓ Usuarios y clientes</li>
+   <li>✓ Usuarios y direcciones</li>
    <li>✓ Productos, categorías y marcas</li>
    <li>✓ Pedidos, detalle y pagos</li>
-   <li>✓ Inventario, compras y proveedores</li>
-   <li>✓ Carrito, favoritos y devoluciones</li>
-   <li>✓ Comprobantes y configuración</li>
+   <li>✓ Proveedores, compras y detalle de compra</li>
+   <li>✓ Movimientos de stock / Kardex</li>
+   <li>✓ Comprobantes</li>
   </ul>
   <a class="btn" href="dashboard.php">Abrir Dashboard</a>
  <?php else: ?>
