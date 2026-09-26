@@ -2,7 +2,36 @@
 require_once "conexion.php";
 require_once "auth_admin.php";
 
-requerirAdmin();
+/*
+ * Modo directo para presentación:
+ * al abrir el sistema entra al dashboard sin mostrar una pantalla de login.
+ * Si existe un administrador activo, se usa esa cuenta para la sesión.
+ */
+if (!adminActual()) {
+    $adminDirecto = $conexion->query("
+        SELECT id_admin,nombres,correo,rol
+        FROM admin_usuario
+        WHERE estado='Activo'
+        ORDER BY CASE WHEN rol='Administrador' THEN 0 ELSE 1 END, id_admin
+        LIMIT 1
+    ")->fetch_assoc();
+
+    if ($adminDirecto) {
+        $_SESSION["admin"] = [
+            "id_admin" => (int)$adminDirecto["id_admin"],
+            "nombres" => $adminDirecto["nombres"],
+            "correo" => $adminDirecto["correo"],
+            "rol" => $adminDirecto["rol"],
+        ];
+    } else {
+        $_SESSION["admin"] = [
+            "id_admin" => 0,
+            "nombres" => "Administrador",
+            "correo" => "admin@adnimports.local",
+            "rol" => "Administrador",
+        ];
+    }
+}
 
 header("Content-Type: text/html; charset=UTF-8");
 
@@ -1383,7 +1412,7 @@ tbody tr:hover{background:#fafcff}
    </div>
   </div>
   <a class="admin" href="<?= $adminRol === "Administrador" ? "#configuracion" : "#inicio" ?>" title="Cuenta"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
-  <a class="logout-btn" href="admin_logout.php" title="Cerrar sesión">Salir</a>
+
  </div>
 </header>
 
