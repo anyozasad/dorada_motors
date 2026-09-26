@@ -1421,15 +1421,7 @@ tbody tr:hover{background:#fafcff}
   <?php endif; ?>
 
   <?php if($adminRol === "Administrador"): ?>
-  <div class="nav-folder" data-nav-folder="configuracion">
-   <button type="button" class="nav-main nav-toggle" data-nav-toggle="configuracion">
-    <span class="nav-icon">⚙</span><span>Configuración</span><b class="nav-chevron">›</b>
-   </button>
-   <div class="nav-submenu">
-    <a href="#configuracion">Empresa y personal</a>
-    <a href="#auditoria">Auditoría</a>
-   </div>
-  </div>
+  <a href="#configuracion" class="nav-main"><span class="nav-icon">⚙</span><span>Configuración</span></a>
   <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
@@ -1879,7 +1871,7 @@ tbody tr:hover{background:#fafcff}
 <?php endif; ?>
 
 <?php if($adminRol === "Administrador"): ?>
-<section id="auditoria" class="card page-panel">
+<section id="auditoria" class="card page-panel" style="display:none!important">
  <div class="section-intro"><div><h2>Auditoría / Bitácora</h2><p>Historial de acciones realizadas por el personal dentro del panel administrativo.</p></div><span class="badge">Últimos <?= count($bitacora) ?> eventos</span></div>
  <div class="table-wrap"><table id="tablaAuditoria"><thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Módulo</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead><tbody>
  <?php if(!$bitacora): ?><tr><td colspan="7" class="empty-cell">Aún no hay acciones registradas.</td></tr><?php else: foreach($bitacora as $log): ?><tr><td><?= h($log["fecha"]) ?></td><td><?= h($log["usuario"]) ?></td><td><span class="status-pill"><?= h($log["rol"]) ?></span></td><td><?= h($log["modulo"]) ?></td><td><strong><?= h($log["accion"]) ?></strong></td><td><?= h($log["detalle"]) ?></td><td><?= h($log["ip"]) ?></td></tr><?php endforeach; endif; ?>
@@ -2007,7 +1999,6 @@ const nombresPanel={
  devoluciones:'Devoluciones',
  favoritos:'Favoritos',
  reportes:'Reportes',
- auditoria:'Auditoría',
  configuracion:'Configuración'
 };
 
