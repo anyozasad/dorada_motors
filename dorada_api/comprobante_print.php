@@ -42,10 +42,16 @@ $stmt->bind_param("i",$comprobante["id_pedido"]);
 $stmt->execute();
 $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$config = $conexion->query("
-    SELECT * FROM configuracion_empresa
-    WHERE id_configuracion=1
-")->fetch_assoc() ?: [];
+$config = [
+    "logo" => "logo_adn_imports.png",
+    "razon_social" => "ADN Import's",
+    "nombre_comercial" => "Dorada Motors",
+    "ruc" => "",
+    "direccion" => "",
+    "telefono" => "",
+    "correo" => "",
+    "igv" => 18,
+];
 
 registrarBitacora(
     $conexion,
@@ -96,7 +102,7 @@ function e($v): string {
   <thead><tr><th>Producto</th><th>Cantidad</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
   <tbody>
    <?php foreach($items as $item): ?>
-   <tr><td><?= e($item["nombre_producto"]) ?></td><td><?= (int)$item["cantidad"] ?></td><td class="num">S/ <?= number_format((float)$item["precio_unitario"],2) ?></td><td class="num">S/ <?= number_format((float)$item["precio"]*(int)$item["cantidad"],2) ?></td></tr>
+   <tr><td><?= e($item["nombre_producto"]) ?></td><td><?= (int)$item["cantidad"] ?></td><td class="num">S/ <?= number_format((float)$item["precio_unitario"],2) ?></td><td class="num">S/ <?= number_format((float)$item["precio_unitario"]*(int)$item["cantidad"],2) ?></td></tr>
    <?php endforeach; ?>
   </tbody>
  </table>
