@@ -8,29 +8,12 @@ require_once "auth_admin.php";
  * Si existe un administrador activo, se usa esa cuenta para la sesión.
  */
 if (!adminActual()) {
-    $adminDirecto = $conexion->query("
-        SELECT id_admin,nombres,correo,rol
-        FROM admin_usuario
-        WHERE estado='Activo'
-        ORDER BY CASE WHEN rol='Administrador' THEN 0 ELSE 1 END, id_admin
-        LIMIT 1
-    ")->fetch_assoc();
-
-    if ($adminDirecto) {
-        $_SESSION["admin"] = [
-            "id_admin" => (int)$adminDirecto["id_admin"],
-            "nombres" => $adminDirecto["nombres"],
-            "correo" => $adminDirecto["correo"],
-            "rol" => $adminDirecto["rol"],
-        ];
-    } else {
-        $_SESSION["admin"] = [
-            "id_admin" => 0,
-            "nombres" => "Administrador",
-            "correo" => "admin@adnimports.local",
-            "rol" => "Administrador",
-        ];
-    }
+    $_SESSION["admin"] = [
+        "id_admin" => 0,
+        "nombres" => "Administrador",
+        "correo" => "admin@adnimports.local",
+        "rol" => "Administrador",
+    ];
 }
 
 header("Content-Type: text/html; charset=UTF-8");
@@ -83,10 +66,17 @@ function guardarImagenProducto(?array $archivo, string $actual = ""): string {
 }
 
 $adminSesion = adminActual();
-$configEmpresa = $conexion->query("
-    SELECT * FROM configuracion_empresa
-    WHERE id_configuracion=1
-")->fetch_assoc() ?: [];
+$configEmpresa = [
+    "nombre_comercial" => "Dorada Motors",
+    "razon_social" => "ADN Import's",
+    "ruc" => "",
+    "direccion" => "",
+    "telefono" => "",
+    "correo" => "",
+    "moneda" => "S/",
+    "igv" => 18,
+    "logo" => "logo_adn_imports.png",
+];
 $igvEmpresa = (float)($configEmpresa["igv"] ?? 18);
 
 $accionesSistema = [
@@ -101,17 +91,12 @@ $accionesSistema = [
     "actualizar_estado_usuario" => ["usuarios", "Cambiar estado de usuario"],
     "actualizar_estado_pedido" => ["pedidos", "Cambiar estado de pedido"],
     "actualizar_estado_pago" => ["pagos", "Cambiar estado de pago"],
-    "eliminar_favorito" => ["favoritos", "Eliminar favorito"],
     "registrar_proveedor" => ["proveedores", "Crear proveedor"],
     "eliminar_proveedor" => ["proveedores", "Eliminar proveedor"],
     "registrar_movimiento" => ["inventario", "Registrar movimiento de stock"],
     "registrar_compra" => ["compras", "Registrar compra"],
     "registrar_comprobante" => ["comprobantes", "Emitir comprobante"],
     "eliminar_comprobante" => ["comprobantes", "Eliminar comprobante"],
-    "registrar_devolucion" => ["devoluciones", "Registrar devolución"],
-    "guardar_configuracion" => ["configuracion", "Actualizar configuración"],
-    "crear_admin_usuario" => ["configuracion", "Crear usuario administrativo"],
-    "actualizar_admin_usuario" => ["configuracion", "Actualizar usuario administrativo"],
 ];
 
 $accionAuditoriaPendiente = null;
@@ -217,11 +202,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("No se puede eliminar: el producto ya tiene movimientos registrados", "error", "gestion-productos");
             }
 
-            foreach (["favorito", "carrito_favorito", "detalle_carrito", "movimiento_stock"] as $tabla) {
-                $stmt = $conexion->prepare("DELETE FROM $tabla WHERE id_producto=?");
-                $stmt->bind_param("i", $idProducto);
-                $stmt->execute();
-            }
+            $stmt = $conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
+            $stmt->bind_param("i", $idProducto);
+            $stmt->execute();
 
             $stmt = $conexion->prepare("DELETE FROM producto WHERE id_producto=?");
             $stmt->bind_param("i", $idProducto);
@@ -954,14 +937,7 @@ $pagos = $conexion->query("
     ORDER BY pg.id_pago DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
-$favoritos = $conexion->query("
-    SELECT f.id_favorito,f.fecha_registro,u.nombres,u.apellidos,p.nombre_producto,p.precio
-    FROM favorito f
-    INNER JOIN usuario u ON f.id_usuario=u.id_usuario
-    INNER JOIN producto p ON f.id_producto=p.id_producto
-    ORDER BY f.id_favorito DESC
-")->fetch_all(MYSQLI_ASSOC);
-
+$favoritos = [];
 
 $proveedores = $conexion->query("
     SELECT * FROM proveedor
@@ -1025,32 +1001,11 @@ $clientes = $conexion->query("
     ORDER BY total_comprado DESC,u.id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
-$devoluciones = $conexion->query("
-    SELECT
-        d.*,
-        p.nombre_producto,
-        pe.id_usuario,
-        u.nombres,
-        u.apellidos
-    FROM devolucion d
-    INNER JOIN producto p ON d.id_producto=p.id_producto
-    INNER JOIN pedido pe ON d.id_pedido=pe.id_pedido
-    INNER JOIN usuario u ON pe.id_usuario=u.id_usuario
-    ORDER BY d.id_devolucion DESC
-")->fetch_all(MYSQLI_ASSOC);
+$devoluciones = [];
 
-$adminUsuarios = $conexion->query("
-    SELECT id_admin,nombres,correo,rol,estado,ultimo_acceso,creado_en
-    FROM admin_usuario
-    ORDER BY id_admin
-")->fetch_all(MYSQLI_ASSOC);
+$adminUsuarios = [];
 
-$bitacora = $conexion->query("
-    SELECT *
-    FROM bitacora
-    ORDER BY id_bitacora DESC
-    LIMIT 100
-")->fetch_all(MYSQLI_ASSOC);
+$bitacora = [];
 
 $pedidoDetalle = null;
 $pedidoDetalleItems = [];
@@ -1420,7 +1375,7 @@ tbody tr:hover{background:#fafcff}
   <a href="#reportes" class="nav-main"><span class="nav-icon">▥</span><span>Reportes</span></a>
   <?php endif; ?>
 
-  <?php if($adminRol === "Administrador"): ?>
+  <?php if(false): ?>
   <a href="#configuracion" class="nav-main"><span class="nav-icon">⚙</span><span>Configuración</span></a>
   <?php endif; ?>
  </nav>
@@ -1870,7 +1825,7 @@ tbody tr:hover{background:#fafcff}
 </section>
 <?php endif; ?>
 
-<?php if($adminRol === "Administrador"): ?>
+<?php if(false): ?>
 <section id="auditoria" class="card page-panel" style="display:none!important">
  <div class="section-intro"><div><h2>Auditoría / Bitácora</h2><p>Historial de acciones realizadas por el personal dentro del panel administrativo.</p></div><span class="badge">Últimos <?= count($bitacora) ?> eventos</span></div>
  <div class="table-wrap"><table id="tablaAuditoria"><thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Módulo</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead><tbody>
