@@ -1212,6 +1212,19 @@ a{text-decoration:none;color:inherit}
 .logout-btn{padding:9px 11px;border-radius:10px;background:#fff1ee;color:#bb321f;font-size:10px;font-weight:900;border:1px solid #ffd7d0}
 .logout-btn:hover{background:#ffe7e2}
 
+.nav-simple{gap:7px}
+.nav-main{width:100%;min-height:44px;display:flex!important;align-items:center;gap:12px;padding:11px 13px!important;border-radius:12px!important;color:#d7e2ee!important;font-weight:800!important;font-size:13px!important;background:transparent;border:0;text-align:left;cursor:pointer}
+.nav-main>span:nth-child(2){flex:1}
+.nav-main:hover,.nav-main.active,.nav-folder.open>.nav-main{background:linear-gradient(90deg,#ff6a00,#c92b18)!important;color:#fff!important}
+.nav-folder{display:flex;flex-direction:column;gap:4px}
+.nav-chevron{margin-left:auto;font-size:18px;line-height:1;transition:transform .18s;color:inherit}
+.nav-folder.open .nav-chevron{transform:rotate(90deg)}
+.nav-submenu{display:none;margin:0 0 3px 40px;padding-left:10px;border-left:1px solid rgba(255,255,255,.12)}
+.nav-folder.open .nav-submenu{display:flex;flex-direction:column;gap:3px}
+.nav-submenu a{padding:8px 10px!important;border-radius:9px!important;color:#aeb9c7!important;font-size:11px!important;font-weight:700!important}
+.nav-submenu a:hover,.nav-submenu a.active{background:rgba(255,106,0,.14)!important;color:#ff9a58!important}
+.nav-group{display:none}
+.quick-actions-clean{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:12px;color:#d7e2ee;font-weight:700;font-size:13px}
 .nav a:hover,.nav a.active{background:linear-gradient(90deg,#ff6a00,#c92b18);color:#fff}
 .nav-icon{width:20px;text-align:center}
@@ -1347,48 +1360,76 @@ tbody tr:hover{background:#fafcff}
   <img src="logo_adn_imports.png" alt="ADN Import's" class="brand-logo">
   <div><div class="brand-title">ADN <b>IMPORT'S</b></div><div class="brand-sub">Dorada Motors · Administración</div></div>
  </div>
- <nav class="nav" id="nav">
-  <span class="nav-group">PRINCIPAL</span>
-  <a href="#inicio" class="active"><span class="nav-icon">⌂</span>Dashboard</a>
+ <nav class="nav nav-simple" id="nav">
+  <a href="#inicio" class="nav-main active"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
 
-  <?php if(puede("pedidos") || puede("pagos") || puede("comprobantes")): ?>
-  <span class="nav-group">VENTAS</span>
-  <?php if(puede("pedidos")): ?><a href="#pedidos"><span class="nav-icon">🛒</span>Pedidos</a><?php endif; ?>
-  <?php if(puede("pagos")): ?><a href="#pagos"><span class="nav-icon">▣</span>Pagos</a><?php endif; ?>
-  <?php if(puede("comprobantes")): ?><a href="#comprobantes"><span class="nav-icon">▧</span>Comprobantes</a><?php endif; ?>
-  <?php if(puede("devoluciones")): ?><a href="#devoluciones"><span class="nav-icon">↩</span>Devoluciones</a><?php endif; ?>
+  <?php if(puede("pedidos") || puede("pagos") || puede("comprobantes") || puede("devoluciones")): ?>
+  <div class="nav-folder" data-nav-folder="ventas">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="ventas">
+    <span class="nav-icon">🛒</span><span>Ventas</span><b class="nav-chevron">›</b>
+   </button>
+   <div class="nav-submenu">
+    <?php if(puede("pedidos")): ?><a href="#pedidos">Pedidos</a><?php endif; ?>
+    <?php if(puede("pagos")): ?><a href="#pagos">Pagos</a><?php endif; ?>
+    <?php if(puede("comprobantes")): ?><a href="#comprobantes">Comprobantes</a><?php endif; ?>
+    <?php if(puede("devoluciones")): ?><a href="#devoluciones">Devoluciones</a><?php endif; ?>
+   </div>
+  </div>
   <?php endif; ?>
 
   <?php if(puede("gestion-productos") || puede("categorias") || puede("marcas")): ?>
-  <span class="nav-group">CATÁLOGO</span>
-  <?php if(puede("gestion-productos")): ?><a href="#gestion-productos"><span class="nav-icon">◇</span>Productos</a><?php endif; ?>
-  <?php if(puede("categorias")): ?><a href="#categorias"><span class="nav-icon">▦</span>Categorías</a><?php endif; ?>
-  <?php if(puede("marcas")): ?><a href="#marcas"><span class="nav-icon">◆</span>Marcas</a><?php endif; ?>
+  <div class="nav-folder" data-nav-folder="catalogo">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="catalogo">
+    <span class="nav-icon">◇</span><span>Catálogo</span><b class="nav-chevron">›</b>
+   </button>
+   <div class="nav-submenu">
+    <?php if(puede("gestion-productos")): ?><a href="#gestion-productos">Productos</a><?php endif; ?>
+    <?php if(puede("categorias")): ?><a href="#categorias">Categorías</a><?php endif; ?>
+    <?php if(puede("marcas")): ?><a href="#marcas">Marcas</a><?php endif; ?>
+   </div>
+  </div>
   <?php endif; ?>
 
   <?php if(puede("inventario") || puede("compras") || puede("proveedores")): ?>
-  <span class="nav-group">INVENTARIO</span>
-  <?php if(puede("inventario")): ?><a href="#inventario"><span class="nav-icon">▤</span>Stock / Kardex</a><?php endif; ?>
-  <?php if(puede("compras")): ?><a href="#compras"><span class="nav-icon">＋</span>Compras</a><?php endif; ?>
-  <?php if(puede("proveedores")): ?><a href="#proveedores"><span class="nav-icon">🚚</span>Proveedores</a><?php endif; ?>
+  <div class="nav-folder" data-nav-folder="inventario">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="inventario">
+    <span class="nav-icon">▤</span><span>Inventario</span><b class="nav-chevron">›</b>
+   </button>
+   <div class="nav-submenu">
+    <?php if(puede("inventario")): ?><a href="#inventario">Stock / Kardex</a><?php endif; ?>
+    <?php if(puede("compras")): ?><a href="#compras">Compras</a><?php endif; ?>
+    <?php if(puede("proveedores")): ?><a href="#proveedores">Proveedores</a><?php endif; ?>
+   </div>
+  </div>
   <?php endif; ?>
 
   <?php if(puede("clientes") || puede("usuarios") || puede("favoritos")): ?>
-  <span class="nav-group">CLIENTES</span>
-  <?php if(puede("clientes")): ?><a href="#clientes"><span class="nav-icon">👤</span>Clientes</a><?php endif; ?>
-  <?php if(puede("usuarios")): ?><a href="#usuarios"><span class="nav-icon">♙</span>Usuarios</a><?php endif; ?>
-  <?php if(puede("favoritos")): ?><a href="#favoritos"><span class="nav-icon">♥</span>Favoritos</a><?php endif; ?>
+  <div class="nav-folder" data-nav-folder="clientes">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="clientes">
+    <span class="nav-icon">👤</span><span>Clientes</span><b class="nav-chevron">›</b>
+   </button>
+   <div class="nav-submenu">
+    <?php if(puede("clientes")): ?><a href="#clientes">Clientes</a><?php endif; ?>
+    <?php if(puede("usuarios")): ?><a href="#usuarios">Usuarios</a><?php endif; ?>
+    <?php if(puede("favoritos")): ?><a href="#favoritos">Favoritos</a><?php endif; ?>
+   </div>
+  </div>
   <?php endif; ?>
 
   <?php if(puede("reportes")): ?>
-  <span class="nav-group">ANÁLISIS</span>
-  <a href="#reportes"><span class="nav-icon">▥</span>Reportes</a>
+  <a href="#reportes" class="nav-main"><span class="nav-icon">▥</span><span>Reportes</span></a>
   <?php endif; ?>
 
   <?php if($adminRol === "Administrador"): ?>
-  <span class="nav-group">SISTEMA</span>
-  <a href="#auditoria"><span class="nav-icon">☷</span>Auditoría</a>
-  <a href="#configuracion"><span class="nav-icon">⚙</span>Configuración</a>
+  <div class="nav-folder" data-nav-folder="configuracion">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="configuracion">
+    <span class="nav-icon">⚙</span><span>Configuración</span><b class="nav-chevron">›</b>
+   </button>
+   <div class="nav-submenu">
+    <a href="#configuracion">Empresa y personal</a>
+    <a href="#auditoria">Auditoría</a>
+   </div>
+  </div>
   <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
@@ -1491,13 +1532,11 @@ tbody tr:hover{background:#fafcff}
 <section class="home-tools">
  <article class="card">
   <div class="card-head"><h2>Acciones rápidas</h2><span class="badge">1 clic</span></div>
-  <div class="quick-actions">
-   <a class="quick blue" href="#gestion-productos">📦<span>Nuevo producto</span></a>
-   <a class="quick gold" href="#compras">＋<span>Registrar compra</span></a>
-   <a class="quick purple" href="#pedidos">🛒<span>Ver pedidos</span></a>
-   <a class="quick green" href="#inventario">↕<span>Mover stock</span></a>
-   <a class="quick gold" href="#proveedores">🚚<span>Proveedor</span></a>
-   <a class="quick blue" href="#comprobantes">🧾<span>Comprobante</span></a>
+  <div class="quick-actions quick-actions-clean">
+   <?php if(puede("gestion-productos")): ?><a class="quick blue" href="#gestion-productos">📦<span>Nuevo producto</span></a><?php endif; ?>
+   <?php if(puede("pedidos")): ?><a class="quick purple" href="#pedidos">🛒<span>Gestionar pedidos</span></a><?php endif; ?>
+   <?php if(puede("compras")): ?><a class="quick gold" href="#compras">＋<span>Registrar compra</span></a><?php endif; ?>
+   <?php if(puede("inventario")): ?><a class="quick green" href="#inventario">↕<span>Ajustar stock</span></a><?php endif; ?>
   </div>
  </article>
 
@@ -1917,6 +1956,27 @@ const navLinks=document.querySelectorAll('.nav a');
 const mobileLinks=document.querySelectorAll('.mobile-bottom a');
 const panels=document.querySelectorAll('.page-panel');
 const topTitle=document.getElementById('topTitle');
+
+document.querySelectorAll('[data-nav-toggle]').forEach(btn=>{
+ btn.addEventListener('click',()=>{
+  const folder=btn.closest('.nav-folder');
+  const estabaAbierto=folder?.classList.contains('open');
+  document.querySelectorAll('.nav-folder').forEach(f=>f.classList.remove('open'));
+  if(folder && !estabaAbierto) folder.classList.add('open');
+ });
+});
+
+function actualizarMenuAgrupado(id){
+ document.querySelectorAll('.nav-submenu a').forEach(a=>{
+  a.classList.toggle('active',a.getAttribute('href')==='#'+id);
+ });
+ document.querySelectorAll('.nav-folder').forEach(folder=>{
+  const contiene=[...folder.querySelectorAll('.nav-submenu a')].some(a=>a.getAttribute('href')==='#'+id);
+  folder.classList.toggle('open',contiene);
+  folder.querySelector('.nav-main')?.classList.toggle('active',contiene);
+ });
+}
+
 const filtroCategoriaProducto=document.getElementById('filtroCategoriaProducto');
 const filtroStockProducto=document.getElementById('filtroStockProducto');
 const filtroEstadoPedido=document.getElementById('filtroEstadoPedido');
@@ -2048,8 +2108,11 @@ function mostrarPanel(id,actualizarHash=true){
  panels.forEach(p=>p.classList.remove('active'));
  destino.classList.add('active');
 
- navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
+ navLinks.forEach(a=>{
+  if(!a.closest('.nav-submenu')) a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id);
+ });
  mobileLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+destino.id));
+ actualizarMenuAgrupado(destino.id);
 
  if(topTitle) topTitle.textContent=nombresPanel[destino.id]||'ADN Import\'s';
  if(buscador) buscador.value='';
