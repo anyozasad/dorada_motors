@@ -1,0 +1,35 @@
+DORADA MOTORS - EXAMEN INDICADOR II
+
+Entrega solicitada:
+"Cargar sus bases de datos y proyecto web que integre la API de consulta con la aplicación móvil."
+
+ESTRUCTURA DEL PROYECTO
+- Base de datos: MySQL / dorada_motors
+- Proyecto web y API: PHP en /dorada_api/
+- Aplicación móvil: Flutter
+- Comunicación: HTTP + JSON
+
+FLUJO
+Flutter -> ApiService -> PHP -> MySQL
+
+CONSULTAS INTEGRADAS EN FLUTTER
+- productos.php: catálogo consultado desde MySQL
+- login.php: inicio de sesión contra tabla usuario
+- usuarios.php: registro y consulta de usuarios
+- dashboard_api.php: métricas y últimos pedidos
+- pedidos.php: consulta/registro de pedidos
+
+EJECUCIÓN LOCAL
+1. Encender Apache y MySQL en XAMPP.
+2. Importar dorada_motors.sql en phpMyAdmin.
+3. Colocar dorada_api dentro de C:\xampp\htdocs\
+4. Dashboard:
+   http://localhost/dorada_api/dashboard.php
+5. API de productos:
+   http://localhost/dorada_api/productos.php
+6. Flutter:
+   flutter pub get
+   flutter run -d chrome --web-port 8080
+
+PRUEBA DE INTEGRACIÓN
+Registrar un producto en PHP -> se guarda en MySQL -> Flutter consulta productos.php -> aparece en el catálogo.
