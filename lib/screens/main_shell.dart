@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/productos_data.dart';
 import '../models/producto.dart';
+import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
@@ -36,6 +37,9 @@ class _MainShellState extends State<MainShell> {
   String _vehicle = 'Todos';
   Set<int> _favorites = {};
   Map<int, int> _cart = {};
+  List<Producto> _productos = List<Producto>.from(productosData);
+  bool _cargandoProductosApi = false;
+  String? _errorProductosApi;
 
   final _categories = const [
     ['Motor', Icons.settings],
@@ -52,6 +56,7 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _loadLocalData();
+    _loadProductosApi();
   }
 
   Future<void> _loadLocalData() async {
@@ -63,8 +68,91 @@ class _MainShellState extends State<MainShell> {
       _cart = cart;
     });
   }
+  Future<void> _loadProductosApi() async {
+    if (mounted) {
+      setState(() {
+        _cargandoProductosApi = true;
+        _errorProductosApi = null;
+      });
+    }
 
-  Producto _productById(int id) => productosData.firstWhere((p) => p.id == id);
+    try {
+      final data = await ApiService.obtenerProductos();
+
+      final productosApi = data.map((raw) {
+        final row = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+        final id = int.tryParse(row['id_producto']?.toString() ?? '') ?? 0;
+        final precio = double.tryParse(row['precio']?.toString() ?? '0') ?? 0;
+        final stock = int.tryParse(row['stock']?.toString() ?? '0') ?? 0;
+        final imagenRaw = (row['imagen_url']?.toString() ?? '').trim();
+
+        String imagen = imagenRaw;
+        if (imagen.isEmpty) {
+          for (final local in productosData) {
+            if (local.id == id) {
+              imagen = local.imagen;
+              break;
+            }
+          }
+        } else if (!imagen.startsWith('http://') && !imagen.startsWith('https://') && !imagen.startsWith('assets/')) {
+          imagen = '${ApiService.baseUrl}/$imagen';
+        }
+
+        if (imagen.isEmpty) {
+          imagen = 'assets/imagenes/logo_adn_imports.png';
+        }
+
+        return Producto(
+          id: id,
+          nombre: row['nombre_producto']?.toString() ?? 'Producto',
+          descripcion: row['descripcion']?.toString() ?? '',
+          marca: row['nombre_marca']?.toString() ?? 'Sin marca',
+          categoria: row['nombre_categoria']?.toString() ?? 'Otros',
+          tipoVehiculo: 'Motocicleta / Motokar',
+          compatibilidad: 'Consultar compatibilidad según modelo',
+          precio: precio,
+          stock: stock,
+          imagen: imagen,
+        );
+      }).where((p) => p.id > 0).toList();
+
+      if (!mounted) return;
+      setState(() {
+        if (productosApi.isNotEmpty) {
+          _productos = productosApi;
+        }
+        _cargandoProductosApi = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cargandoProductosApi = false;
+        _errorProductosApi = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Widget _imagenProducto(String ruta, {BoxFit fit = BoxFit.contain}) {
+    if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
+      return Image.network(
+        ruta,
+        fit: fit,
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
+        ),
+      );
+    }
+
+    return Image.asset(
+      ruta,
+      fit: fit,
+      errorBuilder: (_, __, ___) => const Center(
+        child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
+      ),
+    );
+  }
+
+  Producto _productById(int id) => _productos.firstWhere((p) => p.id == id);
 
   Future<void> _toggleFavorite(int id) async {
     if (widget.isGuest) {
@@ -120,7 +208,7 @@ class _MainShellState extends State<MainShell> {
 
   List<Producto> get _filteredProducts {
     final text = _search.trim().toLowerCase();
-    return productosData.where((p) {
+    return _productos.where((p) {
       final searchOk = text.isEmpty ||
           p.nombre.toLowerCase().contains(text) ||
           p.marca.toLowerCase().contains(text) ||
@@ -211,7 +299,7 @@ class _MainShellState extends State<MainShell> {
                           Center(
                             child: Padding(
                               padding: const EdgeInsets.all(14),
-                              child: Image.asset(product.imagen, fit: BoxFit.contain),
+                              child: _imagenProducto(product.imagen),
                             ),
                           ),
                           if (product.precioOferta != null)
@@ -398,7 +486,7 @@ class _MainShellState extends State<MainShell> {
                                   height: 74,
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(color: const Color(0xFFF7F8FA), borderRadius: BorderRadius.circular(16)),
-                                  child: Image.asset(p.imagen, fit: BoxFit.contain),
+                                  child: _imagenProducto(p.imagen),
                                 ),
                                 const SizedBox(width: 11),
                                 Expanded(
@@ -461,7 +549,7 @@ class _MainShellState extends State<MainShell> {
                                   MaterialPageRoute(
                                     builder: (_) => CheckoutScreen(
                                       cart: Map<int, int>.from(_cart),
-                                      products: productosData,
+                                      products: _productos,
                                       onCompleted: () => setState(() => _cart.clear()),
                                     ),
                                   ),
@@ -492,7 +580,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _openFilters() async {
-    final brands = ['Todas', ...{for (final p in productosData) p.marca}];
+    final brands = ['Todas', ...{for (final p in _productos) p.marca}];
     String tempCategory = _category;
     String tempBrand = _brand;
     String tempVehicle = _vehicle;
@@ -706,7 +794,7 @@ class _MainShellState extends State<MainShell> {
             });
           }),
           const SizedBox(height: 12),
-          _productGrid(productosData.take(4).toList()),
+          _productGrid(_productos.take(4).toList()),
         ],
       ),
     );
@@ -953,6 +1041,42 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
           const SizedBox(height: 15),
+          if (_cargandoProductosApi)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: LinearProgressIndicator(minHeight: 3),
+            )
+          else if (_errorProductosApi != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 16, color: AppColors.danger),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Sin conexión con la API. Mostrando catálogo local.',
+                      style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                    ),
+                  ),
+                  TextButton(onPressed: _loadProductosApi, child: const Text('Reintentar')),
+                ],
+              ),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.cloud_done_rounded, size: 16, color: AppColors.success),
+                  SizedBox(width: 6),
+                  Text(
+                    'Catálogo consultado desde PHP + MySQL',
+                    style: TextStyle(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
           Row(
             children: [
               Text('${products.length} producto${products.length == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.ink)),
@@ -980,7 +1104,7 @@ class _MainShellState extends State<MainShell> {
         text: 'Inicia sesión para guardar repuestos y encontrarlos rápidamente después.',
       );
     }
-    final products = productosData.where((p) => _favorites.contains(p.id)).toList();
+    final products = _productos.where((p) => _favorites.contains(p.id)).toList();
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 90),
       child: Column(
