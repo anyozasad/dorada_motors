@@ -61,13 +61,21 @@ class ProductCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(18),
                           child: Padding(
                             padding: const EdgeInsets.all(6),
-                            child: Image.asset(
-                              product.imagen,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
-                              ),
-                            ),
+                            child: product.imagen.startsWith('http://') || product.imagen.startsWith('https://')
+                                ? Image.network(
+                                    product.imagen,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Center(
+                                      child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
+                                    ),
+                                  )
+                                : Image.asset(
+                                    product.imagen,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Center(
+                                      child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
