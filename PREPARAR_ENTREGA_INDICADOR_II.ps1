@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $Proyecto = "C:\Users\CESAR\Desktop\dorada_motors"
 $Backend = Join-Path $Proyecto "dorada_api"
 $Desktop = [Environment]::GetFolderPath("Desktop")
-$Entrega = Join-Path $Desktop "ENTREGA_INDICADOR_II_DORADA_MOTORS"
+$Entrega = Join-Path $Desktop "PROYECTO"
 $Dump = "C:\xampp\mysql\bin\mysqldump.exe"
 $Htdocs = "C:\xampp\htdocs\dorada_api"
 
@@ -134,10 +134,18 @@ EVIDENCIA DE INTEGRACIÓN:
 
 Set-Content (Join-Path $Entrega "LEEME_PROFESOR.txt") $Instrucciones -Encoding UTF8
 
-# 7) Validaciones
+# 7) Crear ZIP final para entregar al profesor
+$ZipFinal = Join-Path $Desktop "PROYECTO.zip"
+if (Test-Path $ZipFinal) {
+    Remove-Item $ZipFinal -Force
+}
+Compress-Archive -Path $Entrega -DestinationPath $ZipFinal -Force
+
+# 8) Validaciones
 Write-Host ""
 Write-Host "=== LISTO ===" -ForegroundColor Green
 Write-Host "Carpeta de entrega: $Entrega" -ForegroundColor Green
+Write-Host "ZIP final: $ZipFinal" -ForegroundColor Green
 Get-ChildItem $Entrega | Select-Object Name, Length | Format-Table -AutoSize
 
 Write-Host ""
