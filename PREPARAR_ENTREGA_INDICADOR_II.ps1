@@ -41,9 +41,21 @@ if (!(Test-Path $Htdocs)) {
 }
 Copy-Item "$Backend\*" $Htdocs -Recurse -Force
 
-# 4) ZIP del proyecto web + API + SQL
+# 4) ZIP limpio del proyecto web + API + SQL
+$TempBackend = Join-Path $env:TEMP "Dorada_Motors_WEB_API_ENTREGA"
+if (Test-Path $TempBackend) {
+    Remove-Item $TempBackend -Recurse -Force
+}
+New-Item -ItemType Directory -Path $TempBackend | Out-Null
+
+Get-ChildItem $Backend -Force | Where-Object {
+    $_.Name -notin @("
+} | ForEach-Object {
+    Copy-Item $_.FullName $TempBackend -Recurse -Force
+}
+
 $WebZip = Join-Path $Entrega "Dorada_Motors_WEB_API.zip"
-Compress-Archive -Path $Backend -DestinationPath $WebZip -Force
+Compress-Archive -Path "$TempBackend\*" -DestinationPath $WebZip -Force
 
 # 5) Preparar copia limpia del proyecto Flutter
 $TempFlutter = Join-Path $env:TEMP "Dorada_Motors_FLUTTER_ENTREGA"
@@ -54,6 +66,8 @@ New-Item -ItemType Directory -Path $TempFlutter | Out-Null
 
 $ExcluirDirectorios = @(
     ".git",
+    ".github",
+    ".vscode",
     ".dart_tool",
     "build",
     ".idea",
@@ -81,58 +95,11 @@ if ($LASTEXITCODE -gt 7) {
     throw "Error al copiar el proyecto Flutter."
 }
 
+Remove-Item (Join-Path $TempFlutter "dorada_motors.iml") -Force -ErrorAction SilentlyContinue
+
 $FlutterZip = Join-Path $Entrega "Dorada_Motors_FLUTTER.zip"
 Compress-Archive -Path "$TempFlutter\*" -DestinationPath $FlutterZip -Force
 
-# 6) Instrucciones para el profesor
-$Instrucciones = @"
-DORADA MOTORS - EXAMEN INDICADOR II
-
-ARCHIVOS:
-1. Dorada_Motors_BD.sql
-   Base de datos MySQL.
-
-2. Dorada_Motors_WEB_API.zip
-   Proyecto web PHP, dashboard y API REST/JSON.
-
-3. Dorada_Motors_FLUTTER.zip
-   Aplicación Flutter que consulta la API PHP.
-
-FLUJO:
-Flutter -> HTTP/JSON -> PHP API -> MySQL dorada_motors
-
-ENDPOINTS PRINCIPALES:
-- /dorada_api/productos.php
-- /dorada_api/login.php
-- /dorada_api/usuarios.php
-- /dorada_api/pedidos.php
-- /dorada_api/dashboard_api.php
-
-PARA EJECUTAR EL PROYECTO WEB:
-1. Descomprimir dorada_api en C:\xampp\htdocs\
-2. Encender Apache y MySQL en XAMPP.
-3. Importar Dorada_Motors_BD.sql en phpMyAdmin.
-4. Abrir:
-   http://localhost/dorada_api/dashboard.php
-
-PARA EJECUTAR FLUTTER WEB:
-1. Descomprimir Dorada_Motors_FLUTTER.zip.
-2. Abrir PowerShell en la carpeta.
-3. Ejecutar:
-   flutter pub get
-   flutter run -d chrome --web-port 8080
-
-API EN FLUTTER WEB:
-http://localhost/dorada_api
-
-EVIDENCIA DE INTEGRACIÓN:
-- Registrar un producto en el dashboard PHP.
-- Verificarlo en MySQL tabla producto.
-- Abrir Flutter y revisar el catálogo.
-- Flutter consulta productos.php y muestra los datos recibidos desde PHP/MySQL.
-"@
-
-Set-Content (Join-Path $Entrega "LEEME_PROFESOR.txt") $Instrucciones -Encoding UTF8
 
 # 7) Crear ZIP final para entregar al profesor
 $ZipFinal = Join-Path $Desktop "PROYECTO.zip"
