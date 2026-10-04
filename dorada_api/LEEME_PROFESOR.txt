@@ -1,35 +1,263 @@
 DORADA MOTORS - EXAMEN INDICADOR II
+Instituto / Curso: Proyecto de integración web + API + aplicación móvil
 
-Entrega solicitada:
-"Cargar sus bases de datos y proyecto web que integre la API de consulta con la aplicación móvil."
+============================================================
+1. NOMBRE DEL PROYECTO
+============================================================
+Dorada Motors - ADN Import's
 
-ESTRUCTURA DEL PROYECTO
-- Base de datos: MySQL / dorada_motors
-- Proyecto web y API: PHP en /dorada_api/
-- Aplicación móvil: Flutter
-- Comunicación: HTTP + JSON
+El proyecto es un sistema para la gestión y consulta de repuestos para motocicletas y motokar.
 
-FLUJO
-Flutter -> ApiService -> PHP -> MySQL
+Está compuesto por:
+- Base de datos MySQL.
+- Proyecto web administrativo desarrollado en PHP.
+- API de consulta y registro en PHP que responde en JSON.
+- Aplicación Flutter que consume la API.
 
-CONSULTAS INTEGRADAS EN FLUTTER
-- productos.php: catálogo consultado desde MySQL
-- login.php: inicio de sesión contra tabla usuario
-- usuarios.php: registro y consulta de usuarios
-- dashboard_api.php: métricas y últimos pedidos
-- pedidos.php: consulta/registro de pedidos
+============================================================
+2. ARQUITECTURA DEL PROYECTO
+============================================================
+Aplicación Flutter
+        |
+        | HTTP / JSON
+        v
+API PHP - dorada_api
+        |
+        | MySQL
+        v
+Base de datos dorada_motors
 
-EJECUCIÓN LOCAL
-1. Encender Apache y MySQL en XAMPP.
-2. Importar dorada_motors.sql en phpMyAdmin.
-3. Colocar dorada_api dentro de C:\xampp\htdocs\
-4. Dashboard:
+La aplicación móvil no accede directamente a MySQL.
+La comunicación se realiza mediante los archivos PHP de la API.
+
+============================================================
+3. BASE DE DATOS
+============================================================
+Nombre de la base de datos:
+dorada_motors
+
+Motor:
+MySQL / MariaDB mediante XAMPP.
+
+Tablas principales:
+1. usuario
+2. direccion
+3. categoria
+4. marca
+5. producto
+6. pedido
+7. detalle_pedido
+8. pago
+9. proveedor
+10. compra
+11. detalle_compra
+12. movimiento_stock
+13. comprobante
+
+Archivo de entrega:
+Dorada_Motors_BD.sql
+
+Este archivo contiene la estructura y los datos actuales de la base de datos para que pueda ser importada en phpMyAdmin.
+
+============================================================
+4. PROYECTO WEB PHP
+============================================================
+Carpeta principal del backend:
+dorada_api
+
+Panel administrativo:
+http://localhost/dorada_api/dashboard.php
+
+El dashboard permite trabajar con la información almacenada en MySQL, entre otras operaciones:
+- Productos.
+- Categorías.
+- Marcas.
+- Usuarios y clientes.
+- Pedidos.
+- Pagos.
+- Proveedores.
+- Compras.
+- Inventario / movimientos de stock.
+- Comprobantes.
+- Reportes.
+
+Archivo de conexión:
+conexion.php
+
+La conexión utiliza por defecto:
+Servidor: localhost
+Usuario: root
+Contraseña: vacía
+Base de datos: dorada_motors
+Puerto: 3306
+
+============================================================
+5. API PHP
+============================================================
+La API está incluida dentro de la carpeta dorada_api.
+
+Endpoints principales utilizados por Flutter:
+
+productos.php
+- Consulta productos desde MySQL.
+- Permite registrar y actualizar productos desde el backend.
+
+login.php
+- Valida el inicio de sesión contra la tabla usuario.
+
+usuarios.php
+- Registra usuarios.
+- Consulta usuarios.
+
+pedidos.php
+- Consulta pedidos.
+- Registra pedidos y detalle.
+- Actualiza stock cuando corresponde.
+
+pagos.php
+- Registra y consulta pagos.
+
+direcciones.php
+- Registra y consulta direcciones.
+
+dashboard_api.php
+- Devuelve métricas generales en formato JSON.
+- Productos.
+- Usuarios.
+- Pedidos.
+- Ventas.
+- Stock bajo.
+- Últimos pedidos.
+
+Ejemplo de consulta en navegador:
+http://localhost/dorada_api/productos.php
+
+El resultado de la API se devuelve en formato JSON.
+
+============================================================
+6. APLICACIÓN FLUTTER
+============================================================
+La aplicación móvil está desarrollada con Flutter.
+
+Archivo de conexión con la API:
+lib/services/api_service.dart
+
+Configuración utilizada:
+
+Flutter Web:
+http://localhost/dorada_api
+
+Emulador Android:
+http://10.0.2.2/dorada_api
+
+Funciones ya integradas con la API:
+- Inicio de sesión.
+- Registro de usuario.
+- Consulta de productos.
+- Consulta del dashboard.
+- Consulta de pedidos.
+
+El catálogo de productos consulta productos.php y obtiene información almacenada en la tabla producto de MySQL.
+
+Flujo de ejemplo:
+1. Se registra un producto en el panel PHP.
+2. El producto se guarda en dorada_motors.producto.
+3. Flutter realiza una petición HTTP a productos.php.
+4. productos.php consulta MySQL.
+5. La API devuelve JSON.
+6. Flutter muestra el producto en el catálogo.
+
+============================================================
+7. CÓMO EJECUTAR EL PROYECTO WEB
+============================================================
+Requisitos:
+- XAMPP.
+- Apache.
+- MySQL.
+
+Pasos:
+1. Copiar la carpeta dorada_api en:
+   C:\xampp\htdocs\
+
+2. Encender Apache y MySQL desde XAMPP.
+
+3. Abrir phpMyAdmin:
+   http://localhost/phpmyadmin/
+
+4. Importar:
+   Dorada_Motors_BD.sql
+
+5. Abrir el dashboard:
    http://localhost/dorada_api/dashboard.php
-5. API de productos:
-   http://localhost/dorada_api/productos.php
-6. Flutter:
-   flutter pub get
-   flutter run -d chrome --web-port 8080
 
-PRUEBA DE INTEGRACIÓN
-Registrar un producto en PHP -> se guarda en MySQL -> Flutter consulta productos.php -> aparece en el catálogo.
+6. Probar la API:
+   http://localhost/dorada_api/productos.php
+
+============================================================
+8. CÓMO EJECUTAR LA APLICACIÓN FLUTTER
+============================================================
+Abrir PowerShell dentro de la carpeta del proyecto Flutter.
+
+Ejecutar:
+
+flutter pub get
+
+Para Flutter Web:
+flutter run -d chrome --web-port 8080
+
+Luego abrir:
+http://localhost:8080
+
+Para que Flutter consulte la API, Apache y MySQL deben estar encendidos en XAMPP.
+
+============================================================
+9. PRUEBA DE INTEGRACIÓN
+============================================================
+Para comprobar la integración completa:
+
+1. Abrir el dashboard PHP.
+2. Registrar o editar un producto.
+3. Verificar el registro en phpMyAdmin:
+   dorada_motors -> producto
+4. Abrir:
+   http://localhost/dorada_api/productos.php
+5. Verificar que el producto aparezca en el JSON.
+6. Ejecutar Flutter.
+7. Entrar al catálogo.
+8. Verificar que el producto se muestre en la aplicación.
+
+Con esta prueba se demuestra:
+
+Flutter -> API PHP -> MySQL
+
+============================================================
+10. ARCHIVOS DE ENTREGA
+============================================================
+La entrega debe contener:
+
+Dorada_Motors_BD.sql
+- Base de datos MySQL.
+
+Dorada_Motors_WEB_API.zip
+- Proyecto web PHP.
+- Dashboard.
+- API.
+- Archivos de conexión.
+
+Dorada_Motors_FLUTTER.zip
+- Aplicación Flutter.
+
+LEEME_PROFESOR.txt
+- Instrucciones para ejecutar y revisar el proyecto.
+
+============================================================
+11. RESUMEN
+============================================================
+Dorada Motors integra una aplicación Flutter con una API desarrollada en PHP.
+
+La API se conecta con la base de datos MySQL dorada_motors.
+
+Los datos de productos, usuarios, pedidos y otras operaciones son consultados o registrados mediante PHP, y la aplicación Flutter consume los endpoints mediante HTTP y JSON.
+
+Esto cumple con la actividad:
+"Cargar sus bases de datos y proyecto web que integre la API de consulta con la aplicación móvil."
