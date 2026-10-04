@@ -64,13 +64,16 @@ if (!(Test-Path $Htdocs)) {
 Copy-Item (Join-Path $Backend "*") $Htdocs -Recurse -Force
 
 # 4. Crear ZIP limpio del proyecto web + API
+# El ZIP incluye una carpeta raiz "dorada_api" para que el profesor
+# solo la extraiga directamente dentro de C:\xampp\htdocs\
 $TempBackend = Join-Path $env:TEMP "Dorada_Motors_WEB_API_ENTREGA"
+$TempBackendApp = Join-Path $TempBackend "dorada_api"
 
 if (Test-Path $TempBackend) {
     Remove-Item $TempBackend -Recurse -Force
 }
 
-New-Item -ItemType Directory -Path $TempBackend | Out-Null
+New-Item -ItemType Directory -Path $TempBackendApp -Force | Out-Null
 
 Get-ChildItem $Backend -Force |
     Where-Object {
@@ -82,11 +85,11 @@ Get-ChildItem $Backend -Force |
         )
     } |
     ForEach-Object {
-        Copy-Item $_.FullName $TempBackend -Recurse -Force
+        Copy-Item $_.FullName $TempBackendApp -Recurse -Force
     }
 
 $WebZip = Join-Path $Entrega "Dorada_Motors_WEB_API.zip"
-Compress-Archive -Path (Join-Path $TempBackend "*") -DestinationPath $WebZip -Force
+Compress-Archive -Path $TempBackendApp -DestinationPath $WebZip -Force
 
 # 5. Crear ZIP limpio de Flutter
 $TempFlutter = Join-Path $env:TEMP "Dorada_Motors_FLUTTER_ENTREGA"
