@@ -1,7 +1,9 @@
 <?php
-
 include("conexion.php");
 require_once "sistema_bootstrap.php";
+require_once "empresa_config.php";
+
+header("Content-Type: application/json; charset=UTF-8");
 
 function responderPedido(array $data, int $status = 200): void {
     http_response_code($status);
@@ -9,7 +11,9 @@ function responderPedido(array $data, int $status = 200): void {
     exit;
 }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+$metodo = $_SERVER["REQUEST_METHOD"];
+
+if ($metodo === "POST") {
     $datos = json_decode(file_get_contents("php://input"), true);
 
     if (!is_array($datos)) {
@@ -18,253 +22,264 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
     $idDireccion = !empty($datos["id_direccion"]) ? (int)$datos["id_direccion"] : null;
-    $tipoEntrega = trim($datos["tipo_entrega"] ?? "Recojo en tienda");
-    $estado = trim($datos["estado_pedido"] ?? "Pendiente");
+    $tipoEntrega = trim((string)($datos["tipo_entrega"] ?? "Recojo en tienda"));
     $items = $datos["items"] ?? [];
-    $costoEntrega = max(0, (float)($datos["costo_entrega"] ?? 0));
+    $metodoPago = trim((string)($datos["metodo_pago"] ?? "Efectivo"));
+
+    if ($idUsuario <= 0 || !is_array($items) || count($items) === 0) {
+        responderPedido(["estado"=>false,"mensaje"=>"El pedido debe incluir cliente y productos"], 400);
+    }
+
+    if (!in_array($tipoEntrega, ["Recojo en tienda","Delivery"], true)) {
+        responderPedido(["estado"=>false,"mensaje"=>"Tipo de entrega inválido"], 400);
+    }
+
+    if (!in_array($metodoPago, ["Efectivo","Yape","Plin","Transferencia"], true)) {
+        responderPedido(["estado"=>false,"mensaje"=>"Método de pago inválido"], 400);
+    }
 
     $stmt = $conexion->prepare("
         SELECT id_usuario,estado
         FROM usuario
         WHERE id_usuario=?
+          AND rol_sistema='Cliente'
         LIMIT 1
     ");
     $stmt->bind_param("i",$idUsuario);
     $stmt->execute();
     $usuario = $stmt->get_result()->fetch_assoc();
 
-    if (!$usuario || ($usuario["estado"] ?? "Activo") !== "Activo") {
-        responderPedido(["estado"=>false,"mensaje"=>"Usuario no disponible"], 403);
+    if (!$usuario || (string)$usuario["estado"] !== "Activo") {
+        responderPedido(["estado"=>false,"mensaje"=>"Cliente no disponible"], 403);
     }
 
-    if (is_array($items) && count($items) > 0) {
-        $conexion->begin_transaction();
-
-        try {
-            $lineas = [];
-            $total = 0.0;
-
-            foreach ($items as $item) {
-                $idProducto = (int)($item["id_producto"] ?? 0);
-                $cantidad = (int)($item["cantidad"] ?? 0);
-
-                if ($idProducto <= 0 || $cantidad <= 0) {
-                    throw new RuntimeException("Hay un producto con cantidad inválida");
-                }
-
-                $stmt = $conexion->prepare("
-                    SELECT id_producto,nombre_producto,precio,stock
-                    FROM producto
-                    WHERE id_producto=?
-                    FOR UPDATE
-                ");
-                $stmt->bind_param("i",$idProducto);
-                $stmt->execute();
-                $producto = $stmt->get_result()->fetch_assoc();
-
-                if (!$producto) {
-                    throw new RuntimeException("Producto no encontrado");
-                }
-
-                if ((int)$producto["stock"] < $cantidad) {
-                    throw new RuntimeException(
-                        "Stock insuficiente para " . $producto["nombre_producto"]
-                    );
-                }
-
-                $precio = (float)$producto["precio"];
-                $subtotal = round($precio * $cantidad, 2);
-                $total += $subtotal;
-
-                $lineas[] = [
-                    "id_producto" => $idProducto,
-                    "cantidad" => $cantidad,
-                    "precio" => $precio,
-                    "subtotal" => $subtotal,
-                    "stock_anterior" => (int)$producto["stock"],
-                    "stock_nuevo" => (int)$producto["stock"] - $cantidad,
-                ];
-            }
-
-            $total = round($total + $costoEntrega, 2);
-
-            if ($idDireccion !== null) {
-                $stmt = $conexion->prepare("
-                    INSERT INTO pedido
-                    (id_usuario,fecha_pedido,estado_pedido,total,id_direccion,tipo_entrega)
-                    VALUES (?,NOW(),?,?,?,?)
-                ");
-                $stmt->bind_param("isdis",$idUsuario,$estado,$total,$idDireccion,$tipoEntrega);
-            } else {
-                $stmt = $conexion->prepare("
-                    INSERT INTO pedido
-                    (id_usuario,fecha_pedido,estado_pedido,total,tipo_entrega)
-                    VALUES (?,NOW(),?,?,?)
-                ");
-                $stmt->bind_param("isds",$idUsuario,$estado,$total,$tipoEntrega);
-            }
-
-            $stmt->execute();
-            $idPedido = $conexion->insert_id;
-
-            foreach ($lineas as $linea) {
-                $stmt = $conexion->prepare("
-                    INSERT INTO detalle_pedido
-                    (id_pedido,id_producto,cantidad,precio_unitario,subtotal)
-                    VALUES (?,?,?,?,?)
-                ");
-                $stmt->bind_param(
-                    "iiidd",
-                    $idPedido,
-                    $linea["id_producto"],
-                    $linea["cantidad"],
-                    $linea["precio"],
-                    $linea["subtotal"]
-                );
-                $stmt->execute();
-
-                $stmt = $conexion->prepare("
-                    UPDATE producto
-                    SET stock=?
-                    WHERE id_producto=?
-                ");
-                $stmt->bind_param("ii",$linea["stock_nuevo"],$linea["id_producto"]);
-                $stmt->execute();
-
-                $tipoSalida = "Salida";
-                $motivo = "Pedido #" . $idPedido;
-                $stmt = $conexion->prepare("
-                    INSERT INTO movimiento_stock
-                    (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
-                    VALUES (?,?,?,?,NOW(),?,?)
-                ");
-                $stmt->bind_param(
-                    "isisii",
-                    $linea["id_producto"],
-                    $tipoSalida,
-                    $linea["cantidad"],
-                    $motivo,
-                    $linea["stock_anterior"],
-                    $linea["stock_nuevo"]
-                );
-                $stmt->execute();
-            }
-
-            if (!empty($datos["metodo_pago"])) {
-                $metodoPago = trim($datos["metodo_pago"]);
-                $estadoPago = trim($datos["estado_pago"] ?? "Pendiente");
-
-                $stmt = $conexion->prepare("
-                    INSERT INTO pago
-                    (id_pedido,metodo_pago,monto,fecha_pago,estado_pago)
-                    VALUES (?,?,?,NOW(),?)
-                ");
-                $stmt->bind_param("isds",$idPedido,$metodoPago,$total,$estadoPago);
-                $stmt->execute();
-            }
-
-            $conexion->commit();
-
-            responderPedido([
-                "estado" => true,
-                "mensaje" => "Pedido registrado correctamente",
-                "id_pedido" => $idPedido,
-                "total" => $total
-            ]);
-        } catch (Throwable $e) {
-            $conexion->rollback();
-            responderPedido([
-                "estado" => false,
-                "mensaje" => $e->getMessage()
-            ], 400);
+    if ($tipoEntrega === "Delivery") {
+        if (!$idDireccion) {
+            responderPedido(["estado"=>false,"mensaje"=>"Selecciona una dirección para el delivery"], 400);
         }
+
+        $stmt = $conexion->prepare("
+            SELECT id_direccion
+            FROM direccion
+            WHERE id_direccion=? AND id_usuario=?
+            LIMIT 1
+        ");
+        $stmt->bind_param("ii",$idDireccion,$idUsuario);
+        $stmt->execute();
+
+        if (!$stmt->get_result()->fetch_assoc()) {
+            responderPedido(["estado"=>false,"mensaje"=>"La dirección no pertenece al cliente"], 400);
+        }
+    } else {
+        $idDireccion = null;
     }
 
-    /* Compatibilidad con la versión anterior del frontend. */
-    $total = (float)($datos["total"] ?? 0);
+    $cantidadesPorProducto = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            responderPedido(["estado"=>false,"mensaje"=>"Producto de pedido inválido"], 400);
+        }
 
-    if ($idUsuario <= 0 || $total < 0) {
-        responderPedido(["estado"=>false,"mensaje"=>"Completa los datos del pedido"], 400);
+        $idProducto = (int)($item["id_producto"] ?? 0);
+        $cantidad = (int)($item["cantidad"] ?? 0);
+
+        if ($idProducto <= 0 || $cantidad <= 0) {
+            responderPedido(["estado"=>false,"mensaje"=>"Hay un producto con cantidad inválida"], 400);
+        }
+
+        $cantidadesPorProducto[$idProducto] = ($cantidadesPorProducto[$idProducto] ?? 0) + $cantidad;
     }
 
-    $stmt = $conexion->prepare("
-        INSERT INTO pedido
-        (id_usuario,fecha_pedido,estado_pedido,total,tipo_entrega)
-        VALUES (?,NOW(),?,?,?)
-    ");
-    $stmt->bind_param("isds",$idUsuario,$estado,$total,$tipoEntrega);
+    $config = cargarConfigEmpresa();
+    $costoEntrega = $tipoEntrega === "Delivery"
+        ? max(0, (float)($config["costo_delivery"] ?? 0))
+        : 0.0;
 
-    if ($stmt->execute()) {
+    $conexion->begin_transaction();
+
+    try {
+        $lineas = [];
+        $totalProductos = 0.0;
+
+        foreach ($cantidadesPorProducto as $idProducto => $cantidad) {
+            $stmt = $conexion->prepare("
+                SELECT
+                    id_producto,
+                    nombre_producto,
+                    precio,
+                    precio_oferta,
+                    stock
+                FROM producto
+                WHERE id_producto=?
+                FOR UPDATE
+            ");
+            $stmt->bind_param("i",$idProducto);
+            $stmt->execute();
+            $producto = $stmt->get_result()->fetch_assoc();
+
+            if (!$producto) {
+                throw new RuntimeException("Producto no encontrado");
+            }
+
+            if ((int)$producto["stock"] < $cantidad) {
+                throw new RuntimeException("Stock insuficiente para " . $producto["nombre_producto"]);
+            }
+
+            $precioBase = (float)$producto["precio"];
+            $precioOferta = isset($producto["precio_oferta"]) ? (float)$producto["precio_oferta"] : 0;
+            $precio = ($precioOferta > 0 && $precioOferta < $precioBase) ? $precioOferta : $precioBase;
+            $subtotal = round($precio * $cantidad, 2);
+            $totalProductos += $subtotal;
+
+            $lineas[] = [
+                "id_producto" => (int)$idProducto,
+                "cantidad" => (int)$cantidad,
+                "precio" => $precio,
+                "subtotal" => $subtotal,
+                "stock_anterior" => (int)$producto["stock"],
+                "stock_nuevo" => (int)$producto["stock"] - $cantidad,
+            ];
+        }
+
+        $total = round($totalProductos + $costoEntrega, 2);
+        $estadoPedido = "Pendiente";
+
+        if ($idDireccion !== null) {
+            $stmt = $conexion->prepare("
+                INSERT INTO pedido
+                (id_usuario,fecha_pedido,estado_pedido,total,id_direccion,tipo_entrega)
+                VALUES (?,NOW(),?,?,?,?)
+            ");
+            $stmt->bind_param("isdis",$idUsuario,$estadoPedido,$total,$idDireccion,$tipoEntrega);
+        } else {
+            $stmt = $conexion->prepare("
+                INSERT INTO pedido
+                (id_usuario,fecha_pedido,estado_pedido,total,tipo_entrega)
+                VALUES (?,NOW(),?,?,?)
+            ");
+            $stmt->bind_param("isds",$idUsuario,$estadoPedido,$total,$tipoEntrega);
+        }
+
+        $stmt->execute();
+        $idPedido = (int)$conexion->insert_id;
+
+        foreach ($lineas as $linea) {
+            $stmt = $conexion->prepare("
+                INSERT INTO detalle_pedido
+                (id_pedido,id_producto,cantidad,precio_unitario,subtotal)
+                VALUES (?,?,?,?,?)
+            ");
+            $stmt->bind_param(
+                "iiidd",
+                $idPedido,
+                $linea["id_producto"],
+                $linea["cantidad"],
+                $linea["precio"],
+                $linea["subtotal"]
+            );
+            $stmt->execute();
+
+            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+            $stmt->bind_param("ii",$linea["stock_nuevo"],$linea["id_producto"]);
+            $stmt->execute();
+
+            $tipoSalida = "Salida";
+            $motivo = "Pedido #" . $idPedido;
+            $stmt = $conexion->prepare("
+                INSERT INTO movimiento_stock
+                (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                VALUES (?,?,?,?,NOW(),?,?)
+            ");
+            $stmt->bind_param(
+                "isisii",
+                $linea["id_producto"],
+                $tipoSalida,
+                $linea["cantidad"],
+                $motivo,
+                $linea["stock_anterior"],
+                $linea["stock_nuevo"]
+            );
+            $stmt->execute();
+        }
+
+        $estadoPago = "Pendiente";
+        $stmt = $conexion->prepare("
+            INSERT INTO pago
+            (id_pedido,metodo_pago,monto,fecha_pago,estado_pago)
+            VALUES (?,?,?,NOW(),?)
+        ");
+        $stmt->bind_param("isds",$idPedido,$metodoPago,$total,$estadoPago);
+        $stmt->execute();
+
+        $conexion->commit();
+
         responderPedido([
             "estado" => true,
-            "mensaje" => "Pedido registrado",
-            "id_pedido" => $conexion->insert_id,
+            "mensaje" => "Pedido registrado correctamente",
+            "id_pedido" => $idPedido,
+            "subtotal_productos" => round($totalProductos,2),
+            "costo_entrega" => round($costoEntrega,2),
             "total" => $total
-        ]);
+        ], 201);
+    } catch (Throwable $e) {
+        $conexion->rollback();
+        responderPedido(["estado"=>false,"mensaje"=>$e->getMessage()], 400);
     }
+}
 
-    responderPedido(["estado"=>false,"mensaje"=>"Error al registrar pedido"], 500);
+if ($metodo !== "GET") {
+    responderPedido(["estado"=>false,"mensaje"=>"Método no permitido"], 405);
 }
 
 $idUsuarioFiltro = (int)($_GET["id_usuario"] ?? 0);
 
-if ($idUsuarioFiltro > 0) {
-    $stmt = $conexion->prepare("
-        SELECT
-            p.id_pedido,
-            p.fecha_pedido,
-            p.estado_pedido,
-            p.total,
-            p.tipo_entrega,
-            p.id_direccion,
-            u.id_usuario,
-            u.nombres,
-            u.apellidos,
-            u.telefono,
-            d.direccion_detalle,
-            (
-                SELECT pg.metodo_pago
-                FROM pago pg
-                WHERE pg.id_pedido=p.id_pedido
-                ORDER BY pg.id_pago DESC
-                LIMIT 1
-            ) AS metodo_pago
-        FROM pedido p
-        INNER JOIN usuario u ON p.id_usuario=u.id_usuario
-        LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
-        WHERE p.id_usuario=?
-        ORDER BY p.id_pedido DESC
-    ");
-    $stmt->bind_param("i",$idUsuarioFiltro);
-    $stmt->execute();
-    $resultado = $stmt->get_result();
-} else {
-    $resultado = $conexion->query("
-        SELECT
-            p.id_pedido,
-            p.fecha_pedido,
-            p.estado_pedido,
-            p.total,
-            p.tipo_entrega,
-            p.id_direccion,
-            u.id_usuario,
-            u.nombres,
-            u.apellidos,
-            u.telefono,
-            d.direccion_detalle,
-            (
-                SELECT pg.metodo_pago
-                FROM pago pg
-                WHERE pg.id_pedido=p.id_pedido
-                ORDER BY pg.id_pago DESC
-                LIMIT 1
-            ) AS metodo_pago
-        FROM pedido p
-        INNER JOIN usuario u ON p.id_usuario=u.id_usuario
-        LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
-        ORDER BY p.id_pedido DESC
-    ");
+if ($idUsuarioFiltro <= 0) {
+    echo json_encode([], JSON_UNESCAPED_UNICODE);
+    exit;
 }
+
+$stmt = $conexion->prepare("
+    SELECT id_usuario
+    FROM usuario
+    WHERE id_usuario=?
+      AND rol_sistema='Cliente'
+    LIMIT 1
+");
+$stmt->bind_param("i",$idUsuarioFiltro);
+$stmt->execute();
+if (!$stmt->get_result()->fetch_assoc()) {
+    responderPedido(["estado"=>false,"mensaje"=>"Cliente no encontrado"], 404);
+}
+
+$stmt = $conexion->prepare("
+    SELECT
+        p.id_pedido,
+        p.fecha_pedido,
+        p.estado_pedido,
+        p.total,
+        p.tipo_entrega,
+        p.id_direccion,
+        u.id_usuario,
+        u.nombres,
+        u.apellidos,
+        u.telefono,
+        d.direccion_detalle,
+        (
+            SELECT pg.metodo_pago
+            FROM pago pg
+            WHERE pg.id_pedido=p.id_pedido
+            ORDER BY pg.id_pago DESC
+            LIMIT 1
+        ) AS metodo_pago
+    FROM pedido p
+    INNER JOIN usuario u ON p.id_usuario=u.id_usuario
+    LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
+    WHERE p.id_usuario=?
+    ORDER BY p.id_pedido DESC
+");
+$stmt->bind_param("i",$idUsuarioFiltro);
+$stmt->execute();
+$resultado = $stmt->get_result();
 
 $pedidos = [];
 
