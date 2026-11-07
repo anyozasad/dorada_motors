@@ -1,20 +1,9 @@
 <?php
 require_once "conexion.php";
 require_once "auth_admin.php";
+require_once "empresa_config.php";
 
-/*
- * Modo directo para presentación:
- * al abrir el sistema entra al dashboard sin mostrar una pantalla de login.
- * Si existe un administrador activo, se usa esa cuenta para la sesión.
- */
-if (!adminActual()) {
-    $_SESSION["admin"] = [
-        "id_admin" => 0,
-        "nombres" => "Administrador",
-        "correo" => "admin@adnimports.local",
-        "rol" => "Administrador",
-    ];
-}
+requerirAdmin();
 
 header("Content-Type: text/html; charset=UTF-8");
 
@@ -96,17 +85,7 @@ function guardarImagenProducto(?array $archivo, string $actual = ""): string {
 }
 
 $adminSesion = adminActual();
-$configEmpresa = [
-    "nombre_comercial" => "Dorada Motors",
-    "razon_social" => "ADN Import's",
-    "ruc" => "",
-    "direccion" => "",
-    "telefono" => "",
-    "correo" => "",
-    "moneda" => "S/",
-    "igv" => 18,
-    "logo" => "logo_adn_imports.png",
-];
+$configEmpresa = cargarConfigEmpresa();
 $igvEmpresa = (float)($configEmpresa["igv"] ?? 18);
 
 $accionesSistema = [
@@ -137,6 +116,10 @@ $accionesSistema = [
     "actualizar_estado_compra" => ["compras", "Cambiar estado de compra"],
     "registrar_comprobante" => ["comprobantes", "Emitir comprobante"],
     "eliminar_comprobante" => ["comprobantes", "Eliminar comprobante"],
+    "guardar_config_empresa" => ["configuracion", "Actualizar datos de empresa"],
+    "crear_usuario_admin" => ["configuracion", "Crear usuario administrativo"],
+    "actualizar_usuario_admin" => ["configuracion", "Actualizar usuario administrativo"],
+    "cambiar_clave_admin" => ["configuracion", "Cambiar contraseña administrativa"],
 ];
 
 $accionAuditoriaPendiente = null;
@@ -1337,7 +1320,113 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
 
-        /* ================= CONFIGURACIÓN OMITIDA EN VERSIÓN SIMPLIFICADA ================= */
+        /* ================= CONFIGURACIÓN Y PERSONAL ================= */
+        if (isset($_POST["guardar_config_empresa"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el Administrador puede modificar los datos de la empresa.", "error", "configuracion");
+            }
+
+            $configEmpresa = guardarConfigEmpresa($_POST);
+            $igvEmpresa = (float)$configEmpresa["igv"];
+            redir("Datos de la empresa actualizados correctamente", "ok", "configuracion");
+        }
+
+        if (isset($_POST["crear_usuario_admin"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el Administrador puede crear cuentas del personal.", "error", "configuracion");
+            }
+
+            $nombres = trim($_POST["admin_nombres"] ?? "");
+            $apellidos = trim($_POST["admin_apellidos"] ?? "");
+            $correo = strtolower(trim($_POST["admin_correo"] ?? ""));
+            $clave = (string)($_POST["admin_contrasena"] ?? "");
+            $rol = trim($_POST["admin_rol"] ?? "Vendedor");
+
+            if ($nombres === "" || !filter_var($correo,FILTER_VALIDATE_EMAIL) || strlen($clave) < 8 ||
+                !in_array($rol,["Administrador","Vendedor","Almacen"],true)) {
+                redir("Completa correctamente la cuenta administrativa. La contraseña debe tener mínimo 8 caracteres.", "error", "configuracion");
+            }
+
+            $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE correo=? LIMIT 1");
+            $stmt->bind_param("s",$correo);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                redir("Ese correo ya está registrado.", "error", "configuracion");
+            }
+
+            $hash = password_hash($clave,PASSWORD_DEFAULT);
+            $telefono = trim($_POST["admin_telefono"] ?? "");
+            $estado = "Activo";
+            $stmt = $conexion->prepare("
+                INSERT INTO usuario
+                (nombres,apellidos,correo,contrasena,telefono,estado,rol_sistema)
+                VALUES (?,?,?,?,?,?,?)
+            ");
+            $stmt->bind_param("sssssss",$nombres,$apellidos,$correo,$hash,$telefono,$estado,$rol);
+            $stmt->execute();
+
+            redir("Cuenta de ".$rol." creada correctamente", "ok", "configuracion");
+        }
+
+        if (isset($_POST["actualizar_usuario_admin"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el Administrador puede cambiar roles del personal.", "error", "configuracion");
+            }
+
+            $idPersonal = (int)($_POST["id_usuario_admin"] ?? 0);
+            $rol = trim($_POST["rol_usuario_admin"] ?? "");
+            $estado = trim($_POST["estado_usuario_admin"] ?? "");
+
+            if ($idPersonal <= 0 ||
+                !in_array($rol,["Administrador","Vendedor","Almacen"],true) ||
+                !in_array($estado,["Activo","Bloqueado"],true)) {
+                redir("Rol o estado administrativo inválido.", "error", "configuracion");
+            }
+
+            $idSesion = (int)($adminSesion["id_usuario"] ?? $adminSesion["id_admin"] ?? 0);
+            if ($idPersonal === $idSesion && ($rol !== "Administrador" || $estado !== "Activo")) {
+                redir("No puedes quitarte tu propio acceso de Administrador.", "error", "configuracion");
+            }
+
+            $stmt = $conexion->prepare("
+                UPDATE usuario
+                SET rol_sistema=?,estado=?
+                WHERE id_usuario=? AND rol_sistema<>'Cliente'
+            ");
+            $stmt->bind_param("ssi",$rol,$estado,$idPersonal);
+            $stmt->execute();
+
+            redir("Cuenta administrativa actualizada", "ok", "configuracion");
+        }
+
+        if (isset($_POST["cambiar_clave_admin"])) {
+            $claveActual = (string)($_POST["clave_actual"] ?? "");
+            $claveNueva = (string)($_POST["clave_nueva"] ?? "");
+            $claveConfirmar = (string)($_POST["clave_confirmar"] ?? "");
+            $idSesion = (int)($adminSesion["id_usuario"] ?? $adminSesion["id_admin"] ?? 0);
+
+            if (strlen($claveNueva) < 8 || $claveNueva !== $claveConfirmar) {
+                redir("La nueva contraseña debe tener mínimo 8 caracteres y coincidir.", "error", "configuracion");
+            }
+
+            $stmt = $conexion->prepare("SELECT contrasena FROM usuario WHERE id_usuario=? LIMIT 1");
+            $stmt->bind_param("i",$idSesion);
+            $stmt->execute();
+            $filaClave = $stmt->get_result()->fetch_assoc();
+
+            if (!$filaClave || !password_verify($claveActual,(string)$filaClave["contrasena"])) {
+                redir("La contraseña actual es incorrecta.", "error", "configuracion");
+            }
+
+            $hashNueva = password_hash($claveNueva,PASSWORD_DEFAULT);
+            $stmt = $conexion->prepare("UPDATE usuario SET contrasena=? WHERE id_usuario=?");
+            $stmt->bind_param("si",$hashNueva,$idSesion);
+            $stmt->execute();
+
+            redir("Contraseña administrativa actualizada", "ok", "configuracion");
+        }
+
+        /* ================= CONFIGURACIÓN ================= */
 
     } catch (Throwable $e) {
         $mensaje = "Error: " . $e->getMessage();
