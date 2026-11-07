@@ -15,6 +15,7 @@ function empresaConfigDefault(): array {
         "correo" => "",
         "moneda" => "S/",
         "igv" => 18,
+        "costo_delivery" => 0,
         "logo" => "logo_adn_imports.png",
     ];
 }
@@ -46,6 +47,7 @@ function guardarConfigEmpresa(array $input): array {
         "correo" => strtolower(trim((string)($input["correo_empresa"] ?? $actual["correo"]))),
         "moneda" => trim((string)($input["moneda"] ?? $actual["moneda"])),
         "igv" => (float)($input["igv"] ?? $actual["igv"]),
+        "costo_delivery" => max(0, (float)($input["costo_delivery"] ?? $actual["costo_delivery"])),
         "logo" => $actual["logo"],
     ];
 
