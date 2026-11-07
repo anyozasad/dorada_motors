@@ -10,7 +10,7 @@ try {
     )->fetch_assoc()["total"];
 
     $totalUsuarios = (int)$conexion->query(
-        "SELECT COUNT(*) AS total FROM usuario WHERE estado='Activo'"
+        "SELECT COUNT(*) AS total FROM usuario"
     )->fetch_assoc()["total"];
 
     $totalPedidos = (int)$conexion->query(
@@ -22,11 +22,11 @@ try {
     )->fetch_assoc()["total"];
 
     $totalVentas = (float)$conexion->query(
-        "SELECT COALESCE(SUM(total),0) AS total FROM pedido"
+        "SELECT COALESCE(SUM(total),0) AS total FROM pedido WHERE LOWER(estado_pedido)<>'cancelado'"
     )->fetch_assoc()["total"];
 
     $ventasHoy = (float)$conexion->query(
-        "SELECT COALESCE(SUM(total),0) AS total FROM pedido WHERE DATE(fecha_pedido)=CURDATE()"
+        "SELECT COALESCE(SUM(total),0) AS total FROM pedido WHERE DATE(fecha_pedido)=CURDATE() AND LOWER(estado_pedido)<>'cancelado'"
     )->fetch_assoc()["total"];
 
     $stockBajo = (int)$conexion->query(
