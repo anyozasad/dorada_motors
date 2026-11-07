@@ -139,6 +139,7 @@ $ArchivosQuitarFlutter = @(
     "dorada_motors.iml",
     "PREPARAR_ENTREGA_INDICADOR_II.ps1",
     "VERIFICAR_SISTEMA.ps1",
+    "PRUEBA_INTEGRACION.php",
     "ENTREGA_INDICADOR_II.txt"
 )
 
