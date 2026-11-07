@@ -60,6 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $id = (int)$conexion->insert_id;
 
                 session_regenerate_id(true);
+                $_SESSION["admin_last_activity"] = time();
                 $_SESSION["admin"] = [
                     "id_admin" => $id,
                     "id_usuario" => $id,
