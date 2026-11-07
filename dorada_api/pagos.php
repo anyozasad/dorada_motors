@@ -1,7 +1,14 @@
 <?php
 include("conexion.php");
+require_once "auth_admin.php";
 
 header("Content-Type: application/json; charset=UTF-8");
+
+if (!adminActual()) {
+    http_response_code(401);
+    echo json_encode(["estado"=>false,"mensaje"=>"Acceso administrativo requerido"], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 function responderPago(array $data, int $status = 200): void {
     http_response_code($status);
