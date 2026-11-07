@@ -37,7 +37,19 @@ if (Test-Path $ZipFinal) {
 
 New-Item -ItemType Directory -Path $Entrega | Out-Null
 
-# 2. Aplicar compatibilidad/estructura actual antes de exportar
+# 2. Recuperar configuracion empresarial guardada desde XAMPP
+Write-Host "Sincronizando configuracion empresarial..." -ForegroundColor Yellow
+$ConfigHtdocs = Join-Path $Htdocs "data\config_empresa.json"
+$ConfigProyecto = Join-Path $Backend "data\config_empresa.json"
+if (Test-Path $ConfigHtdocs) {
+    $ConfigDirProyecto = Split-Path $ConfigProyecto -Parent
+    if (!(Test-Path $ConfigDirProyecto)) {
+        New-Item -ItemType Directory -Path $ConfigDirProyecto -Force | Out-Null
+    }
+    Copy-Item $ConfigHtdocs $ConfigProyecto -Force
+}
+
+# 3. Aplicar compatibilidad/estructura actual antes de exportar
 Write-Host "Aplicando estructura actual de la base de datos..." -ForegroundColor Yellow
 $PhpExe = "C:\xampp\php\php.exe"
 if (!(Test-Path $PhpExe)) {
@@ -66,6 +78,11 @@ if ((Get-Item $SqlBackend).Length -lt 100) {
 }
 
 Copy-Item $SqlBackend $SqlEntrega -Force
+
+$Control150 = Join-Path $Proyecto "CONTROL_150_FUNCIONES.txt"
+if (Test-Path $Control150) {
+    Copy-Item $Control150 (Join-Path $Entrega "REQUERIMIENTOS_FUNCIONALES_150.txt") -Force
+}
 
 # 3. Sincronizar backend con XAMPP
 if (!(Test-Path $Htdocs)) {
@@ -100,6 +117,11 @@ Get-ChildItem $Backend -Force |
     ForEach-Object {
         Copy-Item $_.FullName $TempBackendApp -Recurse -Force
     }
+
+$AuditoriaTemp = Join-Path $TempBackendApp "data\auditoria.jsonl"
+if (Test-Path $AuditoriaTemp) {
+    Remove-Item $AuditoriaTemp -Force
+}
 
 $WebZip = Join-Path $Entrega "Dorada_Motors_WEB_API.zip"
 Compress-Archive -Path $TempBackendApp -DestinationPath $WebZip -Force
@@ -152,6 +174,7 @@ $ArchivosQuitarFlutter = @(
     "VERIFICAR_SISTEMA.ps1",
     "PRUEBA_INTEGRACION.php",
     "CONTROL_150_FUNCIONES.txt",
+    "VALIDAR_DASHBOARD_150.php",
     "ENTREGA_INDICADOR_II.txt"
 )
 
