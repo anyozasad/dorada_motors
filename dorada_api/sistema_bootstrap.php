@@ -20,6 +20,18 @@ if (!columnaExiste($conexion, "producto", "stock_minimo")) {
     $conexion->query("ALTER TABLE producto ADD COLUMN stock_minimo INT NOT NULL DEFAULT 5");
 }
 
+if (!columnaExiste($conexion, "producto", "tipo_vehiculo")) {
+    $conexion->query("ALTER TABLE producto ADD COLUMN tipo_vehiculo VARCHAR(50) NOT NULL DEFAULT 'Motocicleta / Motokar'");
+}
+
+if (!columnaExiste($conexion, "producto", "compatibilidad")) {
+    $conexion->query("ALTER TABLE producto ADD COLUMN compatibilidad VARCHAR(255) NOT NULL DEFAULT ''");
+}
+
+if (!columnaExiste($conexion, "producto", "precio_oferta")) {
+    $conexion->query("ALTER TABLE producto ADD COLUMN precio_oferta DECIMAL(10,2) NULL");
+}
+
 if (!columnaExiste($conexion, "usuario", "estado")) {
     $conexion->query("ALTER TABLE usuario ADD COLUMN estado VARCHAR(20) NOT NULL DEFAULT 'Activo'");
 }
