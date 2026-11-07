@@ -44,10 +44,25 @@ if ($metodo === "POST" || $metodo === "PUT") {
         $stmt->bind_param("iissssddiis",$idCategoria,$idMarca,$nombre,$descripcion,$tipoVehiculo,$compatibilidad,$precio,$precioOferta,$stock,$stockMinimo,$imagen);
 
         if ($stmt->execute()) {
+            $idNuevo = (int)$conexion->insert_id;
+
+            if ($stock > 0) {
+                $tipo = "Entrada";
+                $motivo = "Stock inicial por API";
+                $stockAnterior = 0;
+                $stmtMov = $conexion->prepare("
+                    INSERT INTO movimiento_stock
+                    (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                    VALUES (?,?,?,?,NOW(),?,?)
+                ");
+                $stmtMov->bind_param("isisii",$idNuevo,$tipo,$stock,$motivo,$stockAnterior,$stock);
+                $stmtMov->execute();
+            }
+
             responderProducto([
                 "estado"=>true,
                 "mensaje"=>"Producto registrado",
-                "id_producto"=>$conexion->insert_id
+                "id_producto"=>$idNuevo
             ], 201);
         }
 
@@ -59,6 +74,15 @@ if ($metodo === "POST" || $metodo === "PUT") {
         responderProducto(["estado"=>false,"mensaje"=>"Falta id_producto"], 400);
     }
 
+    $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? LIMIT 1");
+    $stmt->bind_param("i",$idProducto);
+    $stmt->execute();
+    $productoAnterior = $stmt->get_result()->fetch_assoc();
+    if (!$productoAnterior) {
+        responderProducto(["estado"=>false,"mensaje"=>"Producto no encontrado"], 404);
+    }
+    $stockAnteriorApi = (int)$productoAnterior["stock"];
+
     $stmt = $conexion->prepare("
         UPDATE producto
         SET id_categoria=?,id_marca=?,nombre_producto=?,descripcion=?,tipo_vehiculo=?,compatibilidad=?,
@@ -67,6 +91,19 @@ if ($metodo === "POST" || $metodo === "PUT") {
     ");
     $stmt->bind_param("iissssddiisi",$idCategoria,$idMarca,$nombre,$descripcion,$tipoVehiculo,$compatibilidad,$precio,$precioOferta,$stock,$stockMinimo,$imagen,$idProducto);
     $stmt->execute();
+
+    if ($stock !== $stockAnteriorApi) {
+        $tipo = $stock > $stockAnteriorApi ? "Entrada" : "Salida";
+        $cantidadMovimiento = abs($stock - $stockAnteriorApi);
+        $motivo = "Ajuste de stock por API";
+        $stmtMov = $conexion->prepare("
+            INSERT INTO movimiento_stock
+            (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+            VALUES (?,?,?,?,NOW(),?,?)
+        ");
+        $stmtMov->bind_param("isisii",$idProducto,$tipo,$cantidadMovimiento,$motivo,$stockAnteriorApi,$stock);
+        $stmtMov->execute();
+    }
 
     responderProducto(["estado"=>true,"mensaje"=>"Producto actualizado"]);
 }
