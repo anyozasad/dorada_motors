@@ -71,6 +71,44 @@ class ApiService {
     return decoded;
   }
 
+  static Future<dynamic> _putJson(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/$endpoint'),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('Respuesta inválida del servidor en $endpoint');
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (decoded is Map && decoded['mensaje'] != null) {
+        throw Exception(decoded['mensaje'].toString());
+      }
+      throw Exception('HTTP ${response.statusCode} al consultar $endpoint');
+    }
+
+    if (decoded is Map && decoded['estado'] == false) {
+      throw Exception(
+        decoded['mensaje']?.toString() ?? 'Error devuelto por la API',
+      );
+    }
+
+    return decoded;
+  }
+
   static Future<List<dynamic>> _getList(String endpoint) async {
     final decoded = await _getJson(endpoint);
 
@@ -127,6 +165,73 @@ class ApiService {
 
     throw Exception('Respuesta inválida al registrar usuario');
   }
+
+  static Future<Map<String, dynamic>> actualizarTelefonoUsuario({
+    required int idUsuario,
+    required String telefono,
+  }) async {
+    final decoded = await _putJson('usuarios.php', {
+      'id_usuario': idUsuario,
+      'telefono': telefono.trim(),
+    });
+
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+
+    throw Exception('Respuesta inválida al actualizar teléfono');
+  }
+
+  static Future<int> registrarDireccion({
+    required int idUsuario,
+    required String direccion,
+    String referencia = '',
+  }) async {
+    final decoded = await _postJson('direcciones.php', {
+      'id_usuario': idUsuario,
+      'departamento': 'Ucayali',
+      'provincia': 'Coronel Portillo',
+      'distrito': 'Callería',
+      'direccion_detalle': direccion.trim(),
+      'referencia': referencia.trim(),
+    });
+
+    if (decoded is Map) {
+      final id = int.tryParse(decoded['id_direccion']?.toString() ?? '') ?? 0;
+      if (id > 0) return id;
+    }
+
+    throw Exception('No se pudo registrar la dirección');
+  }
+
+  static Future<Map<String, dynamic>> registrarPedido({
+    required int idUsuario,
+    required String tipoEntrega,
+    required String metodoPago,
+    required List<Map<String, dynamic>> items,
+    int? idDireccion,
+    double costoEntrega = 0,
+  }) async {
+    final decoded = await _postJson('pedidos.php', {
+      'id_usuario': idUsuario,
+      'id_direccion': idDireccion,
+      'tipo_entrega': tipoEntrega,
+      'estado_pedido': 'Pendiente',
+      'metodo_pago': metodoPago,
+      'estado_pago': 'Pendiente',
+      'costo_entrega': costoEntrega,
+      'items': items,
+    });
+
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+
+    throw Exception('Respuesta inválida al registrar el pedido');
+  }
+
+  static Future<List<dynamic>> obtenerPedidosUsuario(int idUsuario) =>
+      _getList('pedidos.php?id_usuario=$idUsuario');
 
   static Future<Map<String, dynamic>> obtenerDashboard() async {
     final decoded = await _getJson('dashboard_api.php');
