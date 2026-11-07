@@ -28,7 +28,7 @@ $checks = [
     "actualizarDashboardEnVivo","exportarTabla","filtroEstadoPedido",
     "filtroCategoriaProducto","filtroStockProducto",
     "Cancelado","Procesando","Pagado","Enviado","Completado",
-    "Anulado","Delivery","Recojo en tienda"
+    "Anulado","Delivery","Recojo en tienda","GROUP_CONCAT","precio_oferta","saldo","sincronizarEstadoFinancieroPedido","compraItems","pedidoItems"
 ];
 
 $faltantes = [];
