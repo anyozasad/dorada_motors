@@ -84,14 +84,18 @@ $accionesSistema = [
     "actualizar_producto" => ["gestion-productos", "Actualizar producto"],
     "eliminar_producto" => ["gestion-productos", "Eliminar producto"],
     "registrar_categoria" => ["categorias", "Crear categoría"],
+    "actualizar_categoria" => ["categorias", "Actualizar categoría"],
     "eliminar_categoria" => ["categorias", "Eliminar categoría"],
     "registrar_marca" => ["marcas", "Crear marca"],
+    "actualizar_marca" => ["marcas", "Actualizar marca"],
     "eliminar_marca" => ["marcas", "Eliminar marca"],
     "registrar_usuario" => ["clientes", "Crear cliente"],
+    "actualizar_usuario" => ["clientes", "Actualizar cliente"],
     "actualizar_estado_usuario" => ["clientes", "Cambiar estado de cliente"],
     "actualizar_estado_pedido" => ["pedidos", "Cambiar estado de pedido"],
     "actualizar_estado_pago" => ["pagos", "Cambiar estado de pago"],
     "registrar_proveedor" => ["proveedores", "Crear proveedor"],
+    "actualizar_proveedor" => ["proveedores", "Actualizar proveedor"],
     "eliminar_proveedor" => ["proveedores", "Eliminar proveedor"],
     "registrar_movimiento" => ["inventario", "Registrar movimiento de stock"],
     "registrar_compra" => ["compras", "Registrar compra"],
@@ -255,6 +259,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             redir("Categoría registrada correctamente", "ok", "categorias");
         }
 
+        if (isset($_POST["actualizar_categoria"])) {
+            $id = (int)($_POST["id_categoria"] ?? 0);
+            $nombre = trim($_POST["nombre_categoria"] ?? "");
+
+            if ($id <= 0 || $nombre === "") {
+                redir("Completa el nombre de la categoría", "error", "categorias");
+            }
+
+            $stmt = $conexion->prepare("UPDATE categoria SET nombre_categoria=? WHERE id_categoria=?");
+            $stmt->bind_param("si", $nombre, $id);
+            $stmt->execute();
+            redir("Categoría actualizada correctamente", "ok", "categorias");
+        }
+
         if (isset($_POST["eliminar_categoria"])) {
             $id = (int)($_POST["id_categoria"] ?? 0);
 
@@ -280,6 +298,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("s", $nombre);
             $stmt->execute();
             redir("Marca registrada correctamente", "ok", "marcas");
+        }
+
+        if (isset($_POST["actualizar_marca"])) {
+            $id = (int)($_POST["id_marca"] ?? 0);
+            $nombre = trim($_POST["nombre_marca"] ?? "");
+
+            if ($id <= 0 || $nombre === "") {
+                redir("Completa el nombre de la marca", "error", "marcas");
+            }
+
+            $stmt = $conexion->prepare("UPDATE marca SET nombre_marca=? WHERE id_marca=?");
+            $stmt->bind_param("si", $nombre, $id);
+            $stmt->execute();
+            redir("Marca actualizada correctamente", "ok", "marcas");
         }
 
         if (isset($_POST["eliminar_marca"])) {
@@ -326,6 +358,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("sssss", $nombres, $apellidos, $correo, $contrasena, $telefono);
             $stmt->execute();
             redir("Usuario registrado correctamente", "ok", "clientes");
+        }
+
+        if (isset($_POST["actualizar_usuario"])) {
+            $idUsuario = (int)($_POST["id_usuario"] ?? 0);
+            $nombres = trim($_POST["nombres"] ?? "");
+            $apellidos = trim($_POST["apellidos"] ?? "");
+            $correo = strtolower(trim($_POST["correo"] ?? ""));
+            $telefono = trim($_POST["telefono"] ?? "");
+
+            if ($idUsuario <= 0 || $nombres === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                redir("Completa correctamente los datos del cliente", "error", "clientes");
+            }
+
+            $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE correo=? AND id_usuario<>? LIMIT 1");
+            $stmt->bind_param("si", $correo, $idUsuario);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                redir("Ese correo ya pertenece a otro usuario", "error", "clientes");
+            }
+
+            $stmt = $conexion->prepare("
+                UPDATE usuario
+                SET nombres=?,apellidos=?,correo=?,telefono=?
+                WHERE id_usuario=?
+            ");
+            $stmt->bind_param("ssssi", $nombres, $apellidos, $correo, $telefono, $idUsuario);
+            $stmt->execute();
+            redir("Cliente actualizado correctamente", "ok", "clientes");
         }
 
         if (isset($_POST["actualizar_estado_usuario"])) {
@@ -511,6 +571,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("sssss", $razon, $ruc, $telefono, $correo, $direccion);
             $stmt->execute();
             redir("Proveedor registrado correctamente", "ok", "proveedores");
+        }
+
+        if (isset($_POST["actualizar_proveedor"])) {
+            $id = (int)($_POST["id_proveedor"] ?? 0);
+            $razon = trim($_POST["razon_social"] ?? "");
+            $ruc = trim($_POST["ruc"] ?? "");
+            $telefono = trim($_POST["telefono_proveedor"] ?? "");
+            $correo = trim($_POST["correo_proveedor"] ?? "");
+            $direccion = trim($_POST["direccion_proveedor"] ?? "");
+            $estado = trim($_POST["estado_proveedor"] ?? "Activo");
+
+            if ($id <= 0 || $razon === "" || !in_array($estado, ["Activo","Inactivo"], true)) {
+                redir("Completa correctamente los datos del proveedor", "error", "proveedores");
+            }
+
+            $stmt = $conexion->prepare("
+                UPDATE proveedor
+                SET razon_social=?,ruc=?,telefono=?,correo=?,direccion=?,estado=?
+                WHERE id_proveedor=?
+            ");
+            $stmt->bind_param("ssssssi", $razon, $ruc, $telefono, $correo, $direccion, $estado, $id);
+            $stmt->execute();
+            redir("Proveedor actualizado correctamente", "ok", "proveedores");
         }
 
         if (isset($_POST["eliminar_proveedor"])) {
@@ -1003,6 +1086,42 @@ if (isset($_GET["editar"])) {
     $productoEditar = $stmt->get_result()->fetch_assoc();
 }
 
+$categoriaEditar = null;
+if (isset($_GET["editar_categoria"])) {
+    $idEditarCategoria = (int)$_GET["editar_categoria"];
+    $stmt = $conexion->prepare("SELECT * FROM categoria WHERE id_categoria=?");
+    $stmt->bind_param("i", $idEditarCategoria);
+    $stmt->execute();
+    $categoriaEditar = $stmt->get_result()->fetch_assoc();
+}
+
+$marcaEditar = null;
+if (isset($_GET["editar_marca"])) {
+    $idEditarMarca = (int)$_GET["editar_marca"];
+    $stmt = $conexion->prepare("SELECT * FROM marca WHERE id_marca=?");
+    $stmt->bind_param("i", $idEditarMarca);
+    $stmt->execute();
+    $marcaEditar = $stmt->get_result()->fetch_assoc();
+}
+
+$clienteEditar = null;
+if (isset($_GET["editar_cliente"])) {
+    $idEditarCliente = (int)$_GET["editar_cliente"];
+    $stmt = $conexion->prepare("SELECT id_usuario,nombres,apellidos,correo,telefono,estado FROM usuario WHERE id_usuario=?");
+    $stmt->bind_param("i", $idEditarCliente);
+    $stmt->execute();
+    $clienteEditar = $stmt->get_result()->fetch_assoc();
+}
+
+$proveedorEditar = null;
+if (isset($_GET["editar_proveedor"])) {
+    $idEditarProveedor = (int)$_GET["editar_proveedor"];
+    $stmt = $conexion->prepare("SELECT * FROM proveedor WHERE id_proveedor=?");
+    $stmt->bind_param("i", $idEditarProveedor);
+    $stmt->execute();
+    $proveedorEditar = $stmt->get_result()->fetch_assoc();
+}
+
 $fechaHoy = date("d/m/Y");
 $adminNombre = trim((string)($adminSesion["nombres"] ?? "Administrador"));
 $adminRol = (string)($adminSesion["rol"] ?? "Administrador");
@@ -1310,11 +1429,11 @@ tbody tr:hover{background:#fafcff}
 </section>
 
 <section class="metrics">
- <?php if(puede("gestion-productos")): ?><a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a><?php endif; ?>
- <?php if(puede("clientes")): ?><a class="metric" href="#clientes"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
- <?php if(puede("pedidos")): ?><a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a><?php endif; ?>
- <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a><?php endif; ?>
- <?php if(puede("inventario")): ?><a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a><?php endif; ?>
+ <?php if(puede("gestion-productos")): ?><a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value" id="metricProductos"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a><?php endif; ?>
+ <?php if(puede("clientes")): ?><a class="metric" href="#clientes"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value" id="metricClientes"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
+ <?php if(puede("pedidos")): ?><a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value" id="metricPedidos"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a><?php endif; ?>
+ <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value" id="metricVentas">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a><?php endif; ?>
+ <?php if(puede("inventario")): ?><a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value" id="metricStockBajo"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a><?php endif; ?>
  <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon orange">↗</div><div><div class="metric-label">Margen estimado</div><div class="metric-value">S/ <?= number_format($gananciaEstimada,2) ?></div><small>Según costos registrados</small></div></a><?php endif; ?>
 </section>
 
@@ -1453,9 +1572,14 @@ tbody tr:hover{background:#fafcff}
 <?php if(puede("categorias")): ?>
 <section id="categorias" class="card page-panel">
  <div class="section-intro"><div><h2>Categorías</h2><p>Organiza el catálogo para que productos y búsquedas sean fáciles de entender.</p></div><span class="badge"><?= $totalCategorias ?> registradas</span></div>
- <form method="POST" class="inline-form action-bar"><input type="text" name="nombre_categoria" placeholder="Nombre de la nueva categoría" required><button class="btn btn-primary" name="registrar_categoria">+ Agregar categoría</button></form>
+ <form method="POST" class="inline-form action-bar">
+  <?php if($categoriaEditar): ?><input type="hidden" name="id_categoria" value="<?= h($categoriaEditar["id_categoria"]) ?>"><?php endif; ?>
+  <input type="text" name="nombre_categoria" value="<?= h($categoriaEditar["nombre_categoria"]??"") ?>" placeholder="Nombre de la categoría" required>
+  <button class="btn btn-primary" name="<?= $categoriaEditar ? "actualizar_categoria" : "registrar_categoria" ?>"><?= $categoriaEditar ? "Guardar cambios" : "+ Agregar categoría" ?></button>
+  <?php if($categoriaEditar): ?><a class="btn btn-light" href="dashboard.php#categorias">Cancelar</a><?php endif; ?>
+ </form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Categoría</th><th>Acción</th></tr></thead><tbody>
- <?php foreach($categorias as $cat): ?><tr><td>#<?= h($cat["id_categoria"]) ?></td><td><strong><?= h($cat["nombre_categoria"]) ?></strong></td><td><form method="POST" onsubmit="return confirm('¿Eliminar categoría?');"><input type="hidden" name="id_categoria" value="<?= h($cat["id_categoria"]) ?>"><button class="btn btn-danger" name="eliminar_categoria">Eliminar</button></form></td></tr><?php endforeach; ?>
+ <?php foreach($categorias as $cat): ?><tr><td>#<?= h($cat["id_categoria"]) ?></td><td><strong><?= h($cat["nombre_categoria"]) ?></strong></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_categoria=<?= h($cat["id_categoria"]) ?>#categorias">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar categoría?');"><input type="hidden" name="id_categoria" value="<?= h($cat["id_categoria"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_categoria">Eliminar</button></form></div></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -1463,9 +1587,14 @@ tbody tr:hover{background:#fafcff}
 <?php if(puede("marcas")): ?>
 <section id="marcas" class="card page-panel">
  <div class="section-intro"><div><h2>Marcas</h2><p>Controla las marcas disponibles en el catálogo de repuestos.</p></div><span class="badge"><?= $totalMarcas ?> registradas</span></div>
- <form method="POST" class="inline-form action-bar"><input type="text" name="nombre_marca" placeholder="Nombre de la nueva marca" required><button class="btn btn-primary" name="registrar_marca">+ Agregar marca</button></form>
+ <form method="POST" class="inline-form action-bar">
+  <?php if($marcaEditar): ?><input type="hidden" name="id_marca" value="<?= h($marcaEditar["id_marca"]) ?>"><?php endif; ?>
+  <input type="text" name="nombre_marca" value="<?= h($marcaEditar["nombre_marca"]??"") ?>" placeholder="Nombre de la marca" required>
+  <button class="btn btn-primary" name="<?= $marcaEditar ? "actualizar_marca" : "registrar_marca" ?>"><?= $marcaEditar ? "Guardar cambios" : "+ Agregar marca" ?></button>
+  <?php if($marcaEditar): ?><a class="btn btn-light" href="dashboard.php#marcas">Cancelar</a><?php endif; ?>
+ </form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Marca</th><th>Acción</th></tr></thead><tbody>
- <?php foreach($marcas as $mar): ?><tr><td>#<?= h($mar["id_marca"]) ?></td><td><strong><?= h($mar["nombre_marca"]) ?></strong></td><td><form method="POST" onsubmit="return confirm('¿Eliminar marca?');"><input type="hidden" name="id_marca" value="<?= h($mar["id_marca"]) ?>"><button class="btn btn-danger" name="eliminar_marca">Eliminar</button></form></td></tr><?php endforeach; ?>
+ <?php foreach($marcas as $mar): ?><tr><td>#<?= h($mar["id_marca"]) ?></td><td><strong><?= h($mar["nombre_marca"]) ?></strong></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_marca=<?= h($mar["id_marca"]) ?>#marcas">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar marca?');"><input type="hidden" name="id_marca" value="<?= h($mar["id_marca"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_marca">Eliminar</button></form></div></td></tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -1474,15 +1603,16 @@ tbody tr:hover{background:#fafcff}
 <section id="clientes" class="card page-panel">
  <div class="section-intro"><div><h2>Clientes</h2><p>Administra las cuentas que ingresan desde Flutter y consulta su historial de compras.</p></div><span class="badge"><?= count($clientes) ?> clientes</span></div>
 
- <details class="detail-card" style="margin-bottom:16px">
-  <summary style="cursor:pointer;font-weight:900">+ Registrar nuevo cliente</summary>
+ <details class="detail-card" style="margin-bottom:16px" <?= $clienteEditar ? "open" : "" ?>>
+  <summary style="cursor:pointer;font-weight:900"><?= $clienteEditar ? "Editar cliente" : "+ Registrar nuevo cliente" ?></summary>
   <form method="POST" class="form-grid" style="margin-top:14px">
-   <div class="field"><label>NOMBRES</label><input name="nombres" required></div>
-   <div class="field"><label>APELLIDOS</label><input name="apellidos"></div>
-   <div class="field"><label>CORREO</label><input type="email" name="correo" required></div>
-   <div class="field"><label>TELÉFONO</label><input name="telefono"></div>
-   <div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="6" required></div>
-   <div class="form-actions"><button class="btn btn-primary" name="registrar_usuario">Registrar cliente</button></div>
+   <?php if($clienteEditar): ?><input type="hidden" name="id_usuario" value="<?= h($clienteEditar["id_usuario"]) ?>"><?php endif; ?>
+   <div class="field"><label>NOMBRES</label><input name="nombres" value="<?= h($clienteEditar["nombres"]??"") ?>" required></div>
+   <div class="field"><label>APELLIDOS</label><input name="apellidos" value="<?= h($clienteEditar["apellidos"]??"") ?>"></div>
+   <div class="field"><label>CORREO</label><input type="email" name="correo" value="<?= h($clienteEditar["correo"]??"") ?>" required></div>
+   <div class="field"><label>TELÉFONO</label><input name="telefono" value="<?= h($clienteEditar["telefono"]??"") ?>"></div>
+   <?php if(!$clienteEditar): ?><div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="6" required></div><?php endif; ?>
+   <div class="form-actions"><button class="btn btn-primary" name="<?= $clienteEditar ? "actualizar_usuario" : "registrar_usuario" ?>"><?= $clienteEditar ? "Guardar cambios" : "Registrar cliente" ?></button><?php if($clienteEditar): ?><a class="btn btn-light" href="dashboard.php#clientes">Cancelar</a><?php endif; ?></div>
   </form>
  </details>
 
@@ -1511,7 +1641,7 @@ tbody tr:hover{background:#fafcff}
   <td class="price">S/ <?= number_format((float)$cl["total_comprado"],2) ?></td>
   <td><?= $cl["ultima_compra"] ? h(date("d/m/Y",strtotime($cl["ultima_compra"]))) : "Sin compras" ?></td>
   <td><span class="status-pill <?= strtolower($cl["estado"])==="activo"?"success":"danger" ?>"><?= h($cl["estado"]) ?></span></td>
-  <td><div class="order-actions"><a class="btn btn-light btn-small" href="dashboard.php?cliente=<?= h($cl["id_usuario"]) ?>#clientes">Historial</a><form method="POST" class="inline-form"><input type="hidden" name="id_usuario" value="<?= h($cl["id_usuario"]) ?>"><select name="estado_usuario"><option value="Activo" <?= $cl["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $cl["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_usuario">Guardar</button></form></div></td>
+  <td><div class="order-actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_cliente=<?= h($cl["id_usuario"]) ?>#clientes">Editar</a><a class="btn btn-light btn-small" href="dashboard.php?cliente=<?= h($cl["id_usuario"]) ?>#clientes">Historial</a><form method="POST" class="inline-form"><input type="hidden" name="id_usuario" value="<?= h($cl["id_usuario"]) ?>"><select name="estado_usuario"><option value="Activo" <?= $cl["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $cl["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_usuario">Guardar</button></form></div></td>
  </tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
@@ -1624,15 +1754,17 @@ tbody tr:hover{background:#fafcff}
 <section id="proveedores" class="card page-panel">
  <div class="section-intro"><div><h2>Proveedores</h2><p>Empresas que abastecen los repuestos de <?= h($configEmpresa["nombre_comercial"]??"Dorada Motors") ?>.</p></div><span class="badge"><?= $totalProveedores ?> registrados</span></div>
  <form method="POST" class="form-grid">
-  <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social" required placeholder="Nombre del proveedor"></div>
-  <div class="field"><label>RUC</label><input name="ruc" placeholder="RUC"></div>
-  <div class="field"><label>TELÉFONO</label><input name="telefono_proveedor"></div>
-  <div class="field"><label>CORREO</label><input type="email" name="correo_proveedor"></div>
-  <div class="field full"><label>DIRECCIÓN</label><input name="direccion_proveedor"></div>
-  <div class="form-actions"><button class="btn btn-primary" name="registrar_proveedor">+ Registrar proveedor</button></div>
+  <?php if($proveedorEditar): ?><input type="hidden" name="id_proveedor" value="<?= h($proveedorEditar["id_proveedor"]) ?>"><?php endif; ?>
+  <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social" value="<?= h($proveedorEditar["razon_social"]??"") ?>" required placeholder="Nombre del proveedor"></div>
+  <div class="field"><label>RUC</label><input name="ruc" value="<?= h($proveedorEditar["ruc"]??"") ?>" placeholder="RUC"></div>
+  <div class="field"><label>TELÉFONO</label><input name="telefono_proveedor" value="<?= h($proveedorEditar["telefono"]??"") ?>"></div>
+  <div class="field"><label>CORREO</label><input type="email" name="correo_proveedor" value="<?= h($proveedorEditar["correo"]??"") ?>"></div>
+  <div class="field"><label>ESTADO</label><select name="estado_proveedor"><option value="Activo" <?= ($proveedorEditar["estado"]??"Activo")==="Activo"?"selected":"" ?>>Activo</option><option value="Inactivo" <?= ($proveedorEditar["estado"]??"")==="Inactivo"?"selected":"" ?>>Inactivo</option></select></div>
+  <div class="field full"><label>DIRECCIÓN</label><input name="direccion_proveedor" value="<?= h($proveedorEditar["direccion"]??"") ?>"></div>
+  <div class="form-actions"><button class="btn btn-primary" name="<?= $proveedorEditar ? "actualizar_proveedor" : "registrar_proveedor" ?>"><?= $proveedorEditar ? "Guardar cambios" : "+ Registrar proveedor" ?></button><?php if($proveedorEditar): ?><a class="btn btn-light" href="dashboard.php#proveedores">Cancelar</a><?php endif; ?></div>
  </form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>RUC</th><th>Teléfono</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$proveedores): ?><tr><td colspan="7" class="empty-cell">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td>#<?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status-pill success"><?= h($pr["estado"]) ?></span></td><td><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_proveedor">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+ <?php if(!$proveedores): ?><tr><td colspan="7" class="empty-cell">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td>#<?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status-pill success"><?= h($pr["estado"]) ?></span></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_proveedor=<?= h($pr["id_proveedor"]) ?>#proveedores">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_proveedor">Eliminar</button></form></div></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -1751,15 +1883,12 @@ const nombresPanel={
  categorias:'Categorías',
  marcas:'Marcas',
  clientes:'Clientes',
- usuarios:'Usuarios',
+ direcciones:'Direcciones',
  pedidos:'Pedidos',
  pagos:'Pagos',
  comprobantes:'Comprobantes',
- devoluciones:'Devoluciones',
- favoritos:'Favoritos',
  reportes:'Reportes',
- configuracion:'Configuración'
-};
+ };
 
 function cerrarMenu(){
  sidebar?.classList.remove('open');
@@ -1931,6 +2060,41 @@ function exportarTabla(id,nombre){
  a.remove();
  URL.revokeObjectURL(url);
 }
+
+async function actualizarDashboardEnVivo(){
+ try{
+  const respuesta=await fetch('dashboard_api.php?ts='+Date.now(),{cache:'no-store'});
+  if(!respuesta.ok) throw new Error('HTTP '+respuesta.status);
+  const data=await respuesta.json();
+  if(!data.estado) throw new Error(data.mensaje||'API no disponible');
+
+  const poner=(id,valor)=>{
+   const el=document.getElementById(id);
+   if(el) el.textContent=valor;
+  };
+
+  poner('metricProductos',data.productos);
+  poner('metricClientes',data.usuarios);
+  poner('metricPedidos',data.pedidos);
+  poner('metricVentas','S/ '+Number(data.ventas||0).toFixed(2));
+  poner('metricStockBajo',data.stock_bajo);
+
+  const estado=document.getElementById('liveStatus');
+  if(estado){
+   estado.textContent='● Datos en vivo · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+   estado.style.opacity='1';
+  }
+ }catch(e){
+  const estado=document.getElementById('liveStatus');
+  if(estado){
+   estado.textContent='● Sin conexión en vivo';
+   estado.style.opacity='.65';
+  }
+ }
+}
+
+actualizarDashboardEnVivo();
+setInterval(actualizarDashboardEnVivo,15000);
 
 const inicial=location.hash ? location.hash.substring(1) : 'inicio';
 mostrarPanel(inicial,false);
