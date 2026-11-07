@@ -87,8 +87,8 @@ $accionesSistema = [
     "eliminar_categoria" => ["categorias", "Eliminar categoría"],
     "registrar_marca" => ["marcas", "Crear marca"],
     "eliminar_marca" => ["marcas", "Eliminar marca"],
-    "registrar_usuario" => ["usuarios", "Crear usuario"],
-    "actualizar_estado_usuario" => ["usuarios", "Cambiar estado de usuario"],
+    "registrar_usuario" => ["clientes", "Crear cliente"],
+    "actualizar_estado_usuario" => ["clientes", "Cambiar estado de cliente"],
     "actualizar_estado_pedido" => ["pedidos", "Cambiar estado de pedido"],
     "actualizar_estado_pago" => ["pagos", "Cambiar estado de pago"],
     "registrar_proveedor" => ["proveedores", "Crear proveedor"],
@@ -275,14 +275,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $contrasenaPlano = $_POST["contrasena"] ?? "";
 
             if ($nombres === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($contrasenaPlano) < 6) {
-                redir("Completa los datos. La contraseña debe tener mínimo 6 caracteres", "error", "usuarios");
+                redir("Completa los datos. La contraseña debe tener mínimo 6 caracteres", "error", "clientes");
             }
 
             $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE correo=? LIMIT 1");
             $stmt->bind_param("s",$correo);
             $stmt->execute();
             if ($stmt->get_result()->fetch_assoc()) {
-                redir("Ese correo ya está registrado", "error", "usuarios");
+                redir("Ese correo ya está registrado", "error", "clientes");
             }
 
             $contrasena = password_hash($contrasenaPlano, PASSWORD_DEFAULT);
@@ -293,7 +293,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ");
             $stmt->bind_param("sssss", $nombres, $apellidos, $correo, $contrasena, $telefono);
             $stmt->execute();
-            redir("Usuario registrado correctamente", "ok", "usuarios");
+            redir("Usuario registrado correctamente", "ok", "clientes");
         }
 
         if (isset($_POST["actualizar_estado_usuario"])) {
@@ -301,13 +301,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $estadoUsuario = trim($_POST["estado_usuario"] ?? "Activo");
 
             if (!in_array($estadoUsuario, ["Activo","Bloqueado"], true)) {
-                redir("Estado de usuario inválido", "error", "usuarios");
+                redir("Estado de usuario inválido", "error", "clientes");
             }
 
             $stmt = $conexion->prepare("UPDATE usuario SET estado=? WHERE id_usuario=?");
             $stmt->bind_param("si", $estadoUsuario, $idUsuario);
             $stmt->execute();
-            redir("Estado del usuario actualizado", "ok", "usuarios");
+            redir("Estado del usuario actualizado", "ok", "clientes");
         }
 
         /* ================= PEDIDOS ================= */
@@ -427,15 +427,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("si", $estado, $idPago);
             $stmt->execute();
             redir("Estado del pago actualizado", "ok", "pagos");
-        }
-
-        /* ================= FAVORITOS ================= */
-        if (isset($_POST["eliminar_favorito"])) {
-            $idFavorito = (int)($_POST["id_favorito"] ?? 0);
-            $stmt = $conexion->prepare("DELETE FROM favorito WHERE id_favorito=?");
-            $stmt->bind_param("i", $idFavorito);
-            $stmt->execute();
-            redir("Favorito eliminado", "ok", "favoritos");
         }
 
 
@@ -621,177 +612,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             redir("Comprobante eliminado", "ok", "comprobantes");
         }
 
-        /* ================= DEVOLUCIONES ================= */
-        if (isset($_POST["registrar_devolucion"])) {
-            $idPedido = (int)($_POST["id_pedido_devolucion"] ?? 0);
-            $idProducto = (int)($_POST["id_producto_devolucion"] ?? 0);
-            $cantidad = (int)($_POST["cantidad_devolucion"] ?? 0);
-            $motivo = trim($_POST["motivo_devolucion"] ?? "");
 
-            if ($idPedido <= 0 || $idProducto <= 0 || $cantidad <= 0 || $motivo === "") {
-                redir("Completa los datos de la devolución", "error", "devoluciones");
-            }
-
-            $stmt = $conexion->prepare("
-                SELECT cantidad, precio_unitario
-                FROM detalle_pedido
-                WHERE id_pedido=? AND id_producto=?
-                LIMIT 1
-            ");
-            $stmt->bind_param("ii", $idPedido, $idProducto);
-            $stmt->execute();
-            $detalleDev = $stmt->get_result()->fetch_assoc();
-
-            if (!$detalleDev || $cantidad > (int)$detalleDev["cantidad"]) {
-                redir("La cantidad devuelta supera lo comprado en ese pedido", "error", "devoluciones");
-            }
-
-            $stmt = $conexion->prepare("
-                SELECT COALESCE(SUM(cantidad),0) AS devuelto
-                FROM devolucion
-                WHERE id_pedido=? AND id_producto=? AND estado='Aprobada'
-            ");
-            $stmt->bind_param("ii", $idPedido, $idProducto);
-            $stmt->execute();
-            $yaDevuelto = (int)$stmt->get_result()->fetch_assoc()["devuelto"];
-
-            if ($yaDevuelto + $cantidad > (int)$detalleDev["cantidad"]) {
-                redir("Ya existen devoluciones para este producto en el pedido", "error", "devoluciones");
-            }
-
-            $monto = round((float)$detalleDev["precio_unitario"] * $cantidad, 2);
-            $idAdmin = (int)($adminSesion["id_admin"] ?? 0);
-
-            $conexion->begin_transaction();
-
-            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
-            $stmt->bind_param("i", $idProducto);
-            $stmt->execute();
-            $stockDev = $stmt->get_result()->fetch_assoc();
-
-            if (!$stockDev) {
-                $conexion->rollback();
-                redir("Producto no encontrado", "error", "devoluciones");
-            }
-
-            $stockAnteriorDev = (int)$stockDev["stock"];
-            $stockNuevoDev = $stockAnteriorDev + $cantidad;
-
-            $stmt = $conexion->prepare("
-                INSERT INTO devolucion
-                (id_pedido,id_producto,cantidad,motivo,monto_reembolso,estado,id_admin)
-                VALUES (?,?,?,?,?,'Aprobada',?)
-            ");
-            $stmt->bind_param("iiisdi", $idPedido, $idProducto, $cantidad, $motivo, $monto, $idAdmin);
-            $stmt->execute();
-            $idDevolucion = $conexion->insert_id;
-
-            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
-            $stmt->bind_param("ii", $stockNuevoDev, $idProducto);
-            $stmt->execute();
-
-            $tipoEntrada = "Entrada";
-            $motivoStock = "Devolución #" . $idDevolucion;
-            $stmt = $conexion->prepare("
-                INSERT INTO movimiento_stock
-                (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
-                VALUES (?,?,?,?,NOW(),?,?)
-            ");
-            $stmt->bind_param("isisii", $idProducto, $tipoEntrada, $cantidad, $motivoStock, $stockAnteriorDev, $stockNuevoDev);
-            $stmt->execute();
-
-            $conexion->commit();
-            redir("Devolución registrada. El stock fue restaurado automáticamente", "ok", "devoluciones");
-        }
-
-        /* ================= CONFIGURACIÓN ================= */
-        if (isset($_POST["guardar_configuracion"])) {
-            if (rolActual() !== "Administrador") {
-                redir("Solo el administrador puede cambiar la configuración", "error", "configuracion");
-            }
-
-            $nombreComercial = trim($_POST["nombre_comercial"] ?? "Dorada Motors");
-            $razonSocial = trim($_POST["razon_social_empresa"] ?? "ADN Import's");
-            $rucEmpresa = trim($_POST["ruc_empresa"] ?? "");
-            $direccionEmpresa = trim($_POST["direccion_empresa"] ?? "");
-            $telefonoEmpresa = trim($_POST["telefono_empresa"] ?? "");
-            $correoEmpresa = trim($_POST["correo_empresa"] ?? "");
-            $monedaEmpresa = trim($_POST["moneda_empresa"] ?? "S/");
-            $igvNuevo = max(0, min(100, (float)($_POST["igv_empresa"] ?? 18)));
-
-            $stmt = $conexion->prepare("
-                UPDATE configuracion_empresa
-                SET nombre_comercial=?, razon_social=?, ruc=?, direccion=?, telefono=?, correo=?, moneda=?, igv=?
-                WHERE id_configuracion=1
-            ");
-            $stmt->bind_param("sssssssd", $nombreComercial, $razonSocial, $rucEmpresa, $direccionEmpresa, $telefonoEmpresa, $correoEmpresa, $monedaEmpresa, $igvNuevo);
-            $stmt->execute();
-            redir("Configuración de la empresa actualizada", "ok", "configuracion");
-        }
-
-        if (isset($_POST["crear_admin_usuario"])) {
-            if (rolActual() !== "Administrador") {
-                redir("Solo el administrador puede crear cuentas del personal", "error", "configuracion");
-            }
-
-            $nombresAdmin = trim($_POST["nombres_admin"] ?? "");
-            $correoAdmin = strtolower(trim($_POST["correo_admin"] ?? ""));
-            $claveAdmin = $_POST["contrasena_admin"] ?? "";
-            $rolAdmin = trim($_POST["rol_admin"] ?? "Vendedor");
-
-            if ($nombresAdmin === "" || !filter_var($correoAdmin, FILTER_VALIDATE_EMAIL) || strlen($claveAdmin) < 8) {
-                redir("Completa los datos del usuario administrativo. Contraseña mínima: 8 caracteres", "error", "configuracion");
-            }
-
-            if (!in_array($rolAdmin, ["Administrador","Vendedor","Almacen"], true)) {
-                redir("Rol administrativo inválido", "error", "configuracion");
-            }
-
-            $stmt = $conexion->prepare("SELECT id_admin FROM admin_usuario WHERE correo=? LIMIT 1");
-            $stmt->bind_param("s", $correoAdmin);
-            $stmt->execute();
-            if ($stmt->get_result()->fetch_assoc()) {
-                redir("Ese correo administrativo ya existe", "error", "configuracion");
-            }
-
-            $hashAdmin = password_hash($claveAdmin, PASSWORD_DEFAULT);
-            $estadoAdmin = "Activo";
-            $stmt = $conexion->prepare("
-                INSERT INTO admin_usuario (nombres,correo,contrasena,rol,estado)
-                VALUES (?,?,?,?,?)
-            ");
-            $stmt->bind_param("sssss", $nombresAdmin, $correoAdmin, $hashAdmin, $rolAdmin, $estadoAdmin);
-            $stmt->execute();
-            redir("Usuario administrativo creado correctamente", "ok", "configuracion");
-        }
-
-        if (isset($_POST["actualizar_admin_usuario"])) {
-            if (rolActual() !== "Administrador") {
-                redir("Solo el administrador puede cambiar roles", "error", "configuracion");
-            }
-
-            $idAdminEditar = (int)($_POST["id_admin_editar"] ?? 0);
-            $rolAdmin = trim($_POST["rol_admin_editar"] ?? "Vendedor");
-            $estadoAdmin = trim($_POST["estado_admin_editar"] ?? "Activo");
-
-            if ($idAdminEditar === (int)($adminSesion["id_admin"] ?? 0) && $estadoAdmin === "Bloqueado") {
-                redir("No puedes bloquear tu propia cuenta", "error", "configuracion");
-            }
-
-            if (!in_array($rolAdmin, ["Administrador","Vendedor","Almacen"], true) ||
-                !in_array($estadoAdmin, ["Activo","Bloqueado"], true)) {
-                redir("Rol o estado administrativo inválido", "error", "configuracion");
-            }
-
-            $stmt = $conexion->prepare("
-                UPDATE admin_usuario
-                SET rol=?, estado=?
-                WHERE id_admin=?
-            ");
-            $stmt->bind_param("ssi", $rolAdmin, $estadoAdmin, $idAdminEditar);
-            $stmt->execute();
-            redir("Permisos del usuario administrativo actualizados", "ok", "configuracion");
-        }
+        /* ================= CONFIGURACIÓN OMITIDA EN VERSIÓN SIMPLIFICADA ================= */
 
     } catch (Throwable $e) {
         $mensaje = "Error: " . $e->getMessage();
@@ -922,6 +744,13 @@ $usuarios = $conexion->query("
     ORDER BY id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
+$direcciones = $conexion->query("
+    SELECT d.*,u.nombres,u.apellidos,u.correo
+    FROM direccion d
+    INNER JOIN usuario u ON d.id_usuario=u.id_usuario
+    ORDER BY d.id_direccion DESC
+")->fetch_all(MYSQLI_ASSOC);
+
 $pedidos = $conexion->query("
     SELECT p.*, u.nombres,u.apellidos
     FROM pedido p
@@ -937,17 +766,21 @@ $pagos = $conexion->query("
     ORDER BY pg.id_pago DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
-$favoritos = [];
-
 $proveedores = $conexion->query("
     SELECT * FROM proveedor
     ORDER BY id_proveedor DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
 $compras = $conexion->query("
-    SELECT c.id_compra,c.fecha_compra,c.total,c.estado,p.razon_social
+    SELECT
+        c.id_compra,c.fecha_compra,c.total,c.estado,
+        p.razon_social,
+        dc.cantidad,dc.precio_compra,dc.subtotal,
+        pr.nombre_producto
     FROM compra c
     INNER JOIN proveedor p ON c.id_proveedor=p.id_proveedor
+    LEFT JOIN detalle_compra dc ON c.id_compra=dc.id_compra
+    LEFT JOIN producto pr ON dc.id_producto=pr.id_producto
     ORDER BY c.id_compra DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
@@ -1000,12 +833,6 @@ $clientes = $conexion->query("
     GROUP BY u.id_usuario,u.nombres,u.apellidos,u.correo,u.telefono,u.estado
     ORDER BY total_comprado DESC,u.id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
-
-$devoluciones = [];
-
-$adminUsuarios = [];
-
-$bitacora = [];
 
 $pedidoDetalle = null;
 $pedidoDetalleItems = [];
@@ -1318,7 +1145,7 @@ tbody tr:hover{background:#fafcff}
  <nav class="nav nav-simple" id="nav">
   <a href="#inicio" class="nav-main active"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
 
-  <?php if(puede("pedidos") || puede("pagos") || puede("comprobantes") || puede("devoluciones")): ?>
+  <?php if(puede("pedidos") || puede("pagos") || puede("comprobantes")): ?>
   <div class="nav-folder" data-nav-folder="ventas">
    <button type="button" class="nav-main nav-toggle" data-nav-toggle="ventas">
     <span class="nav-icon">🛒</span><span>Ventas</span><b class="nav-chevron">›</b>
@@ -1358,7 +1185,7 @@ tbody tr:hover{background:#fafcff}
   </div>
   <?php endif; ?>
 
-  <?php if(puede("clientes") || puede("usuarios") || puede("favoritos")): ?>
+  <?php if(puede("clientes")): ?>
   <div class="nav-folder" data-nav-folder="clientes">
    <button type="button" class="nav-main nav-toggle" data-nav-toggle="clientes">
     <span class="nav-icon">👤</span><span>Clientes</span><b class="nav-chevron">›</b>
@@ -1375,12 +1202,9 @@ tbody tr:hover{background:#fafcff}
   <a href="#reportes" class="nav-main"><span class="nav-icon">▥</span><span>Reportes</span></a>
   <?php endif; ?>
 
-  <?php if(false): ?>
-  <a href="#configuracion" class="nav-main"><span class="nav-icon">⚙</span><span>Configuración</span></a>
-  <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
- <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v2.0<br>PHP · MySQL · Flutter</div>
+ <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v3.0<br>PHP · MySQL · Flutter</div>
 </aside>
 
 <main class="main">
@@ -1399,7 +1223,7 @@ tbody tr:hover{background:#fafcff}
     <?php if(puede("reportes")): ?><a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a><?php endif; ?>
    </div>
   </div>
-  <a class="admin" href="<?= $adminRol === "Administrador" ? "#configuracion" : "#inicio" ?>" title="Cuenta"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
+  <a class="admin" href="#inicio" title="Administrador del sistema"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
 
  </div>
 </header>
@@ -1412,7 +1236,7 @@ tbody tr:hover{background:#fafcff}
  <div class="hero-copy">
   <div class="eyebrow">Panel de administración</div>
   <h1>¡Bienvenido, <?= h(explode(" ", $adminNombre)[0] ?: "Administrador") ?>!</h1>
-  <p>Gestiona ventas, productos, stock, pedidos y proveedores desde un solo lugar.</p>
+  <p>Gestiona clientes, ventas, catálogo, inventario, compras y reportes desde un solo lugar.</p>
   <div class="hero-tags">
    <span>● PHP conectado</span><span>● MySQL activo</span><span>● API lista para Flutter</span>
   </div>
@@ -1425,7 +1249,7 @@ tbody tr:hover{background:#fafcff}
 
 <section class="metrics">
  <?php if(puede("gestion-productos")): ?><a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a><?php endif; ?>
- <?php if(puede("clientes") || puede("usuarios")): ?><a class="metric" href="<?= puede("clientes")?"#clientes":"#usuarios" ?>"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
+ <?php if(puede("clientes")): ?><a class="metric" href="#clientes"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
  <?php if(puede("pedidos")): ?><a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a><?php endif; ?>
  <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a><?php endif; ?>
  <?php if(puede("inventario")): ?><a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a><?php endif; ?>
@@ -1586,7 +1410,19 @@ tbody tr:hover{background:#fafcff}
 
 <?php if(puede("clientes")): ?>
 <section id="clientes" class="card page-panel">
- <div class="section-intro"><div><h2>Clientes</h2><p>Consulta compras, frecuencia y actividad de cada cliente.</p></div><span class="badge"><?= count($clientes) ?> clientes</span></div>
+ <div class="section-intro"><div><h2>Clientes</h2><p>Administra las cuentas que ingresan desde Flutter y consulta su historial de compras.</p></div><span class="badge"><?= count($clientes) ?> clientes</span></div>
+
+ <details class="detail-card" style="margin-bottom:16px">
+  <summary style="cursor:pointer;font-weight:900">+ Registrar nuevo cliente</summary>
+  <form method="POST" class="form-grid" style="margin-top:14px">
+   <div class="field"><label>NOMBRES</label><input name="nombres" required></div>
+   <div class="field"><label>APELLIDOS</label><input name="apellidos"></div>
+   <div class="field"><label>CORREO</label><input type="email" name="correo" required></div>
+   <div class="field"><label>TELÉFONO</label><input name="telefono"></div>
+   <div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="6" required></div>
+   <div class="form-actions"><button class="btn btn-primary" name="registrar_usuario">Registrar cliente</button></div>
+  </form>
+ </details>
 
  <?php if($clienteDetalle): ?>
  <div class="detail-card">
@@ -1605,7 +1441,7 @@ tbody tr:hover{background:#fafcff}
  </div>
  <?php endif; ?>
 
- <div class="table-wrap"><table id="tablaClientes"><thead><tr><th>Cliente</th><th>Contacto</th><th>Pedidos</th><th>Total comprado</th><th>Última compra</th><th>Estado</th><th></th></tr></thead><tbody>
+ <div class="table-wrap"><table id="tablaClientes"><thead><tr><th>Cliente</th><th>Contacto</th><th>Pedidos</th><th>Total comprado</th><th>Última compra</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
  <?php foreach($clientes as $cl): ?><tr>
   <td><strong><?= h($cl["nombres"]." ".$cl["apellidos"]) ?></strong><small class="table-sub">Cliente #<?= h($cl["id_usuario"]) ?></small></td>
   <td><?= h($cl["correo"]) ?><small class="table-sub"><?= h($cl["telefono"]) ?></small></td>
@@ -1613,32 +1449,12 @@ tbody tr:hover{background:#fafcff}
   <td class="price">S/ <?= number_format((float)$cl["total_comprado"],2) ?></td>
   <td><?= $cl["ultima_compra"] ? h(date("d/m/Y",strtotime($cl["ultima_compra"]))) : "Sin compras" ?></td>
   <td><span class="status-pill <?= strtolower($cl["estado"])==="activo"?"success":"danger" ?>"><?= h($cl["estado"]) ?></span></td>
-  <td><a class="btn btn-light btn-small" href="dashboard.php?cliente=<?= h($cl["id_usuario"]) ?>#clientes">Ver historial</a></td>
+  <td><div class="order-actions"><a class="btn btn-light btn-small" href="dashboard.php?cliente=<?= h($cl["id_usuario"]) ?>#clientes">Historial</a><form method="POST" class="inline-form"><input type="hidden" name="id_usuario" value="<?= h($cl["id_usuario"]) ?>"><select name="estado_usuario"><option value="Activo" <?= $cl["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $cl["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_usuario">Guardar</button></form></div></td>
  </tr><?php endforeach; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
 
-<?php if(puede("usuarios")): ?>
-<section id="usuarios" class="card page-panel">
- <div class="section-intro"><div><h2>Usuarios de la aplicación</h2><p>Cuentas de clientes que pueden iniciar sesión desde Flutter.</p></div><span class="badge"><?= $totalUsuarios ?> registrados</span></div>
- <form method="POST" class="form-grid">
-  <div class="field"><label>NOMBRES</label><input name="nombres" required></div>
-  <div class="field"><label>APELLIDOS</label><input name="apellidos"></div>
-  <div class="field"><label>CORREO</label><input type="email" name="correo" required></div>
-  <div class="field"><label>TELÉFONO</label><input name="telefono"></div>
-  <div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="6" required></div>
-  <div class="form-actions"><button class="btn btn-primary" name="registrar_usuario">+ Registrar usuario</button></div>
- </form>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php foreach($usuarios as $usr): ?><tr>
-  <td>#<?= h($usr["id_usuario"]) ?></td><td><strong><?= h($usr["nombres"]." ".$usr["apellidos"]) ?></strong></td><td><?= h($usr["correo"]) ?></td><td><?= h($usr["telefono"]) ?></td>
-  <td><span class="status-pill <?= strtolower($usr["estado"])==="activo"?"success":"danger" ?>"><?= h($usr["estado"]) ?></span></td>
-  <td><form method="POST" class="inline-form"><input type="hidden" name="id_usuario" value="<?= h($usr["id_usuario"]) ?>"><select name="estado_usuario"><option value="Activo" <?= $usr["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $usr["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light" name="actualizar_estado_usuario">Guardar</button></form></td>
- </tr><?php endforeach; ?>
- </tbody></table></div>
-</section>
-<?php endif; ?>
 
 <?php if(puede("pedidos")): ?>
 <section id="pedidos" class="card page-panel">
@@ -1705,30 +1521,12 @@ tbody tr:hover{background:#fafcff}
 </section>
 <?php endif; ?>
 
-<?php if(puede("devoluciones")): ?>
-<section id="devoluciones" class="card page-panel">
- <div class="section-intro"><div><h2>Devoluciones y reembolsos</h2><p>Registra productos devueltos y restaura automáticamente las unidades al inventario.</p></div><span class="badge"><?= count($devoluciones) ?> registros</span></div>
- <div class="two-col">
-  <form method="POST" class="form-grid" style="grid-template-columns:1fr">
-   <div class="field"><label>PEDIDO</label><select name="id_pedido_devolucion" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $ped): ?><option value="<?= h($ped["id_pedido"]) ?>">#<?= h($ped["id_pedido"]) ?> — <?= h($ped["nombres"]." ".$ped["apellidos"]) ?></option><?php endforeach; ?></select></div>
-   <div class="field"><label>PRODUCTO</label><select name="id_producto_devolucion" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?></option><?php endforeach; ?></select></div>
-   <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_devolucion" required></div>
-   <div class="field"><label>MOTIVO</label><textarea name="motivo_devolucion" required placeholder="Ej. Producto defectuoso, cambio de modelo..."></textarea></div>
-   <div class="form-actions"><button class="btn btn-primary" name="registrar_devolucion">Registrar devolución</button></div>
-  </form>
-  <div class="info-panel"><span class="info-icon">↩</span><h3>¿Qué ocurre al registrar?</h3><p>El sistema valida que el producto pertenezca al pedido, calcula el reembolso según el precio vendido, registra la devolución y devuelve las unidades al stock.</p></div>
- </div>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Reembolso</th><th>Fecha</th></tr></thead><tbody>
- <?php if(!$devoluciones): ?><tr><td colspan="8" class="empty-cell">No hay devoluciones registradas.</td></tr><?php else: foreach($devoluciones as $dev): ?><tr><td>#<?= h($dev["id_devolucion"]) ?></td><td>#<?= h($dev["id_pedido"]) ?></td><td><?= h($dev["nombres"]." ".$dev["apellidos"]) ?></td><td><?= h($dev["nombre_producto"]) ?></td><td><?= (int)$dev["cantidad"] ?></td><td><?= h($dev["motivo"]) ?></td><td class="price">S/ <?= number_format((float)$dev["monto_reembolso"],2) ?></td><td><?= h($dev["fecha_devolucion"]) ?></td></tr><?php endforeach; endif; ?>
- </tbody></table></div>
-</section>
-<?php endif; ?>
 
-<?php if(puede("favoritos")): ?>
-<section id="favoritos" class="card page-panel">
- <div class="section-intro"><div><h2>Favoritos</h2><p>Productos guardados por los clientes desde la aplicación.</p></div><span class="badge"><?= count($favoritos) ?> registros</span></div>
- <div class="table-wrap"><table><thead><tr><th>ID</th><th>Usuario</th><th>Producto</th><th>Precio</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$favoritos): ?><tr><td colspan="6" class="empty-cell">No hay favoritos registrados.</td></tr><?php else: foreach($favoritos as $fav): ?><tr><td>#<?= h($fav["id_favorito"]) ?></td><td><?= h($fav["nombres"]." ".$fav["apellidos"]) ?></td><td><strong><?= h($fav["nombre_producto"]) ?></strong></td><td class="price">S/ <?= number_format((float)$fav["precio"],2) ?></td><td><?= h($fav["fecha_registro"]) ?></td><td><form method="POST"><input type="hidden" name="id_favorito" value="<?= h($fav["id_favorito"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_favorito">Eliminar</button></form></td></tr><?php endforeach; endif; ?>
+<?php if(puede("clientes")): ?>
+<section id="direcciones" class="card page-panel">
+ <div class="section-intro"><div><h2>Direcciones de clientes</h2><p>Direcciones registradas desde la aplicación para pedidos con delivery.</p></div><span class="badge"><?= count($direcciones) ?> registradas</span></div>
+ <div class="table-wrap"><table id="tablaDirecciones"><thead><tr><th>ID</th><th>Cliente</th><th>Ubicación</th><th>Dirección</th><th>Referencia</th></tr></thead><tbody>
+ <?php if(!$direcciones): ?><tr><td colspan="5" class="empty-cell">Todavía no hay direcciones registradas.</td></tr><?php else: foreach($direcciones as $dir): ?><tr><td>#<?= h($dir["id_direccion"]) ?></td><td><strong><?= h($dir["nombres"]." ".$dir["apellidos"]) ?></strong><small class="table-sub"><?= h($dir["correo"]) ?></small></td><td><?= h($dir["distrito"]) ?>, <?= h($dir["provincia"]) ?>, <?= h($dir["departamento"]) ?></td><td><?= h($dir["direccion_detalle"]) ?></td><td><?= h($dir["referencia"]) ?></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -1787,8 +1585,8 @@ tbody tr:hover{background:#fafcff}
   <div class="field"><label>PRECIO DE COMPRA</label><input type="number" min="0" step="0.01" name="precio_compra" required></div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
  </form>
- <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead><tbody>
- <?php if(!$compras): ?><tr><td colspan="5" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["fecha_compra"]) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><span class="status-pill success"><?= h($co["estado"]) ?></span></td></tr><?php endforeach; endif; ?>
+ <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Fecha</th><th>Estado</th></tr></thead><tbody>
+ <?php if(!$compras): ?><tr><td colspan="8" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["nombre_producto"]??"-") ?></td><td><?= (int)($co["cantidad"]??0) ?></td><td>S/ <?= number_format((float)($co["precio_compra"]??0),2) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><?= h($co["fecha_compra"]) ?></td><td><span class="status-pill success"><?= h($co["estado"]) ?></span></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -1825,62 +1623,6 @@ tbody tr:hover{background:#fafcff}
 </section>
 <?php endif; ?>
 
-<?php if(false): ?>
-<section id="auditoria" class="card page-panel" style="display:none!important">
- <div class="section-intro"><div><h2>Auditoría / Bitácora</h2><p>Historial de acciones realizadas por el personal dentro del panel administrativo.</p></div><span class="badge">Últimos <?= count($bitacora) ?> eventos</span></div>
- <div class="table-wrap"><table id="tablaAuditoria"><thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Módulo</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead><tbody>
- <?php if(!$bitacora): ?><tr><td colspan="7" class="empty-cell">Aún no hay acciones registradas.</td></tr><?php else: foreach($bitacora as $log): ?><tr><td><?= h($log["fecha"]) ?></td><td><?= h($log["usuario"]) ?></td><td><span class="status-pill"><?= h($log["rol"]) ?></span></td><td><?= h($log["modulo"]) ?></td><td><strong><?= h($log["accion"]) ?></strong></td><td><?= h($log["detalle"]) ?></td><td><?= h($log["ip"]) ?></td></tr><?php endforeach; endif; ?>
- </tbody></table></div>
-</section>
-
-<section id="configuracion" class="card page-panel">
- <div class="section-intro"><div><h2>Configuración y seguridad</h2><p>Datos de la empresa, roles del personal, respaldo y estado de la arquitectura.</p></div><span class="badge">Administrador</span></div>
-
- <div class="system-grid">
-  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BACKEND</small><strong>PHP conectado</strong><p>API /dorada_api/</p></div></div>
-  <div class="system-card"><span class="system-icon ok">✓</span><div><small>BASE DE DATOS</small><strong>MySQL conectado</strong><p>dorada_motors</p></div></div>
-  <div class="system-card"><span class="system-icon ok">✓</span><div><small>FRONTEND</small><strong>Flutter</strong><p>Consume endpoints JSON</p></div></div>
-  <div class="system-card"><span class="system-icon warn">!</span><div><small>ATENCIÓN</small><strong><?= $stockBajo ?> stock bajo</strong><p><?= $pedidosPendientes ?> pedidos por atender</p></div></div>
- </div>
-
- <div class="config-grid">
-  <article class="config-card">
-   <div class="card-head"><h2>Datos de la empresa</h2><span class="badge">Comprobantes</span></div>
-   <form method="POST" class="form-grid">
-    <div class="field"><label>NOMBRE COMERCIAL</label><input name="nombre_comercial" value="<?= h($configEmpresa["nombre_comercial"]??"Dorada Motors") ?>" required></div>
-    <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social_empresa" value="<?= h($configEmpresa["razon_social"]??"ADN Import's") ?>" required></div>
-    <div class="field"><label>RUC</label><input name="ruc_empresa" value="<?= h($configEmpresa["ruc"]??"") ?>"></div>
-    <div class="field"><label>TELÉFONO</label><input name="telefono_empresa" value="<?= h($configEmpresa["telefono"]??"") ?>"></div>
-    <div class="field"><label>CORREO</label><input type="email" name="correo_empresa" value="<?= h($configEmpresa["correo"]??"") ?>"></div>
-    <div class="field"><label>MONEDA</label><input name="moneda_empresa" value="<?= h($configEmpresa["moneda"]??"S/") ?>"></div>
-    <div class="field"><label>IGV %</label><input type="number" step="0.01" min="0" max="100" name="igv_empresa" value="<?= h($configEmpresa["igv"]??18) ?>"></div>
-    <div class="field full"><label>DIRECCIÓN</label><input name="direccion_empresa" value="<?= h($configEmpresa["direccion"]??"") ?>"></div>
-    <div class="form-actions"><button class="btn btn-primary" name="guardar_configuracion">Guardar configuración</button></div>
-   </form>
-  </article>
-
-  <article class="config-card">
-   <div class="card-head"><h2>Crear usuario del personal</h2><span class="badge">Roles</span></div>
-   <form method="POST" class="form-grid">
-    <div class="field"><label>NOMBRE</label><input name="nombres_admin" required></div>
-    <div class="field"><label>CORREO</label><input type="email" name="correo_admin" required></div>
-    <div class="field"><label>CONTRASEÑA</label><input type="password" minlength="8" name="contrasena_admin" required></div>
-    <div class="field"><label>ROL</label><select name="rol_admin"><option>Vendedor</option><option>Almacen</option><option>Administrador</option></select></div>
-    <div class="form-actions"><button class="btn btn-primary" name="crear_admin_usuario">Crear usuario</button></div>
-   </form>
-  </article>
- </div>
-
- <div class="table-wrap"><table><thead><tr><th>Personal</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Permisos</th></tr></thead><tbody>
- <?php foreach($adminUsuarios as $au): ?><tr><td><strong><?= h($au["nombres"]) ?></strong><small class="table-sub">#<?= h($au["id_admin"]) ?></small></td><td><?= h($au["correo"]) ?></td><td><?= h($au["rol"]) ?></td><td><span class="status-pill <?= $au["estado"]==="Activo"?"success":"danger" ?>"><?= h($au["estado"]) ?></span></td><td><?= h($au["ultimo_acceso"]??"Nunca") ?></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_admin_editar" value="<?= h($au["id_admin"]) ?>"><select name="rol_admin_editar"><?php foreach(["Administrador","Vendedor","Almacen"] as $rolOp): ?><option value="<?= h($rolOp) ?>" <?= $au["rol"]===$rolOp?"selected":"" ?>><?= h($rolOp) ?></option><?php endforeach; ?></select><select name="estado_admin_editar"><option value="Activo" <?= $au["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $au["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select><button class="btn btn-light btn-small" name="actualizar_admin_usuario">Guardar</button></form></td></tr><?php endforeach; ?>
- </tbody></table></div>
-
- <div class="help-card backup-card">
-  <div><strong>Respaldo de base de datos</strong><p>Descarga un archivo SQL con las tablas y registros actuales del sistema.</p></div>
-  <a class="btn btn-primary" href="backup.php">Descargar respaldo SQL</a>
- </div>
-</section>
-<?php endif; ?>
 
 </div>
 </main>
