@@ -1567,6 +1567,7 @@ $productos = $conexion->query("
 $usuarios = $conexion->query("
     SELECT id_usuario,nombres,apellidos,correo,telefono,estado
     FROM usuario
+    WHERE rol_sistema='Cliente'
     ORDER BY id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
@@ -1615,6 +1616,13 @@ $pagos = $conexion->query("
 $proveedores = $conexion->query("
     SELECT * FROM proveedor
     ORDER BY id_proveedor DESC
+")->fetch_all(MYSQLI_ASSOC);
+
+$usuariosAdmin = $conexion->query("
+    SELECT id_usuario,nombres,apellidos,correo,telefono,estado,rol_sistema,ultimo_acceso
+    FROM usuario
+    WHERE rol_sistema IN ('Administrador','Vendedor','Almacen')
+    ORDER BY FIELD(rol_sistema,'Administrador','Vendedor','Almacen'),nombres,apellidos
 ")->fetch_all(MYSQLI_ASSOC);
 
 $compras = $conexion->query("
@@ -1682,6 +1690,7 @@ $clientes = $conexion->query("
         MAX(p.fecha_pedido) AS ultima_compra
     FROM usuario u
     LEFT JOIN pedido p ON u.id_usuario=p.id_usuario AND LOWER(p.estado_pedido)<>'cancelado'
+    WHERE u.rol_sistema='Cliente'
     GROUP BY u.id_usuario,u.nombres,u.apellidos,u.correo,u.telefono,u.estado
     ORDER BY total_comprado DESC,u.id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
@@ -2197,7 +2206,8 @@ input:focus,select:focus,textarea:focus{
     <?php if(puede("reportes")): ?><a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a><?php endif; ?>
    </div>
   </div>
-  <a class="admin" href="#inicio" title="Administrador del sistema"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
+  <a class="admin" href="<?= puede("configuracion") ? "#configuracion" : "#inicio" ?>" title="Cuenta administrativa"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
+  <a class="icon-btn" href="admin_logout.php" title="Cerrar sesión">↪</a>
 
  </div>
 </header>
@@ -2667,6 +2677,78 @@ input:focus,select:focus,textarea:focus{
 </section>
 <?php endif; ?>
 
+<?php if(puede("configuracion")): ?>
+<section id="configuracion" class="card page-panel">
+ <div class="section-intro">
+  <div><h2>Configuración y personal</h2><p>Administra los datos de Dorada Motors y las cuentas que pueden ingresar al panel.</p></div>
+  <span class="badge"><?= count($usuariosAdmin) ?> cuenta(s) administrativas</span>
+ </div>
+
+ <div class="two-col">
+  <div class="detail-card">
+   <h3 style="margin-top:0">Datos de la empresa</h3>
+   <form method="POST" class="form-grid">
+    <div class="field"><label>NOMBRE COMERCIAL</label><input name="nombre_comercial" required value="<?= h($configEmpresa["nombre_comercial"]) ?>"></div>
+    <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social" required value="<?= h($configEmpresa["razon_social"]) ?>"></div>
+    <div class="field"><label>RUC</label><input name="ruc" maxlength="11" value="<?= h($configEmpresa["ruc"]) ?>" placeholder="11 dígitos"></div>
+    <div class="field"><label>TELÉFONO</label><input name="telefono_empresa" value="<?= h($configEmpresa["telefono"]) ?>"></div>
+    <div class="field"><label>CORREO</label><input type="email" name="correo_empresa" value="<?= h($configEmpresa["correo"]) ?>"></div>
+    <div class="field"><label>MONEDA</label><input name="moneda" value="<?= h($configEmpresa["moneda"]) ?>"></div>
+    <div class="field full"><label>DIRECCIÓN</label><input name="direccion_empresa" value="<?= h($configEmpresa["direccion"]) ?>"></div>
+    <div class="field"><label>IGV (%)</label><input type="number" min="0" max="100" step="0.01" name="igv" value="<?= h($configEmpresa["igv"]) ?>"></div>
+    <div class="form-actions"><button class="btn btn-primary" name="guardar_config_empresa">Guardar empresa</button></div>
+   </form>
+  </div>
+
+  <div class="detail-card">
+   <h3 style="margin-top:0">Cambiar mi contraseña</h3>
+   <form method="POST" class="form-grid" style="grid-template-columns:1fr">
+    <div class="field"><label>CONTRASEÑA ACTUAL</label><input type="password" name="clave_actual" required autocomplete="current-password"></div>
+    <div class="field"><label>NUEVA CONTRASEÑA</label><input type="password" name="clave_nueva" minlength="8" required autocomplete="new-password"></div>
+    <div class="field"><label>CONFIRMAR NUEVA CONTRASEÑA</label><input type="password" name="clave_confirmar" minlength="8" required autocomplete="new-password"></div>
+    <div class="form-actions"><button class="btn btn-primary" name="cambiar_clave_admin">Cambiar contraseña</button></div>
+   </form>
+  </div>
+ </div>
+
+ <div class="detail-card" style="margin-top:16px">
+  <h3 style="margin-top:0">Crear cuenta del personal</h3>
+  <form method="POST" class="form-grid">
+   <div class="field"><label>NOMBRES</label><input name="admin_nombres" required></div>
+   <div class="field"><label>APELLIDOS</label><input name="admin_apellidos"></div>
+   <div class="field"><label>CORREO</label><input type="email" name="admin_correo" required></div>
+   <div class="field"><label>TELÉFONO</label><input name="admin_telefono"></div>
+   <div class="field"><label>ROL</label><select name="admin_rol"><option>Vendedor</option><option>Almacen</option><option>Administrador</option></select></div>
+   <div class="field"><label>CONTRASEÑA</label><input type="password" name="admin_contrasena" minlength="8" required></div>
+   <div class="form-actions"><button class="btn btn-primary" name="crear_usuario_admin">Crear cuenta</button></div>
+  </form>
+ </div>
+
+ <div class="table-wrap" style="margin-top:16px"><table id="tablaPersonal"><thead><tr><th>Personal</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acción</th></tr></thead><tbody>
+ <?php foreach($usuariosAdmin as $ua): ?><tr>
+  <td><strong><?= h($ua["nombres"]." ".$ua["apellidos"]) ?></strong></td>
+  <td><?= h($ua["correo"]) ?></td>
+  <td><?= h($ua["rol_sistema"]) ?></td>
+  <td><span class="status-pill <?= $ua["estado"]==="Activo"?"success":"danger" ?>"><?= h($ua["estado"]) ?></span></td>
+  <td><?= h($ua["ultimo_acceso"] ?: "Sin ingreso") ?></td>
+  <td>
+   <form method="POST" class="inline-form">
+    <input type="hidden" name="id_usuario_admin" value="<?= h($ua["id_usuario"]) ?>">
+    <select name="rol_usuario_admin"><?php foreach(["Administrador","Vendedor","Almacen"] as $rolOp): ?><option value="<?= h($rolOp) ?>" <?= $ua["rol_sistema"]===$rolOp?"selected":"" ?>><?= h($rolOp) ?></option><?php endforeach; ?></select>
+    <select name="estado_usuario_admin"><option value="Activo" <?= $ua["estado"]==="Activo"?"selected":"" ?>>Activo</option><option value="Bloqueado" <?= $ua["estado"]==="Bloqueado"?"selected":"" ?>>Bloqueado</option></select>
+    <button class="btn btn-light btn-small" name="actualizar_usuario_admin">Guardar</button>
+   </form>
+  </td>
+ </tr><?php endforeach; ?>
+ </tbody></table></div>
+
+ <div class="help-card">
+  <div><strong>Permisos por rol</strong><p>Administrador: acceso completo · Vendedor: clientes, pedidos, pagos, comprobantes y reportes · Almacén: productos, inventario, compras, proveedores y reportes.</p></div>
+  <a class="btn btn-danger" href="admin_logout.php">Cerrar sesión</a>
+ </div>
+</section>
+<?php endif; ?>
+
 
 </div>
 </main>
@@ -2738,6 +2820,7 @@ const nombresPanel={
  pagos:'Pagos',
  comprobantes:'Comprobantes',
  reportes:'Reportes',
+ configuracion:'Configuración',
  };
 
 function cerrarMenu(){
