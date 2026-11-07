@@ -802,21 +802,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Método o estado de pago inválido", "error", "pagos");
             }
 
-            $stmt = $conexion->prepare("SELECT total,estado_pedido FROM pedido WHERE id_pedido=? LIMIT 1");
-            $stmt->bind_param("i",$idPedido);
-            $stmt->execute();
-            $pedidoPago = $stmt->get_result()->fetch_assoc();
-
-            if (!$pedidoPago) {
-                redir("Pedido no encontrado", "error", "pagos");
-            }
-
-            if ((string)$pedidoPago["estado_pedido"] === "Cancelado") {
-                redir("No se puede registrar pago a un pedido cancelado", "error", "pagos");
-            }
-
             $conexion->begin_transaction();
             try {
+                $stmt = $conexion->prepare("
+                    SELECT
+                        p.total,
+                        p.estado_pedido,
+                        COALESCE(SUM(CASE WHEN pg.estado_pago='Pagado' THEN pg.monto ELSE 0 END),0) AS pagado
+                    FROM pedido p
+                    LEFT JOIN pago pg ON pg.id_pedido=p.id_pedido
+                    WHERE p.id_pedido=?
+                    GROUP BY p.id_pedido,p.total,p.estado_pedido
+                    FOR UPDATE
+                ");
+                $stmt->bind_param("i",$idPedido);
+                $stmt->execute();
+                $pedidoPago = $stmt->get_result()->fetch_assoc();
+
+                if (!$pedidoPago) {
+                    throw new RuntimeException("Pedido no encontrado");
+                }
+
+                if ((string)$pedidoPago["estado_pedido"] === "Cancelado") {
+                    throw new RuntimeException("No se puede registrar pago a un pedido cancelado");
+                }
+
+                $totalPedidoPago = (float)$pedidoPago["total"];
+                $pagadoActual = (float)$pedidoPago["pagado"];
+                $saldoActual = max(0, round($totalPedidoPago - $pagadoActual, 2));
+
+                if ($monto > $totalPedidoPago + 0.009) {
+                    throw new RuntimeException("El monto no puede superar el total del pedido");
+                }
+
+                if ($estadoPago === "Pagado" && $monto > $saldoActual + 0.009) {
+                    throw new RuntimeException("El abono supera el saldo pendiente de S/ " . number_format($saldoActual,2));
+                }
+
                 $stmt = $conexion->prepare("
                     INSERT INTO pago(id_pedido,metodo_pago,monto,fecha_pago,estado_pago)
                     VALUES (?,?,?,NOW(),?)
@@ -824,21 +846,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $stmt->bind_param("isds",$idPedido,$metodoPago,$monto,$estadoPago);
                 $stmt->execute();
 
-                if ($estadoPago === "Pagado") {
-                    $stmt = $conexion->prepare("
-                        UPDATE pedido
-                        SET estado_pedido='Pagado'
-                        WHERE id_pedido=? AND estado_pedido NOT IN ('Cancelado','Completado')
-                    ");
-                    $stmt->bind_param("i",$idPedido);
-                    $stmt->execute();
-                }
+                sincronizarEstadoFinancieroPedido($conexion,$idPedido);
 
                 $conexion->commit();
                 redir("Pago registrado correctamente", "ok", "pagos");
             } catch (Throwable $e) {
                 $conexion->rollback();
-                throw $e;
+                redir($e->getMessage(), "error", "pagos");
             }
         }
 
@@ -852,7 +866,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $conexion->begin_transaction();
             try {
-                $stmt = $conexion->prepare("SELECT id_pedido FROM pago WHERE id_pago=? FOR UPDATE");
+                $stmt = $conexion->prepare("
+                    SELECT pg.id_pedido,pg.monto,pg.estado_pago,p.total,p.estado_pedido
+                    FROM pago pg
+                    INNER JOIN pedido p ON pg.id_pedido=p.id_pedido
+                    WHERE pg.id_pago=?
+                    FOR UPDATE
+                ");
                 $stmt->bind_param("i", $idPago);
                 $stmt->execute();
                 $pagoActual = $stmt->get_result()->fetch_assoc();
@@ -861,20 +881,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     throw new RuntimeException("Pago no encontrado");
                 }
 
+                if ((string)$pagoActual["estado_pedido"] === "Cancelado" && $estado === "Pagado") {
+                    throw new RuntimeException("No se puede confirmar un pago de un pedido cancelado");
+                }
+
+                $idPedidoPago = (int)$pagoActual["id_pedido"];
+
+                if ($estado === "Pagado" && (string)$pagoActual["estado_pago"] !== "Pagado") {
+                    $stmt = $conexion->prepare("
+                        SELECT COALESCE(SUM(monto),0) AS pagado
+                        FROM pago
+                        WHERE id_pedido=? AND estado_pago='Pagado' AND id_pago<>?
+                    ");
+                    $stmt->bind_param("ii",$idPedidoPago,$idPago);
+                    $stmt->execute();
+                    $pagadoOtros = (float)$stmt->get_result()->fetch_assoc()["pagado"];
+                    $nuevoTotalPagado = $pagadoOtros + (float)$pagoActual["monto"];
+
+                    if ($nuevoTotalPagado > (float)$pagoActual["total"] + 0.009) {
+                        throw new RuntimeException("Confirmar este pago excedería el total del pedido");
+                    }
+                }
+
                 $stmt = $conexion->prepare("UPDATE pago SET estado_pago=? WHERE id_pago=?");
                 $stmt->bind_param("si", $estado, $idPago);
                 $stmt->execute();
 
-                if ($estado === "Pagado") {
-                    $idPedidoPago = (int)$pagoActual["id_pedido"];
-                    $stmt = $conexion->prepare("
-                        UPDATE pedido
-                        SET estado_pedido='Pagado'
-                        WHERE id_pedido=? AND estado_pedido NOT IN ('Cancelado','Completado')
-                    ");
-                    $stmt->bind_param("i", $idPedidoPago);
-                    $stmt->execute();
-                }
+                sincronizarEstadoFinancieroPedido($conexion,$idPedidoPago);
 
                 $conexion->commit();
                 redir("Estado del pago actualizado", "ok", "pagos");
@@ -883,6 +916,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir($e->getMessage(), "error", "pagos");
             }
         }
+
 
 
         /* ================= PROVEEDORES ================= */
@@ -1205,10 +1239,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST["registrar_comprobante"])) {
             $idPedido = (int)($_POST["id_pedido_comprobante"] ?? 0);
             $tipo = trim($_POST["tipo_comprobante"] ?? "Boleta");
-            $numero = trim($_POST["numero_comprobante"] ?? "");
+            $numero = strtoupper(trim($_POST["numero_comprobante"] ?? ""));
 
-            if ($idPedido <= 0 || $numero === "") {
-                redir("Selecciona un pedido e ingresa el número de comprobante", "error", "comprobantes");
+            if ($idPedido <= 0 || !in_array($tipo, ["Boleta","Factura"], true)) {
+                redir("Selecciona un pedido y tipo de comprobante válido", "error", "comprobantes");
             }
 
             $stmt = $conexion->prepare("SELECT id_comprobante FROM comprobante WHERE id_pedido=? LIMIT 1");
@@ -1218,14 +1252,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Ya existe un comprobante para este pedido", "error", "comprobantes");
             }
 
-            $stmt = $conexion->prepare("SELECT total FROM pedido WHERE id_pedido=?");
+            $stmt = $conexion->prepare("
+                SELECT
+                    p.total,
+                    p.estado_pedido,
+                    COALESCE(SUM(CASE WHEN pg.estado_pago='Pagado' THEN pg.monto ELSE 0 END),0) AS pagado
+                FROM pedido p
+                LEFT JOIN pago pg ON pg.id_pedido=p.id_pedido
+                WHERE p.id_pedido=?
+                GROUP BY p.id_pedido,p.total,p.estado_pedido
+            ");
             $stmt->bind_param("i", $idPedido);
             $stmt->execute();
             $pedidoComprobante = $stmt->get_result()->fetch_assoc();
 
-            if (!$pedidoComprobante) redir("Pedido no encontrado", "error", "comprobantes");
+            if (!$pedidoComprobante) {
+                redir("Pedido no encontrado", "error", "comprobantes");
+            }
+
+            if ((string)$pedidoComprobante["estado_pedido"] === "Cancelado") {
+                redir("No se puede emitir comprobante de un pedido cancelado", "error", "comprobantes");
+            }
 
             $total = (float)$pedidoComprobante["total"];
+            $pagado = (float)$pedidoComprobante["pagado"];
+            if ($pagado + 0.009 < $total) {
+                redir("El pedido todavía tiene saldo pendiente de S/ " . number_format($total-$pagado,2), "error", "comprobantes");
+            }
+
+            if ($numero === "") {
+                $siguiente = (int)$conexion->query("SELECT COALESCE(MAX(id_comprobante),0)+1 AS n FROM comprobante")->fetch_assoc()["n"];
+                $numero = ($tipo === "Factura" ? "F001-" : "B001-") . str_pad((string)$siguiente, 6, "0", STR_PAD_LEFT);
+            }
+
             $factorIgv = 1 + ($igvEmpresa / 100);
             $subtotal = $factorIgv > 0 ? round($total / $factorIgv, 2) : $total;
             $igv = round($total - $subtotal, 2);
@@ -1237,7 +1296,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ");
             $stmt->bind_param("issddd", $idPedido, $tipo, $numero, $subtotal, $igv, $total);
             $stmt->execute();
-            redir("Comprobante registrado correctamente", "ok", "comprobantes");
+            redir("Comprobante ".$numero." registrado correctamente", "ok", "comprobantes");
         }
 
         if (isset($_POST["eliminar_comprobante"])) {
