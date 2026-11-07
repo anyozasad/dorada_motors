@@ -92,14 +92,19 @@ $accionesSistema = [
     "registrar_usuario" => ["clientes", "Crear cliente"],
     "actualizar_usuario" => ["clientes", "Actualizar cliente"],
     "actualizar_estado_usuario" => ["clientes", "Cambiar estado de cliente"],
+    "registrar_direccion" => ["clientes", "Registrar dirección"],
+    "actualizar_direccion" => ["clientes", "Actualizar dirección"],
+    "eliminar_direccion" => ["clientes", "Eliminar dirección"],
     "registrar_pedido_manual" => ["pedidos", "Registrar pedido"],
     "actualizar_estado_pedido" => ["pedidos", "Cambiar estado de pedido"],
+    "registrar_pago_manual" => ["pagos", "Registrar pago"],
     "actualizar_estado_pago" => ["pagos", "Cambiar estado de pago"],
     "registrar_proveedor" => ["proveedores", "Crear proveedor"],
     "actualizar_proveedor" => ["proveedores", "Actualizar proveedor"],
     "eliminar_proveedor" => ["proveedores", "Eliminar proveedor"],
     "registrar_movimiento" => ["inventario", "Registrar movimiento de stock"],
     "registrar_compra" => ["compras", "Registrar compra"],
+    "actualizar_estado_compra" => ["compras", "Cambiar estado de compra"],
     "registrar_comprobante" => ["comprobantes", "Emitir comprobante"],
     "eliminar_comprobante" => ["comprobantes", "Eliminar comprobante"],
 ];
@@ -412,6 +417,70 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             redir("Estado del usuario actualizado", "ok", "clientes");
         }
 
+        /* ================= DIRECCIONES ================= */
+        if (isset($_POST["registrar_direccion"])) {
+            $idUsuario = (int)($_POST["id_usuario_direccion"] ?? 0);
+            $departamento = trim($_POST["departamento"] ?? "");
+            $provincia = trim($_POST["provincia"] ?? "");
+            $distrito = trim($_POST["distrito"] ?? "");
+            $detalle = trim($_POST["direccion_detalle"] ?? "");
+            $referencia = trim($_POST["referencia"] ?? "");
+
+            if ($idUsuario <= 0 || $departamento === "" || $provincia === "" || $distrito === "" || $detalle === "") {
+                redir("Completa los datos de la dirección", "error", "direcciones");
+            }
+
+            $stmt = $conexion->prepare("
+                INSERT INTO direccion
+                (id_usuario,departamento,provincia,distrito,direccion_detalle,referencia)
+                VALUES (?,?,?,?,?,?)
+            ");
+            $stmt->bind_param("isssss",$idUsuario,$departamento,$provincia,$distrito,$detalle,$referencia);
+            $stmt->execute();
+            redir("Dirección registrada correctamente", "ok", "direcciones");
+        }
+
+        if (isset($_POST["actualizar_direccion"])) {
+            $idDireccion = (int)($_POST["id_direccion"] ?? 0);
+            $idUsuario = (int)($_POST["id_usuario_direccion"] ?? 0);
+            $departamento = trim($_POST["departamento"] ?? "");
+            $provincia = trim($_POST["provincia"] ?? "");
+            $distrito = trim($_POST["distrito"] ?? "");
+            $detalle = trim($_POST["direccion_detalle"] ?? "");
+            $referencia = trim($_POST["referencia"] ?? "");
+
+            if ($idDireccion <= 0 || $idUsuario <= 0 || $detalle === "") {
+                redir("Datos de dirección inválidos", "error", "direcciones");
+            }
+
+            $stmt = $conexion->prepare("
+                UPDATE direccion
+                SET id_usuario=?,departamento=?,provincia=?,distrito=?,direccion_detalle=?,referencia=?
+                WHERE id_direccion=?
+            ");
+            $stmt->bind_param("isssssi",$idUsuario,$departamento,$provincia,$distrito,$detalle,$referencia,$idDireccion);
+            $stmt->execute();
+            redir("Dirección actualizada correctamente", "ok", "direcciones");
+        }
+
+        if (isset($_POST["eliminar_direccion"])) {
+            $idDireccion = (int)($_POST["id_direccion"] ?? 0);
+
+            $stmt = $conexion->prepare("SELECT COUNT(*) AS total FROM pedido WHERE id_direccion=?");
+            $stmt->bind_param("i",$idDireccion);
+            $stmt->execute();
+            $usosDireccion = (int)$stmt->get_result()->fetch_assoc()["total"];
+
+            if ($usosDireccion > 0) {
+                redir("No se puede eliminar: la dirección ya está asociada a pedidos", "error", "direcciones");
+            }
+
+            $stmt = $conexion->prepare("DELETE FROM direccion WHERE id_direccion=?");
+            $stmt->bind_param("i",$idDireccion);
+            $stmt->execute();
+            redir("Dirección eliminada correctamente", "ok", "direcciones");
+        }
+
         /* ================= PEDIDOS ================= */
         if (isset($_POST["registrar_pedido_manual"])) {
             $idUsuario = (int)($_POST["id_usuario_pedido"] ?? 0);
@@ -647,6 +716,61 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         /* ================= PAGOS ================= */
+        if (isset($_POST["registrar_pago_manual"])) {
+            $idPedido = (int)($_POST["id_pedido_pago"] ?? 0);
+            $metodoPago = trim($_POST["metodo_pago_manual"] ?? "Efectivo");
+            $monto = (float)($_POST["monto_pago"] ?? 0);
+            $estadoPago = trim($_POST["estado_pago_manual"] ?? "Pendiente");
+
+            if ($idPedido <= 0 || $monto <= 0) {
+                redir("Completa correctamente el pago", "error", "pagos");
+            }
+
+            if (!in_array($metodoPago, ["Efectivo","Yape","Plin","Transferencia"], true) ||
+                !in_array($estadoPago, ["Pendiente","Pagado","Rechazado"], true)) {
+                redir("Método o estado de pago inválido", "error", "pagos");
+            }
+
+            $stmt = $conexion->prepare("SELECT total,estado_pedido FROM pedido WHERE id_pedido=? LIMIT 1");
+            $stmt->bind_param("i",$idPedido);
+            $stmt->execute();
+            $pedidoPago = $stmt->get_result()->fetch_assoc();
+
+            if (!$pedidoPago) {
+                redir("Pedido no encontrado", "error", "pagos");
+            }
+
+            if ((string)$pedidoPago["estado_pedido"] === "Cancelado") {
+                redir("No se puede registrar pago a un pedido cancelado", "error", "pagos");
+            }
+
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare("
+                    INSERT INTO pago(id_pedido,metodo_pago,monto,fecha_pago,estado_pago)
+                    VALUES (?,?,?,NOW(),?)
+                ");
+                $stmt->bind_param("isds",$idPedido,$metodoPago,$monto,$estadoPago);
+                $stmt->execute();
+
+                if ($estadoPago === "Pagado") {
+                    $stmt = $conexion->prepare("
+                        UPDATE pedido
+                        SET estado_pedido='Pagado'
+                        WHERE id_pedido=? AND estado_pedido NOT IN ('Cancelado','Completado')
+                    ");
+                    $stmt->bind_param("i",$idPedido);
+                    $stmt->execute();
+                }
+
+                $conexion->commit();
+                redir("Pago registrado correctamente", "ok", "pagos");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                throw $e;
+            }
+        }
+
         if (isset($_POST["actualizar_estado_pago"])) {
             $idPago = (int)($_POST["id_pago"] ?? 0);
             $estado = trim($_POST["estado_pago"] ?? "Pendiente");
@@ -853,6 +977,111 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $conexion->commit();
             redir("Compra registrada y stock actualizado", "ok", "compras");
+        }
+
+        if (isset($_POST["actualizar_estado_compra"])) {
+            $idCompra = (int)($_POST["id_compra"] ?? 0);
+            $nuevoEstado = trim($_POST["estado_compra"] ?? "Registrado");
+
+            if (!in_array($nuevoEstado, ["Registrado","Anulado"], true)) {
+                redir("Estado de compra inválido", "error", "compras");
+            }
+
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare("SELECT estado FROM compra WHERE id_compra=? FOR UPDATE");
+                $stmt->bind_param("i",$idCompra);
+                $stmt->execute();
+                $compraActual = $stmt->get_result()->fetch_assoc();
+                if (!$compraActual) {
+                    throw new RuntimeException("Compra no encontrada");
+                }
+
+                $estadoAnteriorCompra = (string)$compraActual["estado"];
+
+                $stmt = $conexion->prepare("
+                    SELECT dc.id_producto,dc.cantidad,p.nombre_producto
+                    FROM detalle_compra dc
+                    INNER JOIN producto p ON dc.id_producto=p.id_producto
+                    WHERE dc.id_compra=?
+                ");
+                $stmt->bind_param("i",$idCompra);
+                $stmt->execute();
+                $detallesCompraEstado = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+                if ($nuevoEstado === "Anulado" && $estadoAnteriorCompra !== "Anulado") {
+                    foreach ($detallesCompraEstado as $detalleCompra) {
+                        $idProductoCompra = (int)$detalleCompra["id_producto"];
+                        $cantidadCompraEstado = (int)$detalleCompra["cantidad"];
+
+                        $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+                        $stmt->bind_param("i",$idProductoCompra);
+                        $stmt->execute();
+                        $productoCompraEstado = $stmt->get_result()->fetch_assoc();
+
+                        if (!$productoCompraEstado || (int)$productoCompraEstado["stock"] < $cantidadCompraEstado) {
+                            throw new RuntimeException("No se puede anular: el stock actual no permite retirar la mercadería de " . $detalleCompra["nombre_producto"]);
+                        }
+
+                        $stockAnteriorCompra = (int)$productoCompraEstado["stock"];
+                        $stockNuevoCompra = $stockAnteriorCompra - $cantidadCompraEstado;
+
+                        $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                        $stmt->bind_param("ii",$stockNuevoCompra,$idProductoCompra);
+                        $stmt->execute();
+
+                        $tipo = "Salida";
+                        $motivo = "Anulación compra #" . $idCompra;
+                        $stmt = $conexion->prepare("
+                            INSERT INTO movimiento_stock
+                            (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                            VALUES (?,?,?,?,NOW(),?,?)
+                        ");
+                        $stmt->bind_param("isisii",$idProductoCompra,$tipo,$cantidadCompraEstado,$motivo,$stockAnteriorCompra,$stockNuevoCompra);
+                        $stmt->execute();
+                    }
+                }
+
+                if ($estadoAnteriorCompra === "Anulado" && $nuevoEstado === "Registrado") {
+                    foreach ($detallesCompraEstado as $detalleCompra) {
+                        $idProductoCompra = (int)$detalleCompra["id_producto"];
+                        $cantidadCompraEstado = (int)$detalleCompra["cantidad"];
+
+                        $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+                        $stmt->bind_param("i",$idProductoCompra);
+                        $stmt->execute();
+                        $productoCompraEstado = $stmt->get_result()->fetch_assoc();
+                        if (!$productoCompraEstado) continue;
+
+                        $stockAnteriorCompra = (int)$productoCompraEstado["stock"];
+                        $stockNuevoCompra = $stockAnteriorCompra + $cantidadCompraEstado;
+
+                        $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                        $stmt->bind_param("ii",$stockNuevoCompra,$idProductoCompra);
+                        $stmt->execute();
+
+                        $tipo = "Entrada";
+                        $motivo = "Reactivación compra #" . $idCompra;
+                        $stmt = $conexion->prepare("
+                            INSERT INTO movimiento_stock
+                            (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                            VALUES (?,?,?,?,NOW(),?,?)
+                        ");
+                        $stmt->bind_param("isisii",$idProductoCompra,$tipo,$cantidadCompraEstado,$motivo,$stockAnteriorCompra,$stockNuevoCompra);
+                        $stmt->execute();
+                    }
+                }
+
+                $stmt = $conexion->prepare("UPDATE compra SET estado=? WHERE id_compra=?");
+                $stmt->bind_param("si",$nuevoEstado,$idCompra);
+                $stmt->execute();
+
+                $conexion->commit();
+                redir("Estado de compra actualizado", "ok", "compras");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                redir($e->getMessage(), "error", "compras");
+            }
         }
 
         /* ================= COMPROBANTES ================= */
