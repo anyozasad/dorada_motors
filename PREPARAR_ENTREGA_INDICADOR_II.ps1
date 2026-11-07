@@ -151,6 +151,7 @@ $ArchivosQuitarFlutter = @(
     "PREPARAR_ENTREGA_INDICADOR_II.ps1",
     "VERIFICAR_SISTEMA.ps1",
     "PRUEBA_INTEGRACION.php",
+    "CONTROL_150_FUNCIONES.txt",
     "ENTREGA_INDICADOR_II.txt"
 )
 
