@@ -36,7 +36,8 @@ function puede(string $modulo): bool {
     $permisos = [
         "Administrador" => [
             "inicio","clientes","pedidos","pagos","comprobantes","reportes",
-            "gestion-productos","productos","inventario","compras","proveedores","categorias","marcas"
+            "gestion-productos","productos","inventario","compras","proveedores","categorias","marcas",
+            "configuracion"
         ],
         "Vendedor" => [
             "inicio","clientes","pedidos","pagos","comprobantes","reportes"
