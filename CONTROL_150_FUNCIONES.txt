@@ -74,7 +74,7 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 069. [IMPLEMENTADO] Pedidos: hacer rollback si falla
 070. [IMPLEMENTADO] Pedidos: ver detalle
 071. [IMPLEMENTADO] Pedidos: mostrar productos del pedido
-072. [IMPLEMENTADO] Pedidos: mostrar fecha
+072. [IMPLEMENTADO] Pedidos: agregar varios productos en una venta
 073. [IMPLEMENTADO] Pedidos: mostrar tipo de entrega
 074. [IMPLEMENTADO] Pedidos: filtrar por estado
 075. [IMPLEMENTADO] Pedidos: pasar a Procesando
@@ -106,7 +106,7 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 101. [IMPLEMENTADO] Comprobantes: listar comprobantes
 102. [IMPLEMENTADO] Comprobantes: emitir boleta
 103. [IMPLEMENTADO] Comprobantes: emitir factura
-104. [IMPLEMENTADO] Comprobantes: seleccionar pedido
+104. [IMPLEMENTADO] Comprobantes: exigir pedido totalmente pagado
 105. [IMPLEMENTADO] Comprobantes: validar número único
 106. [IMPLEMENTADO] Comprobantes: impedir duplicado por pedido
 107. [IMPLEMENTADO] Comprobantes: calcular subtotal sin IGV
@@ -133,7 +133,7 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 128. [IMPLEMENTADO] Proveedores: impedir eliminar proveedor usado
 129. [IMPLEMENTADO] Compras: listar compras
 130. [IMPLEMENTADO] Compras: registrar compra
-131. [IMPLEMENTADO] Compras: registrar detalle de compra
+131. [IMPLEMENTADO] Compras: registrar múltiples productos en una compra
 132. [IMPLEMENTADO] Compras: calcular subtotal
 133. [IMPLEMENTADO] Compras: calcular total
 134. [IMPLEMENTADO] Compras: aumentar stock
