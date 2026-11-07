@@ -1436,7 +1436,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 /* ================= MÉTRICAS ================= */
 $totalProductos = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto")->fetch_assoc()["total"];
-$totalUsuarios = (int)$conexion->query("SELECT COUNT(*) AS total FROM usuario")->fetch_assoc()["total"];
+$totalUsuarios = (int)$conexion->query("SELECT COUNT(*) AS total FROM usuario WHERE rol_sistema='Cliente'")->fetch_assoc()["total"];
 $totalPedidos = (int)$conexion->query("SELECT COUNT(*) AS total FROM pedido")->fetch_assoc()["total"];
 $totalVentas = (float)$conexion->query("
     SELECT COALESCE(SUM(total),0) AS total
