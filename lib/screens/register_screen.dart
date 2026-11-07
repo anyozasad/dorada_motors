@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ui_motion.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onRegistered;
@@ -100,7 +101,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
+                        RevealOnMount(
+                          child: Row(
                           children: [
                             Container(
                               width: 76,
@@ -136,8 +138,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ],
                         ),
+                        ),
                         const SizedBox(height: 24),
-                        Container(
+                        RevealOnMount(
+                          delay: const Duration(milliseconds: 100),
+                          child: Container(
                           padding: const EdgeInsets.all(22),
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -239,11 +244,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                         ),
+                        ),
                         const SizedBox(height: 12),
-                        TextButton.icon(
+                        RevealOnMount(
+                          delay: const Duration(milliseconds: 180),
+                          child: TextButton.icon(
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.login_rounded),
                           label: const Text('Ya tengo una cuenta'),
+                        ),
                         ),
                       ],
                     ),
