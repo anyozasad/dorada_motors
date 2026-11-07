@@ -10,6 +10,8 @@ $resultado = [
     "tablas_requeridas" => 13,
     "columnas_producto" => 0,
     "columnas_producto_requeridas" => 4,
+    "columnas_usuario" => 0,
+    "columnas_usuario_requeridas" => 2,
     "escritura" => false,
     "mensaje" => ""
 ];
@@ -49,6 +51,17 @@ try {
     }
     $resultado["columnas_producto"] = $columnasEncontradas;
 
+    $columnasUsuario = ["rol_sistema","ultimo_acceso"];
+    $columnasUsuarioEncontradas = 0;
+    foreach ($columnasUsuario as $columna) {
+        $columnaSegura = $conexion->real_escape_string($columna);
+        $r = $conexion->query("SHOW COLUMNS FROM usuario LIKE '" . $columnaSegura . "'");
+        if ($r && $r->num_rows > 0) {
+            $columnasUsuarioEncontradas++;
+        }
+    }
+    $resultado["columnas_usuario"] = $columnasUsuarioEncontradas;
+
     // Prueba real de escritura SIN dejar datos:
     // se inserta una categoría temporal dentro de una transacción y luego se revierte.
     $conexion->begin_transaction();
@@ -72,6 +85,7 @@ try {
         $resultado["base_datos"] === "dorada_motors" &&
         $resultado["tablas_encontradas"] === 13 &&
         $resultado["columnas_producto"] === 4 &&
+        $resultado["columnas_usuario"] === 2 &&
         $resultado["escritura"];
 
     $resultado["mensaje"] = $resultado["estado"]
