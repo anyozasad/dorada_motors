@@ -147,7 +147,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $idMarca = (int)($_POST["id_marca"] ?? 0);
             $nombre = trim($_POST["nombre_producto"] ?? "");
             $descripcion = trim($_POST["descripcion"] ?? "");
+            $tipoVehiculo = trim($_POST["tipo_vehiculo"] ?? "Motocicleta / Motokar");
+            $compatibilidad = trim($_POST["compatibilidad"] ?? "");
             $precio = (float)($_POST["precio"] ?? 0);
+            $precioOferta = (float)($_POST["precio_oferta"] ?? 0);
+            if ($precioOferta <= 0 || $precioOferta >= $precio) $precioOferta = 0;
             $stock = (int)($_POST["stock"] ?? 0);
             $stockMinimo = max(0, (int)($_POST["stock_minimo"] ?? 5));
             $imagenBase = trim($_POST["imagen_url"] ?? "");
@@ -159,10 +163,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $stmt = $conexion->prepare("
                 INSERT INTO producto
-                (id_categoria, id_marca, nombre_producto, descripcion, precio, stock, stock_minimo, imagen_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (id_categoria, id_marca, nombre_producto, descripcion, tipo_vehiculo, compatibilidad, precio, precio_oferta, stock, stock_minimo, imagen_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?,0), ?, ?, ?)
             ");
-            $stmt->bind_param("iissdiis", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $stockMinimo, $imagen);
+            $stmt->bind_param("iissssddiis", $idCategoria, $idMarca, $nombre, $descripcion, $tipoVehiculo, $compatibilidad, $precio, $precioOferta, $stock, $stockMinimo, $imagen);
             $stmt->execute();
             redir("Producto registrado correctamente", "ok", "gestion-productos");
         }
@@ -182,7 +186,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $idMarca = (int)($_POST["id_marca"] ?? 0);
             $nombre = trim($_POST["nombre_producto"] ?? "");
             $descripcion = trim($_POST["descripcion"] ?? "");
+            $tipoVehiculo = trim($_POST["tipo_vehiculo"] ?? "Motocicleta / Motokar");
+            $compatibilidad = trim($_POST["compatibilidad"] ?? "");
             $precio = (float)($_POST["precio"] ?? 0);
+            $precioOferta = (float)($_POST["precio_oferta"] ?? 0);
+            if ($precioOferta <= 0 || $precioOferta >= $precio) $precioOferta = 0;
             $stock = (int)($_POST["stock"] ?? 0);
             $stockMinimo = max(0, (int)($_POST["stock_minimo"] ?? 5));
             $imagenActual = trim($_POST["imagen_actual"] ?? "");
@@ -192,10 +200,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $stmt = $conexion->prepare("
                 UPDATE producto
-                SET id_categoria=?, id_marca=?, nombre_producto=?, descripcion=?, precio=?, stock=?, stock_minimo=?, imagen_url=?
+                SET id_categoria=?, id_marca=?, nombre_producto=?, descripcion=?, tipo_vehiculo=?, compatibilidad=?,
+                    precio=?, precio_oferta=NULLIF(?,0), stock=?, stock_minimo=?, imagen_url=?
                 WHERE id_producto=?
             ");
-            $stmt->bind_param("iissdiisi", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $stockMinimo, $imagen, $idProducto);
+            $stmt->bind_param("iissssddiisi", $idCategoria, $idMarca, $nombre, $descripcion, $tipoVehiculo, $compatibilidad, $precio, $precioOferta, $stock, $stockMinimo, $imagen, $idProducto);
             $stmt->execute();
 
             if ($stock !== $stockAntesEdicion) {
@@ -1667,7 +1676,10 @@ tbody tr:hover{background:#fafcff}
   <div class="field"><label>NOMBRE DEL PRODUCTO</label><input type="text" name="nombre_producto" required value="<?= h($productoEditar["nombre_producto"]??"") ?>" placeholder="Ej. Kit de transmisión DTIEX"></div>
   <div class="field"><label>CATEGORÍA</label><select name="id_categoria" required><option value="">Seleccione</option><?php foreach($categorias as $cat): ?><option value="<?= h($cat["id_categoria"]) ?>" <?= $productoEditar && (int)$productoEditar["id_categoria"]===(int)$cat["id_categoria"]?"selected":"" ?>><?= h($cat["nombre_categoria"]) ?></option><?php endforeach; ?></select></div>
   <div class="field"><label>MARCA</label><select name="id_marca" required><option value="">Seleccione</option><?php foreach($marcas as $mar): ?><option value="<?= h($mar["id_marca"]) ?>" <?= $productoEditar && (int)$productoEditar["id_marca"]===(int)$mar["id_marca"]?"selected":"" ?>><?= h($mar["nombre_marca"]) ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>PRECIO DE VENTA</label><input type="number" step="0.01" min="0" name="precio" required value="<?= h($productoEditar["precio"]??"") ?>" placeholder="0.00"></div>
+  <div class="field"><label>TIPO DE VEHÍCULO</label><select name="tipo_vehiculo"><option value="Motocicleta / Motokar" <?= ($productoEditar["tipo_vehiculo"]??"Motocicleta / Motokar")==="Motocicleta / Motokar"?"selected":"" ?>>Motocicleta / Motokar</option><option value="Motocicleta" <?= ($productoEditar["tipo_vehiculo"]??"")==="Motocicleta"?"selected":"" ?>>Motocicleta</option><option value="Motokar" <?= ($productoEditar["tipo_vehiculo"]??"")==="Motokar"?"selected":"" ?>>Motokar</option></select></div>
+<div class="field"><label>COMPATIBILIDAD</label><input type="text" name="compatibilidad" value="<?= h($productoEditar["compatibilidad"]??"") ?>" placeholder="Ej. Honda, Wanxin, Zongshen"></div>
+<div class="field"><label>PRECIO DE VENTA</label><input type="number" step="0.01" min="0" name="precio" required value="<?= h($productoEditar["precio"]??"") ?>" placeholder="0.00"></div>
+<div class="field"><label>PRECIO OFERTA</label><input type="number" step="0.01" min="0" name="precio_oferta" value="<?= h($productoEditar["precio_oferta"]??"") ?>" placeholder="Opcional"></div>
   <div class="field"><label>STOCK ACTUAL</label><input type="number" min="0" name="stock" required value="<?= h($productoEditar["stock"]??"") ?>" placeholder="0"></div>
   <div class="field"><label>STOCK MÍNIMO</label><input type="number" min="0" name="stock_minimo" required value="<?= h($productoEditar["stock_minimo"]??5) ?>" placeholder="5"></div>
   <div class="field"><label>SUBIR IMAGEN</label><input type="file" name="imagen_archivo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></div>
@@ -1699,7 +1711,7 @@ tbody tr:hover{background:#fafcff}
      <div><strong><?= h($p["nombre_producto"]) ?></strong><small>#P<?= str_pad((string)$p["id_producto"],3,"0",STR_PAD_LEFT) ?> · <?= h($p["descripcion"]) ?></small></div>
     </div>
    </td>
-   <td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price">S/ <?= number_format((float)$p["precio"],2) ?></td>
+   <td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price"><?php if(!empty($p["precio_oferta"])): ?><small class="table-sub" style="text-decoration:line-through">S/ <?= number_format((float)$p["precio"],2) ?></small>S/ <?= number_format((float)$p["precio_oferta"],2) ?><?php else: ?>S/ <?= number_format((float)$p["precio"],2) ?><?php endif; ?></td>
    <td><span class="stock <?= $sc ?>"><?= $s ?></span></td><td><?= $min ?></td>
    <td><div class="actions"><a class="action-btn edit" title="Editar" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">✎</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button class="action-btn delete" title="Eliminar" name="eliminar_producto">⌫</button></form></div></td>
   </tr>
