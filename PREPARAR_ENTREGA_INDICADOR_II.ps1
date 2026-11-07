@@ -37,7 +37,18 @@ if (Test-Path $ZipFinal) {
 
 New-Item -ItemType Directory -Path $Entrega | Out-Null
 
-# 2. Exportar la base de datos real
+# 2. Aplicar compatibilidad/estructura actual antes de exportar
+Write-Host "Aplicando estructura actual de la base de datos..." -ForegroundColor Yellow
+$PhpExe = "C:\xampp\php\php.exe"
+if (!(Test-Path $PhpExe)) {
+    throw "No se encontro PHP de XAMPP en $PhpExe"
+}
+& $PhpExe (Join-Path $Backend "sistema_bootstrap.php")
+if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo actualizar la estructura de la base de datos."
+}
+
+# 3. Exportar la base de datos real
 $SqlBackend = Join-Path $Backend "dorada_motors.sql"
 $SqlEntrega = Join-Path $Entrega "Dorada_Motors_BD.sql"
 
