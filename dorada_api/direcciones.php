@@ -1,5 +1,6 @@
 <?php
 include("conexion.php");
+require_once "sistema_bootstrap.php";
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -29,7 +30,7 @@ if ($metodo === "POST" || $metodo === "PUT") {
         responderDireccion(["estado"=>false,"mensaje"=>"Completa la dirección"], 400);
     }
 
-    $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? LIMIT 1");
+    $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND rol_sistema='Cliente' LIMIT 1");
     $stmt->bind_param("i",$idUsuario);
     $stmt->execute();
     if (!$stmt->get_result()->fetch_assoc()) {
@@ -107,12 +108,24 @@ if ($idDireccion > 0) {
 }
 
 if ($idUsuario > 0) {
-    $stmt = $conexion->prepare("SELECT * FROM direccion WHERE id_usuario=? ORDER BY id_direccion DESC");
+    $stmt = $conexion->prepare("
+        SELECT d.*
+        FROM direccion d
+        INNER JOIN usuario u ON d.id_usuario=u.id_usuario
+        WHERE d.id_usuario=? AND u.rol_sistema='Cliente'
+        ORDER BY d.id_direccion DESC
+    ");
     $stmt->bind_param("i",$idUsuario);
     $stmt->execute();
     $resultado = $stmt->get_result();
 } else {
-    $resultado = $conexion->query("SELECT * FROM direccion ORDER BY id_direccion DESC");
+    $resultado = $conexion->query("
+        SELECT d.*
+        FROM direccion d
+        INNER JOIN usuario u ON d.id_usuario=u.id_usuario
+        WHERE u.rol_sistema='Cliente'
+        ORDER BY d.id_direccion DESC
+    ");
 }
 
 $direcciones = [];
