@@ -111,9 +111,25 @@ try {
     FAIL "Dashboard PHP: $($_.Exception.Message)"
 }
 
-# 3. Flutter
+# 3. Prueba transaccional real de las 13 tablas
 Write-Host ""
-Write-Host "3. Revisando Flutter..." -ForegroundColor Yellow
+Write-Host "3. Probando operaciones reales en las 13 tablas..." -ForegroundColor Yellow
+$PruebaIntegracion = Join-Path $Proyecto "PRUEBA_INTEGRACION.php"
+
+if (Test-Path $PruebaIntegracion) {
+    $salidaIntegracion = & $Php $PruebaIntegracion 2>&1
+    if ($LASTEXITCODE -eq 0 -and ($salidaIntegracion -join "`n") -match "INTEGRACION_OK") {
+        OK "Integracion MySQL: usuario, producto, compra, pedido, pago, stock y comprobante"
+    } else {
+        FAIL "Prueba de integracion: $($salidaIntegracion -join ' | ')"
+    }
+} else {
+    FAIL "Falta PRUEBA_INTEGRACION.php"
+}
+
+# 4. Flutter
+Write-Host ""
+Write-Host "4. Revisando Flutter..." -ForegroundColor Yellow
 Push-Location $Proyecto
 
 try {
@@ -143,7 +159,7 @@ try {
     Pop-Location
 }
 
-# 4. Archivos esenciales
+# 5. Archivos esenciales
 Write-Host ""
 Write-Host "4. Revisando archivos esenciales..." -ForegroundColor Yellow
 $archivos = @(
