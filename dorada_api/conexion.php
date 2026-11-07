@@ -91,12 +91,18 @@ if (!$conexion->select_db($nombreSeguro)) {
 
 $tablasPrincipales = [
     "usuario",
+    "direccion",
     "categoria",
     "marca",
     "producto",
     "pedido",
     "detalle_pedido",
-    "pago"
+    "pago",
+    "proveedor",
+    "compra",
+    "detalle_compra",
+    "movimiento_stock",
+    "comprobante"
 ];
 
 $faltanTablas = false;
