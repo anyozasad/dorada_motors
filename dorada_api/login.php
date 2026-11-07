@@ -40,9 +40,11 @@ $stmt = $conexion->prepare("
         correo,
         contrasena,
         telefono,
-        estado
+        estado,
+        rol_sistema
     FROM usuario
     WHERE correo = ?
+      AND rol_sistema = 'Cliente'
     LIMIT 1
 ");
 
@@ -60,6 +62,7 @@ if (!$usuario || ($usuario["estado"] ?? "Activo") !== "Activo" || !password_veri
 
 unset($usuario["contrasena"]);
 unset($usuario["estado"]);
+unset($usuario["rol_sistema"]);
 
 echo json_encode([
     "estado" => true,
