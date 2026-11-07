@@ -856,6 +856,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Selecciona un pedido e ingresa el número de comprobante", "error", "comprobantes");
             }
 
+            $stmt = $conexion->prepare("SELECT id_comprobante FROM comprobante WHERE id_pedido=? LIMIT 1");
+            $stmt->bind_param("i", $idPedido);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                redir("Ya existe un comprobante para este pedido", "error", "comprobantes");
+            }
+
             $stmt = $conexion->prepare("SELECT total FROM pedido WHERE id_pedido=?");
             $stmt->bind_param("i", $idPedido);
             $stmt->execute();
@@ -899,7 +906,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $totalProductos = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto")->fetch_assoc()["total"];
 $totalUsuarios = (int)$conexion->query("SELECT COUNT(*) AS total FROM usuario")->fetch_assoc()["total"];
 $totalPedidos = (int)$conexion->query("SELECT COUNT(*) AS total FROM pedido")->fetch_assoc()["total"];
-$totalVentas = (float)$conexion->query("SELECT COALESCE(SUM(total),0) AS total FROM pedido")->fetch_assoc()["total"];
+$totalVentas = (float)$conexion->query("
+    SELECT COALESCE(SUM(total),0) AS total
+    FROM pedido
+    WHERE LOWER(estado_pedido) <> 'cancelado'
+")->fetch_assoc()["total"];
 $totalPagos = (float)$conexion->query("SELECT COALESCE(SUM(monto),0) AS total FROM pago WHERE estado_pago='Pagado'")->fetch_assoc()["total"];
 $totalCategorias = (int)$conexion->query("SELECT COUNT(*) AS total FROM categoria")->fetch_assoc()["total"];
 $totalMarcas = (int)$conexion->query("SELECT COUNT(*) AS total FROM marca")->fetch_assoc()["total"];
@@ -917,6 +928,7 @@ $ventasHoy = (float)$conexion->query("
     SELECT COALESCE(SUM(total),0) AS total
     FROM pedido
     WHERE DATE(fecha_pedido)=CURDATE()
+      AND LOWER(estado_pedido) <> 'cancelado'
 ")->fetch_assoc()["total"];
 $ventasMes = (float)$conexion->query("
     SELECT COALESCE(SUM(total),0) AS total
@@ -1904,7 +1916,7 @@ tbody tr:hover{background:#fafcff}
   <div class="form-actions"><button class="btn btn-primary" name="<?= $proveedorEditar ? "actualizar_proveedor" : "registrar_proveedor" ?>"><?= $proveedorEditar ? "Guardar cambios" : "+ Registrar proveedor" ?></button><?php if($proveedorEditar): ?><a class="btn btn-light" href="dashboard.php#proveedores">Cancelar</a><?php endif; ?></div>
  </form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>RUC</th><th>Teléfono</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$proveedores): ?><tr><td colspan="7" class="empty-cell">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td>#<?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status-pill success"><?= h($pr["estado"]) ?></span></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_proveedor=<?= h($pr["id_proveedor"]) ?>#proveedores">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_proveedor">Eliminar</button></form></div></td></tr><?php endforeach; endif; ?>
+ <?php if(!$proveedores): ?><tr><td colspan="7" class="empty-cell">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td>#<?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status-pill <?= strtolower((string)$pr["estado"])==="activo"?"success":"danger" ?>"><?= h($pr["estado"]) ?></span></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_proveedor=<?= h($pr["id_proveedor"]) ?>#proveedores">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_proveedor">Eliminar</button></form></div></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -1966,7 +1978,7 @@ tbody tr:hover{background:#fafcff}
  <a href="#inicio" class="active">⌂<b>Inicio</b></a>
  <?php if(puede("gestion-productos")): ?><a href="#gestion-productos">◇<b>Productos</b></a><?php elseif(puede("clientes")): ?><a href="#clientes">👤<b>Clientes</b></a><?php endif; ?>
  <?php if(puede("pedidos")): ?><a href="#pedidos">🛒<b>Pedidos</b></a><?php elseif(puede("inventario")): ?><a href="#inventario">▤<b>Stock</b></a><?php endif; ?>
- <?php if(puede("reportes")): ?><a href="#reportes">▥<b>Reportes</b></a><?php elseif($adminRol==="Administrador"): ?><a href="#configuracion">⚙<b>Ajustes</b></a><?php endif; ?>
+ <?php if(puede("reportes")): ?><a href="#reportes">▥<b>Reportes</b></a><?php else: ?><a href="#inicio">⌂<b>Inicio</b></a><?php endif; ?>
 </nav>
 
 <script>
