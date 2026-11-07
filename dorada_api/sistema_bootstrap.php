@@ -36,6 +36,14 @@ if (!columnaExiste($conexion, "usuario", "estado")) {
     $conexion->query("ALTER TABLE usuario ADD COLUMN estado VARCHAR(20) NOT NULL DEFAULT 'Activo'");
 }
 
+if (!columnaExiste($conexion, "usuario", "rol_sistema")) {
+    $conexion->query("ALTER TABLE usuario ADD COLUMN rol_sistema VARCHAR(20) NOT NULL DEFAULT 'Cliente'");
+}
+
+if (!columnaExiste($conexion, "usuario", "ultimo_acceso")) {
+    $conexion->query("ALTER TABLE usuario ADD COLUMN ultimo_acceso DATETIME NULL");
+}
+
 if (!columnaExiste($conexion, "pedido", "id_direccion")) {
     $conexion->query("ALTER TABLE pedido ADD COLUMN id_direccion INT NULL");
 }
