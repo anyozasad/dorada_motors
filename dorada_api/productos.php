@@ -95,13 +95,9 @@ if ($metodo === "DELETE") {
         ], 409);
     }
 
-    foreach (["favorito","detalle_carrito","movimiento_stock","carrito_favorito"] as $tabla) {
-        $stmt = $conexion->prepare("DELETE FROM " . $tabla . " WHERE id_producto=?");
-        if ($stmt) {
-            $stmt->bind_param("i",$idProducto);
-            $stmt->execute();
-        }
-    }
+    $stmt = $conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
+    $stmt->bind_param("i",$idProducto);
+    $stmt->execute();
 
     $stmt = $conexion->prepare("DELETE FROM producto WHERE id_producto=?");
     $stmt->bind_param("i",$idProducto);
