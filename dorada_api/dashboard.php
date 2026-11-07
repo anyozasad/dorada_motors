@@ -1670,6 +1670,10 @@ a{text-decoration:none;color:inherit}
 .section-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .system-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.system-card{display:flex;align-items:flex-start;gap:11px;padding:16px;border:1px solid var(--border);border-radius:14px;background:#fafbfc}.system-card small{display:block;font-size:9px;color:var(--muted);font-weight:900;letter-spacing:.5px}.system-card strong{display:block;margin-top:3px;font-size:13px}.system-card p{margin:3px 0 0;font-size:10px;color:var(--muted);line-height:1.35}.system-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:900;flex:0 0 auto}.system-icon.ok{background:#e7f7ee;color:#13885a}.system-icon.warn{background:#fff0e4;color:#e05e00}.help-card{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#fff5ed,#fff);border:1px solid #ffd7be}.help-card strong{font-size:13px}.help-card p{margin:4px 0 0;color:var(--muted);font-size:10px}
 .order-bar{background:linear-gradient(180deg,#ff6a00,#c92b18)}
+.line-item-row{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:8px;align-items:center;margin-bottom:8px}
+.purchase-line{grid-template-columns:minmax(0,1fr) 100px 130px auto}
+.line-item-row select,.line-item-row input{min-width:0}
+@media(max-width:760px){.line-item-row,.purchase-line{grid-template-columns:1fr}.line-item-row .btn{width:100%}}
 
 .brand-mark{width:38px;height:38px;border:2px solid var(--gold);border-radius:12px 4px;display:grid;place-items:center;color:var(--gold);font-weight:900;transform:rotate(45deg)}
 .brand-mark span{transform:rotate(-45deg)}
@@ -2235,8 +2239,16 @@ input:focus,select:focus,textarea:focus{
   <summary style="cursor:pointer;font-weight:900">+ Registrar nuevo pedido</summary>
   <form method="POST" class="form-grid" style="margin-top:14px">
    <div class="field"><label>CLIENTE</label><select name="id_usuario_pedido" required><option value="">Seleccione cliente</option><?php foreach($usuarios as $usr): if(($usr["estado"]??"Activo")!=="Activo") continue; ?><option value="<?= h($usr["id_usuario"]) ?>"><?= h($usr["nombres"]." ".$usr["apellidos"]) ?> — <?= h($usr["correo"]) ?></option><?php endforeach; ?></select></div>
-   <div class="field"><label>PRODUCTO</label><select name="id_producto_pedido" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>" <?= (int)$prod["stock"]<=0?"disabled":"" ?>><?= h($prod["nombre_producto"]) ?> — Stock <?= (int)$prod["stock"] ?> — S/ <?= number_format((float)$prod["precio"],2) ?></option><?php endforeach; ?></select></div>
-   <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_pedido" value="1" required></div>
+   <div class="field full"><label>PRODUCTOS DEL PEDIDO</label>
+    <div id="pedidoItems">
+     <div class="line-item-row">
+      <select name="id_producto_pedido[]" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>" <?= (int)$prod["stock"]<=0?"disabled":"" ?>><?= h($prod["nombre_producto"]) ?> — Stock <?= (int)$prod["stock"] ?> — S/ <?= number_format((float)($prod["precio_oferta"] ?: $prod["precio"]),2) ?></option><?php endforeach; ?></select>
+      <input type="number" min="1" name="cantidad_pedido[]" value="1" required>
+      <button type="button" class="btn btn-light btn-small" onclick="quitarLinea(this)">Quitar</button>
+     </div>
+    </div>
+    <button type="button" class="btn btn-light btn-small" style="margin-top:8px" onclick="agregarLineaPedido()">+ Agregar otro producto</button>
+   </div>
    <div class="field"><label>ENTREGA</label><select name="tipo_entrega_pedido"><option value="Recojo en tienda">Recojo en tienda</option><option value="Delivery">Delivery</option></select></div>
    <div class="field"><label>DIRECCIÓN PARA DELIVERY</label><select name="id_direccion_pedido"><option value="0">No aplica / Recojo en tienda</option><?php foreach($direcciones as $dir): ?><option value="<?= h($dir["id_direccion"]) ?>">#<?= h($dir["id_usuario"]) ?> — <?= h($dir["nombres"]." ".$dir["apellidos"]) ?> — <?= h($dir["direccion_detalle"]) ?></option><?php endforeach; ?></select></div>
    <div class="field"><label>MÉTODO DE PAGO</label><select name="metodo_pago_pedido"><option>Efectivo</option><option>Yape</option><option>Plin</option><option>Transferencia</option></select></div>
@@ -2391,9 +2403,17 @@ input:focus,select:focus,textarea:focus{
  <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra la reposición de mercadería; el stock aumenta automáticamente.</p></div><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div>
  <form method="POST" class="form-grid">
   <div class="field"><label>PROVEEDOR</label><select name="id_proveedor_compra" required><option value="">Seleccione proveedor</option><?php foreach($proveedores as $pr): ?><option value="<?= h($pr["id_proveedor"]) ?>"><?= h($pr["razon_social"]) ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>PRODUCTO</label><select name="id_producto_compra" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?> · Stock <?= (int)$prod["stock"] ?></option><?php endforeach; ?></select></div>
-  <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_compra" required></div>
-  <div class="field"><label>PRECIO DE COMPRA</label><input type="number" min="0" step="0.01" name="precio_compra" required></div>
+  <div class="field full"><label>PRODUCTOS DE LA COMPRA</label>
+   <div id="compraItems">
+    <div class="line-item-row purchase-line">
+     <select name="id_producto_compra[]" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?> · Stock <?= (int)$prod["stock"] ?></option><?php endforeach; ?></select>
+     <input type="number" min="1" name="cantidad_compra[]" placeholder="Cantidad" required>
+     <input type="number" min="0" step="0.01" name="precio_compra[]" placeholder="Costo unitario" required>
+     <button type="button" class="btn btn-light btn-small" onclick="quitarLinea(this)">Quitar</button>
+    </div>
+   </div>
+   <button type="button" class="btn btn-light btn-small" style="margin-top:8px" onclick="agregarLineaCompra()">+ Agregar otro producto</button>
+  </div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
  </form>
  <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
