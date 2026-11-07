@@ -1459,7 +1459,27 @@ $pedidos = $conexion->query("
 ")->fetch_all(MYSQLI_ASSOC);
 
 $pagos = $conexion->query("
-    SELECT pg.*, p.id_usuario, u.nombres, u.apellidos
+    SELECT
+        pg.*,
+        p.id_usuario,
+        p.total AS total_pedido,
+        u.nombres,
+        u.apellidos,
+        COALESCE((
+            SELECT SUM(pg2.monto)
+            FROM pago pg2
+            WHERE pg2.id_pedido=p.id_pedido
+              AND pg2.estado_pago='Pagado'
+        ),0) AS total_pagado,
+        GREATEST(
+            p.total - COALESCE((
+                SELECT SUM(pg3.monto)
+                FROM pago pg3
+                WHERE pg3.id_pedido=p.id_pedido
+                  AND pg3.estado_pago='Pagado'
+            ),0),
+            0
+        ) AS saldo
     FROM pago pg
     INNER JOIN pedido p ON pg.id_pedido=p.id_pedido
     INNER JOIN usuario u ON p.id_usuario=u.id_usuario
@@ -1475,12 +1495,17 @@ $compras = $conexion->query("
     SELECT
         c.id_compra,c.fecha_compra,c.total,c.estado,
         p.razon_social,
-        dc.cantidad,dc.precio_compra,dc.subtotal,
-        pr.nombre_producto
+        COALESCE(SUM(dc.cantidad),0) AS cantidad,
+        GROUP_CONCAT(
+            CONCAT(pr.nombre_producto,' x',dc.cantidad,' @ S/ ',FORMAT(dc.precio_compra,2))
+            ORDER BY dc.id_detalle_compra
+            SEPARATOR ' | '
+        ) AS nombre_producto
     FROM compra c
     INNER JOIN proveedor p ON c.id_proveedor=p.id_proveedor
     LEFT JOIN detalle_compra dc ON c.id_compra=dc.id_compra
     LEFT JOIN producto pr ON dc.id_producto=pr.id_producto
+    GROUP BY c.id_compra,c.fecha_compra,c.total,c.estado,p.razon_social
     ORDER BY c.id_compra DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
@@ -1509,9 +1534,10 @@ $productosStockBajo = $conexion->query("
 ")->fetch_all(MYSQLI_ASSOC);
 
 $masVendidos = $conexion->query("
-    SELECT p.nombre_producto, COALESCE(SUM(dp.cantidad),0) AS vendidos
+    SELECT p.nombre_producto, COALESCE(SUM(CASE WHEN pe.id_pedido IS NOT NULL THEN dp.cantidad ELSE 0 END),0) AS vendidos
     FROM producto p
     LEFT JOIN detalle_pedido dp ON p.id_producto=dp.id_producto
+    LEFT JOIN pedido pe ON dp.id_pedido=pe.id_pedido AND LOWER(pe.estado_pedido)<>'cancelado'
     GROUP BY p.id_producto,p.nombre_producto
     ORDER BY vendidos DESC,p.nombre_producto ASC
     LIMIT 5
@@ -1529,7 +1555,7 @@ $clientes = $conexion->query("
         COALESCE(SUM(p.total),0) AS total_comprado,
         MAX(p.fecha_pedido) AS ultima_compra
     FROM usuario u
-    LEFT JOIN pedido p ON u.id_usuario=p.id_usuario
+    LEFT JOIN pedido p ON u.id_usuario=p.id_usuario AND LOWER(p.estado_pedido)<>'cancelado'
     GROUP BY u.id_usuario,u.nombres,u.apellidos,u.correo,u.telefono,u.estado
     ORDER BY total_comprado DESC,u.id_usuario DESC
 ")->fetch_all(MYSQLI_ASSOC);
@@ -1608,6 +1634,7 @@ $stmt = $conexion->prepare("
         COALESCE(AVG(total),0) AS ticket_promedio
     FROM pedido
     WHERE DATE(fecha_pedido) BETWEEN ? AND ?
+      AND LOWER(estado_pedido)<>'cancelado'
 ");
 $stmt->bind_param("ss",$reporteDesde,$reporteHasta);
 $stmt->execute();
@@ -1622,6 +1649,7 @@ $stmt = $conexion->prepare("
     INNER JOIN pedido pe ON dp.id_pedido=pe.id_pedido
     INNER JOIN producto pr ON dp.id_producto=pr.id_producto
     WHERE DATE(pe.fecha_pedido) BETWEEN ? AND ?
+      AND LOWER(pe.estado_pedido)<>'cancelado'
     GROUP BY pr.id_producto,pr.nombre_producto
     ORDER BY unidades DESC,importe DESC
     LIMIT 10
@@ -2362,7 +2390,7 @@ input:focus,select:focus,textarea:focus{
    <div class="form-actions"><button class="btn btn-primary" name="registrar_pago_manual">Registrar pago</button></div>
   </form>
  </details>
- <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$pagos): ?><tr><td colspan="7" class="empty-cell">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr>
   <td>#<?= h($pg["id_pago"]) ?></td><td><a class="link-action" href="dashboard.php?pedido_detalle=<?= h($pg["id_pedido"]) ?>#pedidos">#<?= h($pg["id_pedido"]) ?></a></td><td><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><span class="status-pill"><?= h($pg["estado_pago"]) ?></span></td>
   <td><form method="POST" class="inline-form"><input type="hidden" name="id_pago" value="<?= h($pg["id_pago"]) ?>"><select name="estado_pago"><?php foreach(["Pendiente","Pagado","Rechazado"] as $estPago): ?><option value="<?= h($estPago) ?>" <?= $pg["estado_pago"]===$estPago?"selected":"" ?>><?= h($estPago) ?></option><?php endforeach; ?></select><button class="btn btn-primary btn-small" name="actualizar_estado_pago">Actualizar</button></form></td>
@@ -2377,7 +2405,7 @@ input:focus,select:focus,textarea:focus{
  <form method="POST" class="form-grid">
   <div class="field"><label>PEDIDO</label><select name="id_pedido_comprobante" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $ped): ?><option value="<?= h($ped["id_pedido"]) ?>">#<?= h($ped["id_pedido"]) ?> — <?= h($ped["nombres"]." ".$ped["apellidos"]) ?> — S/ <?= number_format((float)$ped["total"],2) ?></option><?php endforeach; ?></select></div>
   <div class="field"><label>TIPO</label><select name="tipo_comprobante"><option>Boleta</option><option>Factura</option></select></div>
-  <div class="field"><label>NÚMERO</label><input name="numero_comprobante" required placeholder="B001-000001"></div>
+  <div class="field"><label>NÚMERO</label><input name="numero_comprobante" placeholder="Automático si lo dejas vacío"></div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_comprobante">+ Emitir comprobante</button></div>
  </form>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Tipo</th><th>Número</th><th>Subtotal</th><th>IGV</th><th>Total</th><th></th></tr></thead><tbody>
@@ -2475,8 +2503,8 @@ input:focus,select:focus,textarea:focus{
   </div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
  </form>
- <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$compras): ?><tr><td colspan="9" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr data-status="<?= h(strtolower((string)$co["estado"])) ?>"><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["nombre_producto"]??"-") ?></td><td><?= (int)($co["cantidad"]??0) ?></td><td>S/ <?= number_format((float)($co["precio_compra"]??0),2) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><?= h($co["fecha_compra"]) ?></td><td><span class="status-pill <?= strtolower((string)$co["estado"])==="anulado"?"danger":"success" ?>"><?= h($co["estado"]) ?></span></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_compra" value="<?= h($co["id_compra"]) ?>"><select name="estado_compra"><option value="Registrado" <?= $co["estado"]==="Registrado"?"selected":"" ?>>Registrado</option><option value="Anulado" <?= $co["estado"]==="Anulado"?"selected":"" ?>>Anulado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_compra">Guardar</button></form></td></tr><?php endforeach; endif; ?>
+ <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Productos</th><th>Unidades</th><th>Total</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <?php if(!$compras): ?><tr><td colspan="8" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr data-status="<?= h(strtolower((string)$co["estado"])) ?>"><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["nombre_producto"]??"-") ?></td><td><?= (int)($co["cantidad"]??0) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><?= h($co["fecha_compra"]) ?></td><td><span class="status-pill <?= strtolower((string)$co["estado"])==="anulado"?"danger":"success" ?>"><?= h($co["estado"]) ?></span></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_compra" value="<?= h($co["id_compra"]) ?>"><select name="estado_compra"><option value="Registrado" <?= $co["estado"]==="Registrado"?"selected":"" ?>>Registrado</option><option value="Anulado" <?= $co["estado"]==="Anulado"?"selected":"" ?>>Anulado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_compra">Guardar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
