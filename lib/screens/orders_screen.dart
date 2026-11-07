@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/pedido.dart';
+import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 
@@ -17,11 +18,69 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
-    _orders = LocalStore.getOrders();
+    _orders = _loadOrders();
+  }
+
+  Future<List<Pedido>> _loadOrders() async {
+    final session = await LocalStore.getSession();
+    final idUsuario = int.tryParse(session?['id'] ?? '') ?? 0;
+
+    if (idUsuario <= 0) {
+      return LocalStore.getOrders();
+    }
+
+    try {
+      final data = await ApiService.obtenerPedidosUsuario(idUsuario);
+
+      return data.map((raw) {
+        final row = raw is Map
+            ? Map<String, dynamic>.from(raw)
+            : <String, dynamic>{};
+
+        final fechaTexto =
+            (row['fecha_pedido']?.toString() ?? '').replaceFirst(' ', 'T');
+        final fecha = DateTime.tryParse(fechaTexto) ?? DateTime.now();
+
+        final itemsRaw = (row['items'] as List?) ?? const [];
+        final items = itemsRaw.map((rawItem) {
+          final item = rawItem is Map
+              ? Map<String, dynamic>.from(rawItem)
+              : <String, dynamic>{};
+
+          return PedidoItem(
+            productoId:
+                int.tryParse(item['id_producto']?.toString() ?? '') ?? 0,
+            nombre: item['nombre_producto']?.toString() ?? 'Producto',
+            cantidad:
+                int.tryParse(item['cantidad']?.toString() ?? '') ?? 0,
+            precio:
+                double.tryParse(item['precio']?.toString() ?? '0') ?? 0,
+          );
+        }).toList();
+
+        return Pedido(
+          id: 'DM-${row['id_pedido'] ?? '-'}',
+          fecha: fecha,
+          estado: row['estado_pedido']?.toString() ?? 'Pendiente',
+          metodoPago: row['metodo_pago']?.toString() ?? 'Pendiente',
+          tipoEntrega:
+              row['tipo_entrega']?.toString() ?? 'Recojo en tienda',
+          direccion: row['direccion_detalle']?.toString().trim().isNotEmpty == true
+              ? row['direccion_detalle'].toString()
+              : 'Recojo en tienda',
+          telefono: row['telefono']?.toString() ?? '',
+          total: double.tryParse(row['total']?.toString() ?? '0') ?? 0,
+          items: items,
+        );
+      }).toList();
+    } catch (_) {
+      // Si el servidor no está disponible, conserva el respaldo local.
+      return LocalStore.getOrders();
+    }
   }
 
   Future<void> _refresh() async {
-    setState(() => _orders = LocalStore.getOrders());
+    setState(() => _orders = _loadOrders());
     await _orders;
   }
 
@@ -82,7 +141,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           children: [
                             Text('${orders.length} pedido${orders.length == 1 ? '' : 's'}', style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
                             const SizedBox(height: 3),
-                            const Text('Consulta tus compras y el detalle de entrega.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                            const Text(
+                              'Pedidos sincronizados con PHP y MySQL.',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
                           ],
                         ),
                       ),
