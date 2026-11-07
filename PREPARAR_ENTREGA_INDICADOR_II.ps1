@@ -136,6 +136,7 @@ if ($LASTEXITCODE -gt 7) {
 $ArchivosQuitarFlutter = @(
     "dorada_motors.iml",
     "PREPARAR_ENTREGA_INDICADOR_II.ps1",
+    "VERIFICAR_SISTEMA.ps1",
     "ENTREGA_INDICADOR_II.txt"
 )
 
