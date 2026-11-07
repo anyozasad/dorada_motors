@@ -38,7 +38,7 @@ try {
     )->fetch_assoc()["total"];
 
     $compras = (float)$conexion->query(
-        "SELECT COALESCE(SUM(total),0) AS total FROM compra"
+        "SELECT COALESCE(SUM(total),0) AS total FROM compra WHERE LOWER(estado)<>'anulado'"
     )->fetch_assoc()["total"];
 
     $resultado = $conexion->query("
