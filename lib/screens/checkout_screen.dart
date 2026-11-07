@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/pedido.dart';
 import '../models/producto.dart';
+import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 
@@ -57,77 +58,158 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    final session = await LocalStore.getSession();
+    final idUsuario = int.tryParse(session?['id'] ?? '') ?? 0;
+
+    if (idUsuario <= 0) {
+      _message('Inicia sesión nuevamente para registrar el pedido.');
+      return;
+    }
+
     setState(() => _saving = true);
-    final now = DateTime.now();
-    final items = widget.cart.entries.map((entry) {
-      final p = widget.products.firstWhere((product) => product.id == entry.key);
-      return PedidoItem(
-        productoId: p.id,
-        nombre: p.nombre,
-        cantidad: entry.value,
-        precio: p.precioFinal,
+
+    try {
+      await ApiService.actualizarTelefonoUsuario(
+        idUsuario: idUsuario,
+        telefono: _phoneController.text.trim(),
       );
-    }).toList();
 
-    final order = Pedido(
-      id: 'DM-${now.millisecondsSinceEpoch.toString().substring(7)}',
-      fecha: now,
-      estado: 'Pendiente',
-      metodoPago: _payment,
-      tipoEntrega: _delivery,
-      direccion: _delivery == 'Delivery' ? _addressController.text.trim() : 'Recojo en tienda',
-      telefono: _phoneController.text.trim(),
-      total: _total,
-      items: items,
-    );
+      int? idDireccion;
+      if (_delivery == 'Delivery') {
+        idDireccion = await ApiService.registrarDireccion(
+          idUsuario: idUsuario,
+          direccion: _addressController.text.trim(),
+        );
+      }
 
-    await LocalStore.addOrder(order);
-    await LocalStore.clearCart();
-    if (!mounted) return;
-    setState(() => _saving = false);
-    widget.onCompleted();
+      final itemsApi = widget.cart.entries
+          .map(
+            (entry) => <String, dynamic>{
+              'id_producto': entry.key,
+              'cantidad': entry.value,
+            },
+          )
+          .toList();
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(color: AppColors.goldSoft, shape: BoxShape.circle),
-              child: const Icon(Icons.check_rounded, color: AppColors.goldDark, size: 42),
-            ),
-            const SizedBox(height: 18),
-            const Text('¡Pedido registrado!', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text('Tu pedido ${order.id} fue creado correctamente.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                children: [
-                  _summaryRow('Estado', order.estado),
-                  const SizedBox(height: 8),
-                  _summaryRow('Total', 'S/ ${order.total.toStringAsFixed(2)}', strong: true),
-                ],
+      final respuesta = await ApiService.registrarPedido(
+        idUsuario: idUsuario,
+        tipoEntrega: _delivery,
+        metodoPago: _payment,
+        items: itemsApi,
+        idDireccion: idDireccion,
+        costoEntrega: _deliveryCost,
+      );
+
+      final idPedido =
+          int.tryParse(respuesta['id_pedido']?.toString() ?? '') ?? 0;
+      final totalServidor =
+          double.tryParse(respuesta['total']?.toString() ?? '') ?? _total;
+
+      final now = DateTime.now();
+      final items = widget.cart.entries.map((entry) {
+        final p =
+            widget.products.firstWhere((product) => product.id == entry.key);
+        return PedidoItem(
+          productoId: p.id,
+          nombre: p.nombre,
+          cantidad: entry.value,
+          precio: p.precioFinal,
+        );
+      }).toList();
+
+      final order = Pedido(
+        id: idPedido > 0 ? 'DM-$idPedido' : 'DM-${now.millisecondsSinceEpoch}',
+        fecha: now,
+        estado: 'Pendiente',
+        metodoPago: _payment,
+        tipoEntrega: _delivery,
+        direccion: _delivery == 'Delivery'
+            ? _addressController.text.trim()
+            : 'Recojo en tienda',
+        telefono: _phoneController.text.trim(),
+        total: totalServidor,
+        items: items,
+      );
+
+      // Se conserva una copia local como respaldo, pero el pedido real
+      // ya fue registrado mediante la API en MySQL.
+      await LocalStore.addOrder(order);
+      await LocalStore.clearCart();
+
+      if (!mounted) return;
+      setState(() => _saving = false);
+      widget.onCompleted();
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: AppColors.goldSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.cloud_done_rounded,
+                  color: AppColors.goldDark,
+                  size: 42,
+                ),
               ),
+              const SizedBox(height: 18),
+              const Text(
+                '¡Pedido registrado!',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'El pedido ${order.id} se guardó correctamente en MySQL.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _summaryRow('Estado', order.estado),
+                    const SizedBox(height: 8),
+                    _summaryRow(
+                      'Total',
+                      'S/ ${order.total.toStringAsFixed(2)}',
+                      strong: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Listo'),
             ),
           ],
         ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Listo')),
-        ],
-      ),
-    );
+      );
 
-    if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _message(e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   void _message(String text) {
@@ -267,7 +349,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(13)),
                               child: Padding(
                                 padding: const EdgeInsets.all(4),
-                                child: Image.asset(p.imagen, fit: BoxFit.contain),
+                                child: p.imagen.startsWith('http://') || p.imagen.startsWith('https://')
+                                    ? Image.network(
+                                        p.imagen,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
+                                      )
+                                    : Image.asset(
+                                        p.imagen,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 10),
