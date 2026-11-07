@@ -1499,6 +1499,15 @@ if (isset($_GET["editar_proveedor"])) {
     $proveedorEditar = $stmt->get_result()->fetch_assoc();
 }
 
+$direccionEditar = null;
+if (isset($_GET["editar_direccion"])) {
+    $idEditarDireccion = (int)$_GET["editar_direccion"];
+    $stmt = $conexion->prepare("SELECT * FROM direccion WHERE id_direccion=?");
+    $stmt->bind_param("i",$idEditarDireccion);
+    $stmt->execute();
+    $direccionEditar = $stmt->get_result()->fetch_assoc();
+}
+
 $fechaHoy = date("d/m/Y");
 $adminNombre = trim((string)($adminSesion["nombres"] ?? "Administrador"));
 $adminRol = (string)($adminSesion["rol"] ?? "Administrador");
@@ -2155,6 +2164,16 @@ input:focus,select:focus,textarea:focus{
 <?php if(puede("pagos")): ?>
 <section id="pagos" class="card page-panel">
  <div class="section-intro"><div><h2>Pagos</h2><p>Controla montos y confirma el estado de cada pago recibido.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPagos','pagos_adn.csv')">Exportar CSV</button><span class="badge">S/ <?= number_format($totalPagos,2) ?> confirmados</span></div></div>
+ <details class="detail-card" style="margin-bottom:16px">
+  <summary style="cursor:pointer;font-weight:900">+ Registrar pago manual</summary>
+  <form method="POST" class="form-grid" style="margin-top:14px">
+   <div class="field"><label>PEDIDO</label><select name="id_pedido_pago" required><option value="">Seleccione pedido</option><?php foreach($pedidos as $ped): if(($ped["estado_pedido"]??"") === "Cancelado") continue; ?><option value="<?= h($ped["id_pedido"]) ?>">#<?= h($ped["id_pedido"]) ?> — <?= h($ped["nombres"]." ".$ped["apellidos"]) ?> — S/ <?= number_format((float)$ped["total"],2) ?></option><?php endforeach; ?></select></div>
+   <div class="field"><label>MÉTODO</label><select name="metodo_pago_manual"><option>Efectivo</option><option>Yape</option><option>Plin</option><option>Transferencia</option></select></div>
+   <div class="field"><label>MONTO</label><input type="number" min="0.01" step="0.01" name="monto_pago" required></div>
+   <div class="field"><label>ESTADO</label><select name="estado_pago_manual"><option>Pendiente</option><option>Pagado</option><option>Rechazado</option></select></div>
+   <div class="form-actions"><button class="btn btn-primary" name="registrar_pago_manual">Registrar pago</button></div>
+  </form>
+ </details>
  <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$pagos): ?><tr><td colspan="7" class="empty-cell">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr>
   <td>#<?= h($pg["id_pago"]) ?></td><td><a class="link-action" href="dashboard.php?pedido_detalle=<?= h($pg["id_pedido"]) ?>#pedidos">#<?= h($pg["id_pedido"]) ?></a></td><td><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><span class="status-pill"><?= h($pg["estado_pago"]) ?></span></td>
@@ -2182,9 +2201,24 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("clientes")): ?>
 <section id="direcciones" class="card page-panel">
- <div class="section-intro"><div><h2>Direcciones de clientes</h2><p>Direcciones registradas desde la aplicación para pedidos con delivery.</p></div><span class="badge"><?= count($direcciones) ?> registradas</span></div>
- <div class="table-wrap"><table id="tablaDirecciones"><thead><tr><th>ID</th><th>Cliente</th><th>Ubicación</th><th>Dirección</th><th>Referencia</th></tr></thead><tbody>
- <?php if(!$direcciones): ?><tr><td colspan="5" class="empty-cell">Todavía no hay direcciones registradas.</td></tr><?php else: foreach($direcciones as $dir): ?><tr><td>#<?= h($dir["id_direccion"]) ?></td><td><strong><?= h($dir["nombres"]." ".$dir["apellidos"]) ?></strong><small class="table-sub"><?= h($dir["correo"]) ?></small></td><td><?= h($dir["distrito"]) ?>, <?= h($dir["provincia"]) ?>, <?= h($dir["departamento"]) ?></td><td><?= h($dir["direccion_detalle"]) ?></td><td><?= h($dir["referencia"]) ?></td></tr><?php endforeach; endif; ?>
+ <div class="section-intro"><div><h2>Direcciones de clientes</h2><p>Registra, edita y controla las direcciones usadas en pedidos con delivery.</p></div><span class="badge"><?= count($direcciones) ?> registradas</span></div>
+
+ <details class="detail-card" style="margin-bottom:16px" <?= $direccionEditar ? "open" : "" ?>>
+  <summary style="cursor:pointer;font-weight:900"><?= $direccionEditar ? "Editar dirección" : "+ Registrar dirección" ?></summary>
+  <form method="POST" class="form-grid" style="margin-top:14px">
+   <?php if($direccionEditar): ?><input type="hidden" name="id_direccion" value="<?= h($direccionEditar["id_direccion"]) ?>"><?php endif; ?>
+   <div class="field"><label>CLIENTE</label><select name="id_usuario_direccion" required><option value="">Seleccione cliente</option><?php foreach($usuarios as $usr): ?><option value="<?= h($usr["id_usuario"]) ?>" <?= (int)($direccionEditar["id_usuario"]??0)===(int)$usr["id_usuario"]?"selected":"" ?>><?= h($usr["nombres"]." ".$usr["apellidos"]) ?> — <?= h($usr["correo"]) ?></option><?php endforeach; ?></select></div>
+   <div class="field"><label>DEPARTAMENTO</label><input name="departamento" required value="<?= h($direccionEditar["departamento"]??"Ucayali") ?>"></div>
+   <div class="field"><label>PROVINCIA</label><input name="provincia" required value="<?= h($direccionEditar["provincia"]??"Coronel Portillo") ?>"></div>
+   <div class="field"><label>DISTRITO</label><input name="distrito" required value="<?= h($direccionEditar["distrito"]??"Callería") ?>"></div>
+   <div class="field full"><label>DIRECCIÓN</label><input name="direccion_detalle" required value="<?= h($direccionEditar["direccion_detalle"]??"") ?>" placeholder="Jr., Av., Mz., Lt."></div>
+   <div class="field full"><label>REFERENCIA</label><input name="referencia" value="<?= h($direccionEditar["referencia"]??"") ?>" placeholder="Referencia opcional"></div>
+   <div class="form-actions"><button class="btn btn-primary" name="<?= $direccionEditar ? "actualizar_direccion" : "registrar_direccion" ?>"><?= $direccionEditar ? "Guardar cambios" : "Registrar dirección" ?></button><?php if($direccionEditar): ?><a class="btn btn-light" href="dashboard.php#direcciones">Cancelar</a><?php endif; ?></div>
+  </form>
+ </details>
+
+ <div class="table-wrap"><table id="tablaDirecciones"><thead><tr><th>ID</th><th>Cliente</th><th>Ubicación</th><th>Dirección</th><th>Referencia</th><th>Acciones</th></tr></thead><tbody>
+ <?php if(!$direcciones): ?><tr><td colspan="6" class="empty-cell">Todavía no hay direcciones registradas.</td></tr><?php else: foreach($direcciones as $dir): ?><tr><td>#<?= h($dir["id_direccion"]) ?></td><td><strong><?= h($dir["nombres"]." ".$dir["apellidos"]) ?></strong><small class="table-sub"><?= h($dir["correo"]) ?></small></td><td><?= h($dir["distrito"]) ?>, <?= h($dir["provincia"]) ?>, <?= h($dir["departamento"]) ?></td><td><?= h($dir["direccion_detalle"]) ?></td><td><?= h($dir["referencia"]) ?></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_direccion=<?= h($dir["id_direccion"]) ?>#direcciones">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar dirección?');"><input type="hidden" name="id_direccion" value="<?= h($dir["id_direccion"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_direccion">Eliminar</button></form></div></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
@@ -2245,8 +2279,8 @@ input:focus,select:focus,textarea:focus{
   <div class="field"><label>PRECIO DE COMPRA</label><input type="number" min="0" step="0.01" name="precio_compra" required></div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
  </form>
- <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Fecha</th><th>Estado</th></tr></thead><tbody>
- <?php if(!$compras): ?><tr><td colspan="8" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["nombre_producto"]??"-") ?></td><td><?= (int)($co["cantidad"]??0) ?></td><td>S/ <?= number_format((float)($co["precio_compra"]??0),2) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><?= h($co["fecha_compra"]) ?></td><td><span class="status-pill success"><?= h($co["estado"]) ?></span></td></tr><?php endforeach; endif; ?>
+ <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <?php if(!$compras): ?><tr><td colspan="9" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr data-status="<?= h(strtolower((string)$co["estado"])) ?>"><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["nombre_producto"]??"-") ?></td><td><?= (int)($co["cantidad"]??0) ?></td><td>S/ <?= number_format((float)($co["precio_compra"]??0),2) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><?= h($co["fecha_compra"]) ?></td><td><span class="status-pill <?= strtolower((string)$co["estado"])==="anulado"?"danger":"success" ?>"><?= h($co["estado"]) ?></span></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_compra" value="<?= h($co["id_compra"]) ?>"><select name="estado_compra"><option value="Registrado" <?= $co["estado"]==="Registrado"?"selected":"" ?>>Registrado</option><option value="Anulado" <?= $co["estado"]==="Anulado"?"selected":"" ?>>Anulado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_compra">Guardar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
 </section>
 <?php endif; ?>
