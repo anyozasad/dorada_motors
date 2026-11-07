@@ -131,9 +131,25 @@ if (Test-Path $PruebaIntegracion) {
     FAIL "Falta PRUEBA_INTEGRACION.php"
 }
 
-# 4. Flutter
+# 4. Validar 150 requerimientos funcionales del dashboard
 Write-Host ""
-Write-Host "4. Revisando Flutter..." -ForegroundColor Yellow
+Write-Host "4. Validando 150 requerimientos del dashboard..." -ForegroundColor Yellow
+$ValidadorDashboard = Join-Path $Proyecto "VALIDAR_DASHBOARD_150.php"
+
+if (Test-Path $ValidadorDashboard) {
+    $salidaDashboard = & $Php $ValidadorDashboard 2>&1
+    if ($LASTEXITCODE -eq 0 -and ($salidaDashboard -join "`n") -match "REQUERIMIENTOS_DASHBOARD: 150/150") {
+        OK "Dashboard: 150/150 requerimientos funcionales estructurales"
+    } else {
+        FAIL "Dashboard 150: $($salidaDashboard -join ' | ')"
+    }
+} else {
+    FAIL "Falta VALIDAR_DASHBOARD_150.php"
+}
+
+# 5. Flutter
+Write-Host ""
+Write-Host "5. Revisando Flutter..." -ForegroundColor Yellow
 Push-Location $Proyecto
 
 try {
@@ -163,7 +179,7 @@ try {
     Pop-Location
 }
 
-# 5. Archivos esenciales
+# 6. Archivos esenciales
 Write-Host ""
 Write-Host "4. Revisando archivos esenciales..." -ForegroundColor Yellow
 $archivos = @(
@@ -201,7 +217,7 @@ Write-Host "Errores:   $($Errores.Count)" -ForegroundColor $(if ($Errores.Count 
 
 if ($Errores.Count -eq 0) {
     Write-Host ""
-    Write-Host "AVANCE FUNCIONAL EQUIVALENTE: 150 / 150 PUNTOS DE CONTROL" -ForegroundColor Green
+    Write-Host "DASHBOARD FUNCIONAL: 150 / 150 REQUERIMIENTOS" -ForegroundColor Green
     Write-Host "SISTEMA APROBADO PARA LA PRUEBA FINAL." -ForegroundColor Green
     Write-Host "Dashboard + PHP API + MySQL + Flutter pasaron las verificaciones automaticas." -ForegroundColor Green
     exit 0
