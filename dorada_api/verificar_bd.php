@@ -8,6 +8,8 @@ $resultado = [
     "base_datos" => "",
     "tablas_encontradas" => 0,
     "tablas_requeridas" => 13,
+    "columnas_producto" => 0,
+    "columnas_producto_requeridas" => 4,
     "escritura" => false,
     "mensaje" => ""
 ];
@@ -34,6 +36,19 @@ try {
     }
     $resultado["tablas_encontradas"] = $encontradas;
 
+    $columnasProducto = [
+        "stock_minimo","tipo_vehiculo","compatibilidad","precio_oferta"
+    ];
+    $columnasEncontradas = 0;
+    foreach ($columnasProducto as $columna) {
+        $columnaSegura = $conexion->real_escape_string($columna);
+        $r = $conexion->query("SHOW COLUMNS FROM producto LIKE '" . $columnaSegura . "'");
+        if ($r && $r->num_rows > 0) {
+            $columnasEncontradas++;
+        }
+    }
+    $resultado["columnas_producto"] = $columnasEncontradas;
+
     // Prueba real de escritura SIN dejar datos:
     // se inserta una categoría temporal dentro de una transacción y luego se revierte.
     $conexion->begin_transaction();
@@ -56,6 +71,7 @@ try {
         $resultado["conexion_mysql"] &&
         $resultado["base_datos"] === "dorada_motors" &&
         $resultado["tablas_encontradas"] === 13 &&
+        $resultado["columnas_producto"] === 4 &&
         $resultado["escritura"];
 
     $resultado["mensaje"] = $resultado["estado"]
