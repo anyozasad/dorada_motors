@@ -844,17 +844,27 @@ class _MainShellState extends State<MainShell> {
               },
             ),
           ),
+          ),
           const SizedBox(height: 26),
-          _benefitsStrip(),
+          RevealOnMount(
+            delay: const Duration(milliseconds: 280),
+            child: _benefitsStrip(),
+          ),
           const SizedBox(height: 27),
-          _sectionHeader('Productos destacados', 'Ver más', () {
-            setState(() {
-              _category = 'Todos';
-              _page = 1;
-            });
-          }),
+          RevealOnMount(
+            delay: const Duration(milliseconds: 330),
+            child: _sectionHeader('Productos destacados', 'Ver más', () {
+              setState(() {
+                _category = 'Todos';
+                _page = 1;
+              });
+            }),
+          ),
           const SizedBox(height: 12),
-          _productGrid(_productos.take(4).toList()),
+          RevealOnMount(
+            delay: const Duration(milliseconds: 380),
+            child: _productGrid(_productos.take(4).toList()),
+          ),
         ],
       ),
     );
