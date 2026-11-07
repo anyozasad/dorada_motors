@@ -2,6 +2,9 @@
 
 header("Content-Type: application/json; charset=UTF-8");
 require_once "conexion.php";
+require_once "auth_admin.php";
+
+requerirAdmin();
 require_once "sistema_bootstrap.php";
 
 try {
