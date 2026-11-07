@@ -74,31 +74,25 @@ class _AppRootState extends State<AppRoot> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget child;
-
-    switch (_mode) {
-      case AppMode.loading:
-        child = const _BrandSplash();
-      case AppMode.login:
-        child = LoginScreen(
+    final child = switch (_mode) {
+      AppMode.loading => const _BrandSplash(),
+      AppMode.login => LoginScreen(
           onAuthenticated: _loadSession,
           onGuest: _guest,
-        );
-      case AppMode.guest:
-        child = MainShell(
+        ),
+      AppMode.guest => MainShell(
           isGuest: true,
           onLoginRequested: _showLogin,
           onLogout: _logout,
-        );
-      case AppMode.authenticated:
-        child = MainShell(
+        ),
+      AppMode.authenticated => MainShell(
           isGuest: false,
           userName: _session?['name'],
           userEmail: _session?['email'],
           onLoginRequested: _showLogin,
           onLogout: _logout,
-        );
-    }
+        ),
+    };
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 380),
