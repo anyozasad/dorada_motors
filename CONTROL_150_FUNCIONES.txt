@@ -1,156 +1,160 @@
-DORADA MOTORS - CONTROL DE 150 PUNTOS FUNCIONALES
+DORADA MOTORS - 150 REQUERIMIENTOS FUNCIONALES DEL DASHBOARD
 
-001. [IMPLEMENTADO] Proyecto Flutter abre correctamente
-002. [IMPLEMENTADO] Backend PHP separado del frontend
-003. [IMPLEMENTADO] Conexion MySQL centralizada
-004. [IMPLEMENTADO] Base dorada_motors definida
-005. [IMPLEMENTADO] CORS localhost configurado
-006. [IMPLEMENTADO] API responde JSON
-007. [IMPLEMENTADO] Bootstrap actualiza esquema antiguo
-008. [IMPLEMENTADO] Verificador de BD disponible
-009. [IMPLEMENTADO] 13 tablas principales definidas
-010. [IMPLEMENTADO] Claves primarias definidas
-011. [IMPLEMENTADO] Claves foraneas definidas
-012. [IMPLEMENTADO] Usuario tiene estado Activo/Bloqueado
-013. [IMPLEMENTADO] Registro de usuario con hash
-014. [IMPLEMENTADO] Correo de usuario unico
-015. [IMPLEMENTADO] Login valida password_hash
-016. [IMPLEMENTADO] Login bloquea usuario inactivo
-017. [IMPLEMENTADO] Flutter registra usuario por API
-018. [IMPLEMENTADO] Flutter inicia sesion por API
-019. [IMPLEMENTADO] Sesion Flutter persistente
-020. [IMPLEMENTADO] Telefono se actualiza por API
-021. [IMPLEMENTADO] Cliente se registra desde dashboard
-022. [IMPLEMENTADO] Cliente se edita desde dashboard
-023. [IMPLEMENTADO] Cliente se bloquea/activa
-024. [IMPLEMENTADO] Historial de cliente visible
-025. [IMPLEMENTADO] Direcciones se registran por API
-026. [IMPLEMENTADO] Direcciones se consultan por usuario
-027. [IMPLEMENTADO] Direcciones se editan por API
-028. [IMPLEMENTADO] Direcciones se eliminan con validacion
-029. [IMPLEMENTADO] Dashboard lista direcciones
-030. [IMPLEMENTADO] Producto tiene tipo de vehiculo
-031. [IMPLEMENTADO] Producto tiene compatibilidad
-032. [IMPLEMENTADO] Producto tiene precio de oferta
-033. [IMPLEMENTADO] Producto se crea desde dashboard
-034. [IMPLEMENTADO] Producto se edita desde dashboard
-035. [IMPLEMENTADO] Producto se elimina con validacion
-036. [IMPLEMENTADO] Producto se crea por API
-037. [IMPLEMENTADO] Producto se edita por API
-038. [IMPLEMENTADO] Producto se elimina por API
-039. [IMPLEMENTADO] Stock inicial registra Kardex
-040. [IMPLEMENTADO] Cambio de stock por API registra Kardex
-041. [IMPLEMENTADO] Cambio de stock por dashboard registra Kardex
-042. [IMPLEMENTADO] Catalogo Flutter consulta MySQL
-043. [IMPLEMENTADO] Flutter no usa productos de ejemplo como respaldo
-044. [IMPLEMENTADO] Flutter muestra precio oferta
-045. [IMPLEMENTADO] Flutter muestra tipo vehiculo real
-046. [IMPLEMENTADO] Flutter muestra compatibilidad real
-047. [IMPLEMENTADO] Buscador de productos funciona
-048. [IMPLEMENTADO] Filtro por categoria funciona
-049. [IMPLEMENTADO] Filtro por marca funciona
-050. [IMPLEMENTADO] Filtro por vehiculo funciona
-051. [IMPLEMENTADO] Categorias Flutter vienen de API
-052. [IMPLEMENTADO] Marcas Flutter vienen de API
-053. [IMPLEMENTADO] Categoria se crea en dashboard
-054. [IMPLEMENTADO] Categoria se edita en dashboard
-055. [IMPLEMENTADO] Categoria se elimina con validacion
-056. [IMPLEMENTADO] Categoria CRUD disponible por API
-057. [IMPLEMENTADO] Marca se crea en dashboard
-058. [IMPLEMENTADO] Marca se edita en dashboard
-059. [IMPLEMENTADO] Marca se elimina con validacion
-060. [IMPLEMENTADO] Marca CRUD disponible por API
-061. [IMPLEMENTADO] Carrito permite agregar productos
-062. [IMPLEMENTADO] Carrito respeta stock maximo
-063. [IMPLEMENTADO] Carrito permite aumentar cantidad
-064. [IMPLEMENTADO] Carrito permite disminuir cantidad
-065. [IMPLEMENTADO] Carrito calcula total
-066. [IMPLEMENTADO] Invitado no confirma compra
-067. [IMPLEMENTADO] Checkout exige usuario
-068. [IMPLEMENTADO] Checkout valida telefono
-069. [IMPLEMENTADO] Checkout permite recojo
-070. [IMPLEMENTADO] Checkout permite delivery
-071. [IMPLEMENTADO] Checkout registra direccion
-072. [IMPLEMENTADO] Checkout registra pedido por API
-073. [IMPLEMENTADO] Checkout envia multiples items
-074. [IMPLEMENTADO] Precio del pedido se calcula en servidor
-075. [IMPLEMENTADO] Stock se valida en servidor
-076. [IMPLEMENTADO] Pedido descuenta stock
-077. [IMPLEMENTADO] Pedido registra detalle
-078. [IMPLEMENTADO] Pedido registra movimiento de stock
-079. [IMPLEMENTADO] Pedido registra pago
-080. [IMPLEMENTADO] Pedido usa transaccion MySQL
-081. [IMPLEMENTADO] Error de pedido hace rollback
-082. [IMPLEMENTADO] Mis pedidos consulta API
-083. [IMPLEMENTADO] Mis pedidos muestra detalle
-084. [IMPLEMENTADO] Mis pedidos muestra estado
-085. [IMPLEMENTADO] Mis pedidos muestra metodo de pago
-086. [IMPLEMENTADO] Dashboard registra pedido manual
-087. [IMPLEMENTADO] Pedido manual valida cliente
-088. [IMPLEMENTADO] Pedido manual valida stock
-089. [IMPLEMENTADO] Pedido manual crea pago
-090. [IMPLEMENTADO] Pedido manual descuenta stock
-091. [IMPLEMENTADO] Pedido manual registra Kardex
-092. [IMPLEMENTADO] Pedido puede pasar a Procesando
-093. [IMPLEMENTADO] Pedido puede pasar a Pagado
-094. [IMPLEMENTADO] Pedido puede pasar a Enviado
-095. [IMPLEMENTADO] Pedido puede pasar a Completado
-096. [IMPLEMENTADO] Pedido puede cancelarse
-097. [IMPLEMENTADO] Cancelar pedido devuelve stock
-098. [IMPLEMENTADO] Reactivar pedido vuelve a descontar stock
-099. [IMPLEMENTADO] Pago tiene metodo
-100. [IMPLEMENTADO] Pago tiene monto
-101. [IMPLEMENTADO] Pago tiene estado
-102. [IMPLEMENTADO] Pago API valida pedido
-103. [IMPLEMENTADO] Pago Pagado sincroniza pedido
-104. [IMPLEMENTADO] Dashboard cambia estado de pago
-105. [IMPLEMENTADO] Proveedor se registra
-106. [IMPLEMENTADO] Proveedor se edita
-107. [IMPLEMENTADO] Proveedor se activa/inactiva
-108. [IMPLEMENTADO] Proveedor se elimina con validacion
-109. [IMPLEMENTADO] Compra se registra
-110. [IMPLEMENTADO] Compra registra detalle
-111. [IMPLEMENTADO] Compra incrementa stock
-112. [IMPLEMENTADO] Compra registra Kardex
-113. [IMPLEMENTADO] Inventario muestra stock actual
-114. [IMPLEMENTADO] Inventario muestra stock minimo
-115. [IMPLEMENTADO] Kardex muestra stock anterior
-116. [IMPLEMENTADO] Kardex muestra stock nuevo
-117. [IMPLEMENTADO] Salida manual valida stock
-118. [IMPLEMENTADO] Entrada manual actualiza stock
-119. [IMPLEMENTADO] Comprobante se emite
-120. [IMPLEMENTADO] Comprobante evita duplicado por pedido
-121. [IMPLEMENTADO] Comprobante calcula subtotal
-122. [IMPLEMENTADO] Comprobante calcula IGV
-123. [IMPLEMENTADO] Comprobante calcula total
-124. [IMPLEMENTADO] Comprobante se imprime
-125. [IMPLEMENTADO] Reportes filtran por fechas
-126. [IMPLEMENTADO] Reporte muestra ventas
-127. [IMPLEMENTADO] Reporte muestra pedidos
-128. [IMPLEMENTADO] Reporte muestra ticket promedio
-129. [IMPLEMENTADO] Reporte muestra productos mas vendidos
-130. [IMPLEMENTADO] Exportacion CSV disponible
-131. [IMPLEMENTADO] Dashboard consulta API en vivo
-132. [IMPLEMENTADO] Indicadores se actualizan cada 15 segundos
-133. [IMPLEMENTADO] Ventas canceladas no cuentan como venta
-134. [IMPLEMENTADO] Notificacion de stock bajo
-135. [IMPLEMENTADO] Notificacion de pedidos pendientes
-136. [IMPLEMENTADO] Dashboard responsive
-137. [IMPLEMENTADO] Menu no tiene enlaces a modulos inexistentes
-138. [IMPLEMENTADO] Prueba PHP lint disponible
-139. [IMPLEMENTADO] flutter analyze incluido
-140. [IMPLEMENTADO] flutter test incluido
-141. [IMPLEMENTADO] Prueba transaccional de 13 tablas incluida
-142. [IMPLEMENTADO] Prueba usa rollback y no ensucia BD
-143. [IMPLEMENTADO] Verificador revisa 8 endpoints API
-144. [IMPLEMENTADO] Verificador revisa dashboard dinamico
-145. [IMPLEMENTADO] Verificador revisa escritura MySQL
-146. [IMPLEMENTADO] Preparador ejecuta bootstrap antes del dump
-147. [IMPLEMENTADO] ZIP incluye base de datos
-148. [IMPLEMENTADO] ZIP incluye backend PHP/API
-149. [IMPLEMENTADO] ZIP incluye proyecto Flutter
-150. [IMPLEMENTADO] Entrega final genera PROYECTO.zip
+Estos 150 puntos corresponden SOLO al panel administrativo PHP.
+No incluyen Flutter, empaquetado ni pruebas de entrega.
 
-IMPORTANTE:
-[IMPLEMENTADO] significa que el punto esta desarrollado en el codigo.
-Para considerarlo validado en ejecucion, correr VERIFICAR_SISTEMA.ps1 y confirmar Errores: 0.
+001. [IMPLEMENTADO] Dashboard carga métricas desde MySQL
+002. [IMPLEMENTADO] Dashboard muestra total de productos
+003. [IMPLEMENTADO] Dashboard muestra total de clientes
+004. [IMPLEMENTADO] Dashboard muestra total de pedidos
+005. [IMPLEMENTADO] Dashboard muestra total de ventas
+006. [IMPLEMENTADO] Dashboard muestra productos con stock bajo
+007. [IMPLEMENTADO] Dashboard muestra ventas del día
+008. [IMPLEMENTADO] Dashboard muestra pedidos pendientes
+009. [IMPLEMENTADO] Dashboard muestra total de proveedores
+010. [IMPLEMENTADO] Dashboard muestra total de compras
+011. [IMPLEMENTADO] Dashboard actualiza métricas automáticamente
+012. [IMPLEMENTADO] Dashboard muestra últimos pedidos
+013. [IMPLEMENTADO] Dashboard muestra alertas de stock
+014. [IMPLEMENTADO] Dashboard tiene buscador global
+015. [IMPLEMENTADO] Dashboard navega entre módulos sin recargar diseño
+016. [IMPLEMENTADO] Productos: listar productos
+017. [IMPLEMENTADO] Productos: registrar producto
+018. [IMPLEMENTADO] Productos: editar producto
+019. [IMPLEMENTADO] Productos: eliminar producto sin movimientos
+020. [IMPLEMENTADO] Productos: impedir eliminar producto con movimientos
+021. [IMPLEMENTADO] Productos: registrar precio de oferta
+022. [IMPLEMENTADO] Productos: validar oferta menor al precio
+023. [IMPLEMENTADO] Productos: limitar imagen a 3 MB
+024. [IMPLEMENTADO] Productos: conservar imagen al editar
+025. [IMPLEMENTADO] Productos: filtrar por categoría
+026. [IMPLEMENTADO] Productos: filtrar por nivel de stock
+027. [IMPLEMENTADO] Productos: buscar por texto
+028. [IMPLEMENTADO] Productos: mostrar precio de oferta
+029. [IMPLEMENTADO] Productos: registrar ajuste de stock en Kardex
+030. [IMPLEMENTADO] Categorías: listar categorías
+031. [IMPLEMENTADO] Categorías: registrar categoría
+032. [IMPLEMENTADO] Categorías: editar categoría
+033. [IMPLEMENTADO] Categorías: eliminar categoría sin productos
+034. [IMPLEMENTADO] Categorías: impedir eliminar categoría usada
+035. [IMPLEMENTADO] Marcas: listar marcas
+036. [IMPLEMENTADO] Marcas: registrar marca
+037. [IMPLEMENTADO] Marcas: editar marca
+038. [IMPLEMENTADO] Marcas: eliminar marca sin productos
+039. [IMPLEMENTADO] Marcas: impedir eliminar marca usada
+040. [IMPLEMENTADO] Clientes: listar clientes
+041. [IMPLEMENTADO] Clientes: registrar cliente
+042. [IMPLEMENTADO] Clientes: editar cliente
+043. [IMPLEMENTADO] Clientes: validar correo
+044. [IMPLEMENTADO] Clientes: impedir correo duplicado
+045. [IMPLEMENTADO] Clientes: guardar contraseña cifrada
+046. [IMPLEMENTADO] Clientes: activar cliente
+047. [IMPLEMENTADO] Clientes: bloquear cliente
+048. [IMPLEMENTADO] Clientes: ver historial del cliente
+049. [IMPLEMENTADO] Clientes: mostrar total comprado
+050. [IMPLEMENTADO] Clientes: mostrar última compra
+051. [IMPLEMENTADO] Direcciones: listar direcciones
+052. [IMPLEMENTADO] Direcciones: registrar dirección
+053. [IMPLEMENTADO] Direcciones: editar dirección
+054. [IMPLEMENTADO] Direcciones: eliminar dirección sin pedidos
+055. [IMPLEMENTADO] Direcciones: impedir eliminar dirección usada
+056. [IMPLEMENTADO] Pedidos: listar pedidos
+057. [IMPLEMENTADO] Pedidos: registrar pedido manual
+058. [IMPLEMENTADO] Pedidos: seleccionar cliente activo
+059. [IMPLEMENTADO] Pedidos: seleccionar producto
+060. [IMPLEMENTADO] Pedidos: validar cantidad
+061. [IMPLEMENTADO] Pedidos: validar stock disponible
+062. [IMPLEMENTADO] Pedidos: calcular subtotal
+063. [IMPLEMENTADO] Pedidos: calcular total
+064. [IMPLEMENTADO] Pedidos: crear detalle de pedido
+065. [IMPLEMENTADO] Pedidos: descontar stock
+066. [IMPLEMENTADO] Pedidos: registrar salida en Kardex
+067. [IMPLEMENTADO] Pedidos: registrar pago inicial
+068. [IMPLEMENTADO] Pedidos: usar transacción MySQL
+069. [IMPLEMENTADO] Pedidos: hacer rollback si falla
+070. [IMPLEMENTADO] Pedidos: ver detalle
+071. [IMPLEMENTADO] Pedidos: mostrar productos del pedido
+072. [IMPLEMENTADO] Pedidos: mostrar fecha
+073. [IMPLEMENTADO] Pedidos: mostrar tipo de entrega
+074. [IMPLEMENTADO] Pedidos: filtrar por estado
+075. [IMPLEMENTADO] Pedidos: pasar a Procesando
+076. [IMPLEMENTADO] Pedidos: pasar a Pagado
+077. [IMPLEMENTADO] Pedidos: pasar a Enviado
+078. [IMPLEMENTADO] Pedidos: pasar a Completado
+079. [IMPLEMENTADO] Pedidos: cancelar pedido
+080. [IMPLEMENTADO] Pedidos: devolver stock al cancelar
+081. [IMPLEMENTADO] Pedidos: reactivar pedido cancelado
+082. [IMPLEMENTADO] Pedidos: validar stock al reactivar
+083. [IMPLEMENTADO] Pedidos: volver a descontar stock al reactivar
+084. [IMPLEMENTADO] Pedidos: registrar Kardex al cancelar
+085. [IMPLEMENTADO] Pedidos: registrar Kardex al reactivar
+086. [IMPLEMENTADO] Pedidos: impedir estado inválido
+087. [IMPLEMENTADO] Pedidos: exportar CSV
+088. [IMPLEMENTADO] Pedidos: mostrar avance del pedido
+089. [IMPLEMENTADO] Pedidos: permitir Recojo en tienda
+090. [IMPLEMENTADO] Pedidos: permitir Delivery
+091. [IMPLEMENTADO] Pagos: listar pagos
+092. [IMPLEMENTADO] Pagos: registrar pago manual
+093. [IMPLEMENTADO] Pagos: seleccionar método Transferencia
+094. [IMPLEMENTADO] Pagos: validar monto mayor a cero
+095. [IMPLEMENTADO] Pagos: marcar Pendiente
+096. [IMPLEMENTADO] Pagos: marcar Pagado
+097. [IMPLEMENTADO] Pagos: marcar Rechazado
+098. [IMPLEMENTADO] Pagos: sincronizar pedido al pagar
+099. [IMPLEMENTADO] Pagos: impedir pago a pedido cancelado
+100. [IMPLEMENTADO] Pagos: exportar CSV
+101. [IMPLEMENTADO] Comprobantes: listar comprobantes
+102. [IMPLEMENTADO] Comprobantes: emitir boleta
+103. [IMPLEMENTADO] Comprobantes: emitir factura
+104. [IMPLEMENTADO] Comprobantes: seleccionar pedido
+105. [IMPLEMENTADO] Comprobantes: validar número único
+106. [IMPLEMENTADO] Comprobantes: impedir duplicado por pedido
+107. [IMPLEMENTADO] Comprobantes: calcular subtotal sin IGV
+108. [IMPLEMENTADO] Comprobantes: calcular IGV
+109. [IMPLEMENTADO] Comprobantes: calcular total
+110. [IMPLEMENTADO] Comprobantes: imprimir comprobante
+111. [IMPLEMENTADO] Comprobantes: eliminar comprobante
+112. [IMPLEMENTADO] Inventario: listar Kardex
+113. [IMPLEMENTADO] Inventario: registrar entrada manual
+114. [IMPLEMENTADO] Inventario: registrar salida manual
+115. [IMPLEMENTADO] Inventario: validar salida contra stock
+116. [IMPLEMENTADO] Inventario: guardar motivo
+117. [IMPLEMENTADO] Inventario: guardar stock anterior
+118. [IMPLEMENTADO] Inventario: guardar stock nuevo
+119. [IMPLEMENTADO] Inventario: actualizar producto tras movimiento
+120. [IMPLEMENTADO] Inventario: mostrar alertas de stock mínimo
+121. [IMPLEMENTADO] Inventario: mostrar productos agotados
+122. [IMPLEMENTADO] Proveedores: listar proveedores
+123. [IMPLEMENTADO] Proveedores: registrar proveedor
+124. [IMPLEMENTADO] Proveedores: editar proveedor
+125. [IMPLEMENTADO] Proveedores: activar proveedor
+126. [IMPLEMENTADO] Proveedores: inactivar proveedor
+127. [IMPLEMENTADO] Proveedores: eliminar proveedor sin compras
+128. [IMPLEMENTADO] Proveedores: impedir eliminar proveedor usado
+129. [IMPLEMENTADO] Compras: listar compras
+130. [IMPLEMENTADO] Compras: registrar compra
+131. [IMPLEMENTADO] Compras: registrar detalle de compra
+132. [IMPLEMENTADO] Compras: calcular subtotal
+133. [IMPLEMENTADO] Compras: calcular total
+134. [IMPLEMENTADO] Compras: aumentar stock
+135. [IMPLEMENTADO] Compras: registrar entrada en Kardex
+136. [IMPLEMENTADO] Compras: anular compra
+137. [IMPLEMENTADO] Compras: retirar stock al anular
+138. [IMPLEMENTADO] Compras: reactivar compra
+139. [IMPLEMENTADO] Compras: devolver stock al reactivar
+140. [IMPLEMENTADO] Compras: impedir anulación si stock insuficiente
+141. [IMPLEMENTADO] Reportes: filtrar por fecha desde
+142. [IMPLEMENTADO] Reportes: filtrar por fecha hasta
+143. [IMPLEMENTADO] Reportes: mostrar ventas del periodo
+144. [IMPLEMENTADO] Reportes: mostrar pedidos del periodo
+145. [IMPLEMENTADO] Reportes: calcular ticket promedio
+146. [IMPLEMENTADO] Reportes: mostrar productos más vendidos
+147. [IMPLEMENTADO] Reportes: mostrar unidades vendidas
+148. [IMPLEMENTADO] Reportes: mostrar importe por producto
+149. [IMPLEMENTADO] Reportes: imprimir reporte
+150. [IMPLEMENTADO] Reportes: exportar productos CSV
+
+VALIDACION:
+- Las funciones se implementan en dorada_api/dashboard.php.
+- La base usada es dorada_motors.
+- Ejecutar VERIFICAR_SISTEMA.ps1 para validar sintaxis, API, MySQL e integración.
