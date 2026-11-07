@@ -702,6 +702,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 $estadoAnterior = (string)$pedidoActual["estado_pedido"];
 
+                if (in_array($estado, ["Pagado","Completado"], true)) {
+                    $stmt = $conexion->prepare("
+                        SELECT
+                            p.total,
+                            COALESCE(SUM(CASE WHEN pg.estado_pago='Pagado' THEN pg.monto ELSE 0 END),0) AS pagado
+                        FROM pedido p
+                        LEFT JOIN pago pg ON pg.id_pedido=p.id_pedido
+                        WHERE p.id_pedido=?
+                        GROUP BY p.id_pedido,p.total
+                    ");
+                    $stmt->bind_param("i",$idPedido);
+                    $stmt->execute();
+                    $finanzasPedido = $stmt->get_result()->fetch_assoc();
+                    $saldoPedido = max(0, round((float)$finanzasPedido["total"] - (float)$finanzasPedido["pagado"], 2));
+                    if ($saldoPedido > 0.009) {
+                        throw new RuntimeException("No se puede marcar el pedido como " . $estado . ": tiene saldo pendiente de S/ " . number_format($saldoPedido,2));
+                    }
+                }
+
                 $stmt = $conexion->prepare("
                     SELECT id_producto,cantidad
                     FROM detalle_pedido
@@ -777,6 +796,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $stmt = $conexion->prepare("UPDATE pedido SET estado_pedido=? WHERE id_pedido=?");
                 $stmt->bind_param("si", $estado, $idPedido);
                 $stmt->execute();
+
+                if ($estado === "Cancelado") {
+                    $stmt = $conexion->prepare("
+                        UPDATE pago
+                        SET estado_pago='Rechazado'
+                        WHERE id_pedido=? AND estado_pago='Pendiente'
+                    ");
+                    $stmt->bind_param("i",$idPedido);
+                    $stmt->execute();
+                }
 
                 $conexion->commit();
                 redir("Estado del pedido actualizado", "ok", "pedidos");
@@ -1330,7 +1359,11 @@ $totalCategorias = (int)$conexion->query("SELECT COUNT(*) AS total FROM categori
 $totalMarcas = (int)$conexion->query("SELECT COUNT(*) AS total FROM marca")->fetch_assoc()["total"];
 
 $totalProveedores = (int)$conexion->query("SELECT COUNT(*) AS total FROM proveedor")->fetch_assoc()["total"];
-$totalCompras = (float)$conexion->query("SELECT COALESCE(SUM(total),0) AS total FROM compra")->fetch_assoc()["total"];
+$totalCompras = (float)$conexion->query("
+    SELECT COALESCE(SUM(total),0) AS total
+    FROM compra
+    WHERE LOWER(estado)<>'anulado'
+")->fetch_assoc()["total"];
 $stockBajo = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto WHERE stock <= stock_minimo")->fetch_assoc()["total"];
 $unidadesStock = (int)$conexion->query("SELECT COALESCE(SUM(stock),0) AS total FROM producto")->fetch_assoc()["total"];
 $pedidosPendientes = (int)$conexion->query("
@@ -1361,10 +1394,12 @@ $gananciaEstimada = (float)$conexion->query("
     FROM detalle_pedido dp
     INNER JOIN pedido pe ON dp.id_pedido=pe.id_pedido
     LEFT JOIN (
-        SELECT id_producto,
-               CASE WHEN SUM(cantidad)>0 THEN SUM(subtotal)/SUM(cantidad) ELSE 0 END AS costo_promedio
-        FROM detalle_compra
-        GROUP BY id_producto
+        SELECT dc.id_producto,
+               CASE WHEN SUM(dc.cantidad)>0 THEN SUM(dc.subtotal)/SUM(dc.cantidad) ELSE 0 END AS costo_promedio
+        FROM detalle_compra dc
+        INNER JOIN compra co ON dc.id_compra=co.id_compra
+        WHERE LOWER(co.estado)<>'anulado'
+        GROUP BY dc.id_producto
     ) costos ON dp.id_producto=costos.id_producto
     WHERE LOWER(pe.estado_pedido) <> 'cancelado'
 ")->fetch_assoc()["ganancia"];
@@ -1379,6 +1414,7 @@ $ventasConsulta = $conexion->query("
     SELECT DATE(fecha_pedido) AS fecha, COALESCE(SUM(total),0) AS total
     FROM pedido
     WHERE DATE(fecha_pedido) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      AND LOWER(estado_pedido)<>'cancelado'
     GROUP BY DATE(fecha_pedido)
     ORDER BY fecha
 ");
@@ -1406,6 +1442,7 @@ $pedidosConsulta = $conexion->query("
     SELECT DATE(fecha_pedido) AS fecha, COUNT(*) AS total
     FROM pedido
     WHERE DATE(fecha_pedido) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      AND LOWER(estado_pedido)<>'cancelado'
     GROUP BY DATE(fecha_pedido)
     ORDER BY fecha
 ");
