@@ -77,9 +77,7 @@ $endpoints = @(
     "marcas.php",
     "usuarios.php",
     "direcciones.php",
-    "pedidos.php",
-    "pagos.php",
-    "dashboard_api.php"
+    "pedidos.php"
 )
 
 foreach ($endpoint in $endpoints) {
@@ -97,22 +95,16 @@ foreach ($endpoint in $endpoints) {
 }
 
 try {
-    $dash = Invoke-WebRequest "$BaseUrl/dashboard.php" -UseBasicParsing -TimeoutSec 10
-    $dashboardDinamico =
-        $dash.Content -match "Panel v4\.0" -and
-        $dash.Content -match "Registrar nuevo pedido" -and
-        $dash.Content -match "actualizarDashboardEnVivo" -and
-        $dash.Content -match "actualizar_categoria" -and
-        $dash.Content -match "actualizar_marca" -and
-        $dash.Content -match "actualizar_proveedor"
-
-    if ($dash.StatusCode -eq 200 -and $dashboardDinamico) {
-        OK "Dashboard PHP dinamico: CRUD + venta manual + datos en vivo"
+    $loginAdmin = Invoke-WebRequest "$BaseUrl/admin_login.php" -UseBasicParsing -TimeoutSec 10
+    if ($loginAdmin.StatusCode -eq 200 -and
+        $loginAdmin.Content -match "Panel administrativo seguro" -and
+        $loginAdmin.Content -match "csrf_token") {
+        OK "Acceso administrativo protegido: login + CSRF + roles"
     } else {
-        FAIL "Dashboard carga, pero faltan funciones dinamicas de la version final"
+        FAIL "El login administrativo seguro no responde como se esperaba"
     }
 } catch {
-    FAIL "Dashboard PHP: $($_.Exception.Message)"
+    FAIL "Login administrativo: $($_.Exception.Message)"
 }
 
 # 3. Prueba transaccional real de las 13 tablas
@@ -181,7 +173,7 @@ try {
 
 # 6. Archivos esenciales
 Write-Host ""
-Write-Host "4. Revisando archivos esenciales..." -ForegroundColor Yellow
+Write-Host "6. Revisando archivos esenciales..." -ForegroundColor Yellow
 $archivos = @(
     "lib\main.dart",
     "lib\services\api_service.dart",
@@ -189,6 +181,10 @@ $archivos = @(
     "lib\screens\checkout_screen.dart",
     "lib\screens\orders_screen.dart",
     "dorada_api\dashboard.php",
+    "dorada_api\admin_login.php",
+    "dorada_api\admin_logout.php",
+    "dorada_api\auth_admin.php",
+    "dorada_api\empresa_config.php",
     "dorada_api\conexion.php",
     "dorada_api\productos.php",
     "dorada_api\usuarios.php",
