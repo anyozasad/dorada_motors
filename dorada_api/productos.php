@@ -22,7 +22,11 @@ if ($metodo === "POST" || $metodo === "PUT") {
     $idMarca = (int)($datos["id_marca"] ?? 0);
     $nombre = trim($datos["nombre_producto"] ?? "");
     $descripcion = trim($datos["descripcion"] ?? "");
+    $tipoVehiculo = trim($datos["tipo_vehiculo"] ?? "Motocicleta / Motokar");
+    $compatibilidad = trim($datos["compatibilidad"] ?? "");
     $precio = (float)($datos["precio"] ?? 0);
+    $precioOferta = (float)($datos["precio_oferta"] ?? 0);
+    if ($precioOferta <= 0 || $precioOferta >= $precio) $precioOferta = 0;
     $stock = max(0, (int)($datos["stock"] ?? 0));
     $stockMinimo = max(0, (int)($datos["stock_minimo"] ?? 5));
     $imagen = trim($datos["imagen_url"] ?? "");
@@ -34,10 +38,10 @@ if ($metodo === "POST" || $metodo === "PUT") {
     if ($metodo === "POST") {
         $stmt = $conexion->prepare("
             INSERT INTO producto
-            (id_categoria,id_marca,nombre_producto,descripcion,precio,stock,stock_minimo,imagen_url)
-            VALUES (?,?,?,?,?,?,?,?)
+            (id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+            VALUES (?,?,?,?,?,?,?,NULLIF(?,0),?,?,?)
         ");
-        $stmt->bind_param("iissdiis",$idCategoria,$idMarca,$nombre,$descripcion,$precio,$stock,$stockMinimo,$imagen);
+        $stmt->bind_param("iissssddiis",$idCategoria,$idMarca,$nombre,$descripcion,$tipoVehiculo,$compatibilidad,$precio,$precioOferta,$stock,$stockMinimo,$imagen);
 
         if ($stmt->execute()) {
             responderProducto([
@@ -57,10 +61,11 @@ if ($metodo === "POST" || $metodo === "PUT") {
 
     $stmt = $conexion->prepare("
         UPDATE producto
-        SET id_categoria=?,id_marca=?,nombre_producto=?,descripcion=?,precio=?,stock=?,stock_minimo=?,imagen_url=?
+        SET id_categoria=?,id_marca=?,nombre_producto=?,descripcion=?,tipo_vehiculo=?,compatibilidad=?,
+            precio=?,precio_oferta=NULLIF(?,0),stock=?,stock_minimo=?,imagen_url=?
         WHERE id_producto=?
     ");
-    $stmt->bind_param("iissdiisi",$idCategoria,$idMarca,$nombre,$descripcion,$precio,$stock,$stockMinimo,$imagen,$idProducto);
+    $stmt->bind_param("iissssddiisi",$idCategoria,$idMarca,$nombre,$descripcion,$tipoVehiculo,$compatibilidad,$precio,$precioOferta,$stock,$stockMinimo,$imagen,$idProducto);
     $stmt->execute();
 
     responderProducto(["estado"=>true,"mensaje"=>"Producto actualizado"]);
@@ -112,7 +117,10 @@ $sql = "
         p.id_producto,
         p.nombre_producto,
         p.descripcion,
+        p.tipo_vehiculo,
+        p.compatibilidad,
         p.precio,
+        p.precio_oferta,
         p.stock,
         p.stock_minimo,
         p.imagen_url,
