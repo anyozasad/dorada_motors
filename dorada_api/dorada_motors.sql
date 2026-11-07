@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS usuario (
   correo VARCHAR(160) NOT NULL UNIQUE,
   contrasena VARCHAR(255) NOT NULL,
   telefono VARCHAR(30) NOT NULL DEFAULT '',
-  estado VARCHAR(20) NOT NULL DEFAULT 'Activo'
+  estado VARCHAR(20) NOT NULL DEFAULT 'Activo',
+  rol_sistema VARCHAR(20) NOT NULL DEFAULT 'Cliente',
+  ultimo_acceso DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS direccion (
