@@ -97,6 +97,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
 
             session_regenerate_id(true);
+            $_SESSION["admin_last_activity"] = time();
             $_SESSION["admin"] = [
                 "id_admin" => $id,
                 "id_usuario" => $id,
