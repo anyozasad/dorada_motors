@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
+import '../widgets/ui_motion.dart';
 import 'checkout_screen.dart';
 import 'orders_screen.dart';
 
@@ -714,7 +715,28 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(child: _selectedPage()),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 340),
+          reverseDuration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final slide = Tween<Offset>(
+              begin: const Offset(.025, .018),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: slide, child: child),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(_page),
+            child: _selectedPage(),
+          ),
+        ),
+      ),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
@@ -757,20 +779,31 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _header(),
+          RevealOnMount(child: _header()),
           const SizedBox(height: 20),
-          _heroPanel(),
+          RevealOnMount(
+            delay: const Duration(milliseconds: 70),
+            child: _heroPanel(),
+          ),
           const SizedBox(height: 18),
-          _searchBox(submitToProducts: true),
+          RevealOnMount(
+            delay: const Duration(milliseconds: 130),
+            child: _searchBox(submitToProducts: true),
+          ),
           const SizedBox(height: 25),
-          _sectionHeader('Compra por categoría', 'Ver todas', () {
+          RevealOnMount(
+            delay: const Duration(milliseconds: 190),
+            child: _sectionHeader('Compra por categoría', 'Ver todas', () {
             setState(() {
               _category = 'Todos';
               _page = 1;
             });
           }),
+          ),
           const SizedBox(height: 12),
-          SizedBox(
+          RevealOnMount(
+            delay: const Duration(milliseconds: 230),
+            child: SizedBox(
             height: 116,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -1070,8 +1103,8 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(height: 15),
           if (_cargandoProductosApi)
             const Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: LinearProgressIndicator(minHeight: 3),
+              padding: EdgeInsets.only(bottom: 14),
+              child: _CatalogLoadingCard(),
             )
           else if (_errorProductosApi != null)
             Padding(
@@ -1305,12 +1338,95 @@ class _MainShellState extends State<MainShell> {
       ),
       itemBuilder: (context, index) {
         final product = products[index];
-        return ProductCard(
-          product: product,
-          favorite: _favorites.contains(product.id),
-          onTap: () => _openProduct(product),
-          onFavorite: () => _toggleFavorite(product.id),
-          onAddCart: () => _addCart(product.id),
+        return RevealOnMount(
+          delay: Duration(milliseconds: (index % 8) * 42),
+          duration: const Duration(milliseconds: 360),
+          beginOffset: const Offset(0, .035),
+          child: ProductCard(
+            product: product,
+            favorite: _favorites.contains(product.id),
+            onTap: () => _openProduct(product),
+            onFavorite: () => _toggleFavorite(product.id),
+            onAddCart: () => _addCart(product.id),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CatalogLoadingCard extends StatefulWidget {
+  const _CatalogLoadingCard();
+
+  @override
+  State<_CatalogLoadingCard> createState() => _CatalogLoadingCardState();
+}
+
+class _CatalogLoadingCardState extends State<_CatalogLoadingCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        final opacity = .45 + (.35 * (1 - (2 * t - 1).abs()));
+        return Opacity(
+          opacity: opacity,
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6E9EF),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 11,
+                      width: 170,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE6E9EF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 9,
+                      width: 110,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF0F4),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ],
+          ),
         );
       },
     );
