@@ -40,15 +40,33 @@ if ($metodo === "POST") {
     ");
     $stmt->bind_param("isds",$idPedido,$metodoPago,$monto,$estado);
 
-    if (!$stmt->execute()) {
-        responderPago(["estado"=>false,"mensaje"=>"No se pudo registrar el pago"], 500);
-    }
+    $conexion->begin_transaction();
+    try {
+        if (!$stmt->execute()) {
+            throw new RuntimeException("No se pudo registrar el pago");
+        }
+        $idPago = (int)$conexion->insert_id;
 
-    responderPago([
-        "estado"=>true,
-        "mensaje"=>"Pago registrado",
-        "id_pago"=>$conexion->insert_id
-    ], 201);
+        if ($estado === "Pagado") {
+            $stmtPedido = $conexion->prepare("
+                UPDATE pedido
+                SET estado_pedido='Pagado'
+                WHERE id_pedido=? AND estado_pedido NOT IN ('Cancelado','Completado')
+            ");
+            $stmtPedido->bind_param("i",$idPedido);
+            $stmtPedido->execute();
+        }
+
+        $conexion->commit();
+        responderPago([
+            "estado"=>true,
+            "mensaje"=>"Pago registrado",
+            "id_pago"=>$idPago
+        ], 201);
+    } catch (Throwable $e) {
+        $conexion->rollback();
+        responderPago(["estado"=>false,"mensaje"=>$e->getMessage()], 500);
+    }
 }
 
 $idPedido = (int)($_GET["id_pedido"] ?? 0);
