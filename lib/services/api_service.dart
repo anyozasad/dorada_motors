@@ -5,6 +5,13 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   static String get baseUrl {
+    const configurada = String.fromEnvironment('API_BASE_URL');
+    if (configurada.isNotEmpty) {
+      return configurada.endsWith('/')
+          ? configurada.substring(0, configurada.length - 1)
+          : configurada;
+    }
+
     if (kIsWeb) {
       return 'http://localhost/dorada_api';
     }
