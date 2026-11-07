@@ -1886,6 +1886,9 @@ a{text-decoration:none;color:inherit}
 .notify-menu a{display:flex;flex-direction:column;gap:3px;padding:10px;border-radius:10px}.notify-menu a:hover{background:#f7f8fa}.notify-menu b{font-size:11px}.notify-menu small{font-size:10px;color:var(--muted)}
 .brand-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;margin-bottom:16px;padding:22px 24px;border-radius:20px;background:radial-gradient(circle at 80% 20%,rgba(255,106,0,.28),transparent 30%),linear-gradient(135deg,#11141a,#262a31);color:#fff;box-shadow:0 14px 40px rgba(17,20,26,.16);overflow:hidden}
 .brand-hero h1{margin:3px 0 7px;font-size:28px;line-height:1.05}.brand-hero p{margin:0;color:#d5d8dd;font-size:13px}.hero-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}.hero-tags span{font-size:9px;font-weight:800;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.08);color:#e8edf2}.hero-tags span::first-letter{color:#42c77a}
+.live-refresh-btn{border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:6px 10px;font-size:9px;font-weight:900;cursor:pointer}
+.live-refresh-btn:hover{background:rgba(255,106,0,.24);border-color:rgba(255,129,53,.45)}
+.live-refresh-btn.is-loading{opacity:.65;pointer-events:none}
 .hero-brand{display:flex;align-items:center;gap:12px}.hero-brand img{width:100px;height:100px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 30px rgba(0,0,0,.28)}.hero-brand small{display:none}
 .metric small{display:block;margin-top:3px;font-size:9px;color:var(--muted);font-weight:700}.metric-icon.red{background:#ffe9e6;color:#d43122}.metric-icon.orange{background:#fff0e5;color:#ef6200}
 .home-tools{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:16px}.compact-list{display:flex;flex-direction:column}.compact-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;padding:10px 3px;border-bottom:1px solid var(--border)}.compact-row:hover{background:#fafbfc}.compact-row strong{display:block;font-size:10px}.compact-row small{display:block;margin-top:2px;font-size:9px;color:var(--muted)}.compact-row>b{font-size:10px}.product-dot{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,#ff6a00,#c92b18)}.payment-dot{width:28px;height:28px;border-radius:9px;background:#e9f8f0;color:#168a5c;display:grid;place-items:center;font-size:9px;font-weight:900}.critical-text{color:#d53124}.warning-text{color:#c47d00}.empty-state{padding:18px;text-align:center;color:var(--muted);font-size:11px}
@@ -2198,12 +2201,12 @@ input:focus,select:focus,textarea:focus{
  <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar en la sección actual..."><kbd>Ctrl K</kbd></div>
  <div class="top-actions">
   <div class="notify-wrap">
-   <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<?php if($stockBajo+$pedidosPendientes>0): ?><span class="notification-count"><?= $stockBajo+$pedidosPendientes ?></span><?php endif; ?></button>
+   <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes ?></span></button>
    <div class="notify-menu" id="notifyMenu">
     <div class="notify-head"><strong>Notificaciones</strong><span>En tiempo real</span></div>
-    <?php if(puede("inventario")): ?><a href="#inventario"><b>⚠ Stock bajo</b><small><?= $stockBajo ?> producto(s) requieren atención</small></a><?php endif; ?>
-    <?php if(puede("pedidos")): ?><a href="#pedidos"><b>🛒 Pedidos por atender</b><small><?= $pedidosPendientes ?> pendiente(s) o en proceso</small></a><?php endif; ?>
-    <?php if(puede("reportes")): ?><a href="#reportes"><b>💰 Ventas de hoy</b><small>S/ <?= number_format($ventasHoy,2) ?></small></a><?php endif; ?>
+    <?php if(puede("inventario")): ?><a href="#inventario"><b>⚠ Stock bajo</b><small id="notifStock"><?= $stockBajo ?> producto(s) requieren atención</small></a><?php endif; ?>
+    <?php if(puede("pedidos")): ?><a href="#pedidos"><b>🛒 Pedidos por atender</b><small id="notifPedidos"><?= $pedidosPendientes ?> pendiente(s) o en proceso</small></a><?php endif; ?>
+    <?php if(puede("reportes")): ?><a href="#reportes"><b>💰 Ventas de hoy</b><small id="notifVentasHoy">S/ <?= number_format($ventasHoy,2) ?></small></a><?php endif; ?>
    </div>
   </div>
   <a class="admin" href="<?= puede("configuracion") ? "#configuracion" : "#inicio" ?>" title="Cuenta administrativa"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
@@ -2222,7 +2225,7 @@ input:focus,select:focus,textarea:focus{
   <h1>¡Bienvenido, <?= h(explode(" ", $adminNombre)[0] ?: "Administrador") ?>!</h1>
   <p>Gestiona clientes, ventas, catálogo, inventario, compras y reportes desde un solo lugar.</p>
   <div class="hero-tags">
-   <span>● PHP conectado</span><span>● MySQL activo</span><span>● API lista para Flutter</span><span id="liveStatus">● Datos en vivo</span>
+   <span>● PHP conectado</span><span>● MySQL activo</span><span>● API lista para Flutter</span><span id="liveStatus">● Datos en vivo</span><button type="button" class="live-refresh-btn" id="liveRefreshBtn" title="Actualizar dashboard ahora">↻ Actualizar</button>
   </div>
  </div>
  <div class="hero-brand">
@@ -2234,30 +2237,30 @@ input:focus,select:focus,textarea:focus{
 <section class="metrics">
  <?php if(puede("gestion-productos")): ?><a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value" id="metricProductos"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a><?php endif; ?>
  <?php if(puede("clientes")): ?><a class="metric" href="#clientes"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value" id="metricClientes"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
- <?php if(puede("pedidos")): ?><a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value" id="metricPedidos"><?= $totalPedidos ?></div><small><?= $pedidosPendientes ?> por atender</small></div></a><?php endif; ?>
- <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value" id="metricVentas">S/ <?= number_format($totalVentas,2) ?></div><small>Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a><?php endif; ?>
- <?php if(puede("inventario")): ?><a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value" id="metricStockBajo"><?= $stockBajo ?></div><small><?= $stockCritico ?> crítico(s)</small></div></a><?php endif; ?>
+ <?php if(puede("pedidos")): ?><a class="metric" href="#pedidos"><div class="metric-icon purple">🛒</div><div><div class="metric-label">Pedidos</div><div class="metric-value" id="metricPedidos"><?= $totalPedidos ?></div><small id="metricPedidosSub"><?= $pedidosPendientes ?> por atender</small></div></a><?php endif; ?>
+ <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon green">S/</div><div><div class="metric-label">Ventas</div><div class="metric-value" id="metricVentas">S/ <?= number_format($totalVentas,2) ?></div><small id="metricVentasSub">Mes: S/ <?= number_format($ventasMes,2) ?> · Hoy: S/ <?= number_format($ventasHoy,2) ?></small></div></a><?php endif; ?>
+ <?php if(puede("inventario")): ?><a class="metric" href="#inventario"><div class="metric-icon red">!</div><div><div class="metric-label">Stock bajo</div><div class="metric-value" id="metricStockBajo"><?= $stockBajo ?></div><small id="metricStockSub"><?= $stockCritico ?> crítico(s)</small></div></a><?php endif; ?>
  <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon orange">↗</div><div><div class="metric-label">Margen estimado</div><div class="metric-value">S/ <?= number_format($gananciaEstimada,2) ?></div><small>Según costos registrados</small></div></a><?php endif; ?>
 </section>
 
 <section class="ops-strip">
- <?php if(puede("inventario")): ?><a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a><?php endif; ?>
- <?php if(puede("proveedores")): ?><a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a><?php endif; ?>
- <?php if(puede("compras")): ?><a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong>S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a><?php endif; ?>
+ <?php if(puede("inventario")): ?><a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong id="opsStockValue"><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a><?php endif; ?>
+ <?php if(puede("proveedores")): ?><a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong id="opsProveedoresValue"><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a><?php endif; ?>
+ <?php if(puede("compras")): ?><a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong id="opsComprasValue">S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a><?php endif; ?>
 </section>
 
 <section class="grid-main">
  <article class="card">
   <div class="card-head"><h2>Ventas de los últimos 7 días</h2><span class="badge">Últimos 7 días</span></div>
-  <div class="chart">
+  <div class="chart" id="chartVentas7">
    <?php foreach($ventas7 as $dato): $altura=$dato["total"]>0?max(8,($dato["total"]/$maxVenta)*88):4; ?>
    <div class="chart-item"><div class="bar" style="height:<?= number_format($altura,1,'.','') ?>%"><div class="bar-tip">S/ <?= number_format($dato["total"],2) ?></div></div><div class="day"><?= h($dato["dia"]) ?></div></div>
    <?php endforeach; ?>
   </div>
  </article>
  <article class="card">
-  <div class="card-head"><h2>Tendencia de pedidos</h2><span class="badge"><?= $pedidosPendientes ?> por atender</span></div>
-  <div class="chart line-bars">
+  <div class="card-head"><h2>Tendencia de pedidos</h2><span class="badge" id="pedidosPendientesBadge"><?= $pedidosPendientes ?> por atender</span></div>
+  <div class="chart line-bars" id="chartPedidos7">
    <?php foreach($pedidos7 as $dato): $altura=$dato["total"]>0?max(8,($dato["total"]/$maxPedidos)*88):4; ?>
    <div class="chart-item"><div class="bar order-bar" style="height:<?= number_format($altura,1,'.','') ?>%"><div class="bar-tip"><?= (int)$dato["total"] ?> pedido(s)</div></div><div class="day"><?= h($dato["dia"]) ?></div></div>
    <?php endforeach; ?>
@@ -2268,7 +2271,7 @@ input:focus,select:focus,textarea:focus{
 <section class="grid-bottom">
  <article class="card">
   <div class="card-head"><h2>Pedidos recientes</h2><a href="#pedidos">Ver todos →</a></div>
-  <div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th>Total</th></tr></thead><tbody>
+  <div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th>Total</th></tr></thead><tbody id="tablaPedidosRecientesBody">
    <?php if(!$pedidos): ?><tr><td colspan="5" style="text-align:center;color:#718096">Todavía no hay pedidos.</td></tr><?php else: foreach(array_slice($pedidos,0,5) as $p): ?>
    <tr><td>#<?= h($p["id_pedido"]) ?></td><td><?= h($p["nombres"]." ".$p["apellidos"]) ?></td><td><?= h(date("d/m/Y",strtotime($p["fecha_pedido"]))) ?></td><td><?= h($p["estado_pedido"]) ?></td><td class="price">S/ <?= number_format((float)$p["total"],2) ?></td></tr>
    <?php endforeach; endif; ?>
@@ -2276,7 +2279,7 @@ input:focus,select:focus,textarea:focus{
  </article>
  <article class="card">
   <div class="card-head"><h2>Productos más vendidos</h2><a href="#gestion-productos">Ver productos →</a></div>
-  <div class="top-list">
+  <div class="top-list" id="listaTopProductos">
    <?php if(!$masVendidos): ?><p style="font-size:12px;color:#718096">No hay datos.</p><?php else: foreach($masVendidos as $i=>$prod): ?>
    <div class="top-product"><div class="rank"><?= $i+1 ?></div><strong><?= h($prod["nombre_producto"]) ?></strong><span><?= (int)$prod["vendidos"] ?> vendidos</span></div>
    <?php endforeach; endif; ?>
@@ -2297,7 +2300,7 @@ input:focus,select:focus,textarea:focus{
 
  <article class="card">
   <div class="card-head"><h2>Stock bajo / alertas</h2><a href="#inventario">Ver inventario →</a></div>
-  <div class="compact-list">
+  <div class="compact-list" id="listaStockAlertas">
    <?php if(!$productosStockBajo): ?><div class="empty-state">✓ Todo el inventario está en buen nivel.</div><?php else: foreach(array_slice($productosStockBajo,0,5) as $sb): ?>
     <a href="#inventario" class="compact-row"><span class="product-dot"></span><div><strong><?= h($sb["nombre_producto"]) ?></strong><small>Stock actual</small></div><b class="<?= (int)$sb["stock"]<=2?"critical-text":"warning-text" ?>"><?= (int)$sb["stock"] ?></b></a>
    <?php endforeach; endif; ?>
@@ -2306,7 +2309,7 @@ input:focus,select:focus,textarea:focus{
 
  <article class="card">
   <div class="card-head"><h2>Últimos pagos</h2><a href="#pagos">Ver todos →</a></div>
-  <div class="compact-list">
+  <div class="compact-list" id="listaPagosRecientes">
    <?php if(!$pagos): ?><div class="empty-state">Aún no hay pagos registrados.</div><?php else: foreach(array_slice($pagos,0,5) as $pg): ?>
     <a href="#pagos" class="compact-row"><span class="payment-dot">S/</span><div><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong><small><?= h($pg["metodo_pago"]) ?> · <?= h($pg["estado_pago"]) ?></small></div><b>S/ <?= number_format((float)$pg["monto"],2) ?></b></a>
    <?php endforeach; endif; ?>
@@ -2995,7 +2998,114 @@ function exportarTabla(id,nombre){
  URL.revokeObjectURL(url);
 }
 
-async function actualizarDashboardEnVivo(){
+function escaparHTML(valor){
+ return String(valor??'')
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;')
+  .replace(/'/g,'&#039;');
+}
+
+function moneda(valor){
+ return 'S/ '+Number(valor||0).toFixed(2);
+}
+
+function renderSerieBarras(id,datos,claseBarra='',esMoneda=false){
+ const cont=document.getElementById(id);
+ if(!cont || !Array.isArray(datos)) return;
+ const max=Math.max(1,...datos.map(x=>Number(x.total||0)));
+ cont.innerHTML=datos.map(d=>{
+  const total=Number(d.total||0);
+  const altura=total>0?Math.max(8,(total/max)*88):4;
+  const tip=esMoneda?moneda(total):Math.round(total)+' pedido(s)';
+  return '<div class="chart-item"><div class="bar '+claseBarra+'" style="height:'+altura.toFixed(1)+'%"><div class="bar-tip">'+escaparHTML(tip)+'</div></div><div class="day">'+escaparHTML(d.dia||'')+'</div></div>';
+ }).join('');
+}
+
+function renderPedidosRecientes(datos){
+ const body=document.getElementById('tablaPedidosRecientesBody');
+ if(!body || !Array.isArray(datos)) return;
+ if(!datos.length){
+  body.innerHTML='<tr><td colspan="5" style="text-align:center;color:#718096">Todavía no hay pedidos.</td></tr>';
+  return;
+ }
+ body.innerHTML=datos.map(p=>{
+  const fecha=p.fecha_pedido?new Date(String(p.fecha_pedido).replace(' ','T')):null;
+  const fechaTxt=fecha && !Number.isNaN(fecha.getTime())?fecha.toLocaleDateString('es-PE'):'-';
+  return '<tr><td>#'+escaparHTML(p.id_pedido)+'</td><td>'+escaparHTML((p.nombres||'')+' '+(p.apellidos||''))+'</td><td>'+escaparHTML(fechaTxt)+'</td><td><span class="status-pill">'+escaparHTML(p.estado_pedido||'')+'</span></td><td class="price">'+escaparHTML(moneda(p.total))+'</td></tr>';
+ }).join('');
+ aplicarClasesEstado();
+}
+
+function renderTopProductos(datos){
+ const cont=document.getElementById('listaTopProductos');
+ if(!cont || !Array.isArray(datos)) return;
+ if(!datos.length){
+  cont.innerHTML='<p style="font-size:12px;color:#718096">No hay datos.</p>';
+  return;
+ }
+ cont.innerHTML=datos.map((p,i)=>
+  '<div class="top-product"><div class="rank">'+(i+1)+'</div><strong>'+escaparHTML(p.nombre_producto||'Producto')+'</strong><span>'+Number(p.vendidos||0)+' vendidos</span></div>'
+ ).join('');
+}
+
+function renderStockAlertas(datos){
+ const cont=document.getElementById('listaStockAlertas');
+ if(!cont || !Array.isArray(datos)) return;
+ if(!datos.length){
+  cont.innerHTML='<div class="empty-state">✓ Todo el inventario está en buen nivel.</div>';
+  return;
+ }
+ cont.innerHTML=datos.map(p=>{
+  const stock=Number(p.stock||0);
+  return '<a href="#inventario" class="compact-row"><span class="product-dot"></span><div><strong>'+escaparHTML(p.nombre_producto||'Producto')+'</strong><small>Stock actual · mínimo '+Number(p.stock_minimo||0)+'</small></div><b class="'+(stock<=2?'critical-text':'warning-text')+'">'+stock+'</b></a>';
+ }).join('');
+ enlazarNavegacionDinamica(cont);
+}
+
+function renderPagosRecientes(datos){
+ const cont=document.getElementById('listaPagosRecientes');
+ if(!cont || !Array.isArray(datos)) return;
+ if(!datos.length){
+  cont.innerHTML='<div class="empty-state">Aún no hay pagos registrados.</div>';
+  return;
+ }
+ cont.innerHTML=datos.map(p=>
+  '<a href="#pagos" class="compact-row"><span class="payment-dot">S/</span><div><strong>'+escaparHTML((p.nombres||'')+' '+(p.apellidos||''))+'</strong><small>'+escaparHTML(p.metodo_pago||'')+' · '+escaparHTML(p.estado_pago||'')+'</small></div><b>'+escaparHTML(moneda(p.monto))+'</b></a>'
+ ).join('');
+ enlazarNavegacionDinamica(cont);
+}
+
+function enlazarNavegacionDinamica(contenedor){
+ contenedor?.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+   const id=a.getAttribute('href').substring(1);
+   if(document.getElementById(id)){
+    e.preventDefault();
+    mostrarPanel(id,true);
+   }
+  });
+ });
+}
+
+function aplicarClasesEstado(){
+ document.querySelectorAll('.status-pill').forEach(el=>{
+  el.classList.remove('success','warning','danger','info');
+  const t=el.textContent.toLowerCase().trim();
+  if(['activo','pagado','completado','entregado','aprobada','registrado','entrada'].includes(t)) el.classList.add('success');
+  else if(['pendiente','procesando','enviado','salida'].includes(t)) el.classList.add('warning');
+  else if(['cancelado','rechazado','bloqueado','agotado'].includes(t)) el.classList.add('danger');
+  else el.classList.add('info');
+ });
+}
+
+async function actualizarDashboardEnVivo(manual=false){
+ const refreshBtn=document.getElementById('liveRefreshBtn');
+ if(manual){
+  refreshBtn?.classList.add('is-loading');
+  if(refreshBtn) refreshBtn.textContent='↻ Actualizando...';
+ }
  try{
   const respuesta=await fetch('dashboard_api.php?ts='+Date.now(),{cache:'no-store'});
   if(!respuesta.ok) throw new Error('HTTP '+respuesta.status);
@@ -3010,13 +3120,46 @@ async function actualizarDashboardEnVivo(){
   poner('metricProductos',data.productos);
   poner('metricClientes',data.usuarios);
   poner('metricPedidos',data.pedidos);
-  poner('metricVentas','S/ '+Number(data.ventas||0).toFixed(2));
+  poner('metricPedidosSub',Number(data.pedidos_pendientes||0)+' por atender');
+  poner('metricVentas',moneda(data.ventas));
+  poner('metricVentasSub','Mes: '+moneda(data.ventas_mes)+' · Hoy: '+moneda(data.ventas_hoy));
   poner('metricStockBajo',data.stock_bajo);
+  poner('metricStockSub',Number(data.stock_critico||0)+' crítico(s)');
+  poner('opsStockValue',data.stock_bajo);
+  poner('opsProveedoresValue',data.proveedores);
+  poner('opsComprasValue',moneda(data.compras));
+  poner('pedidosPendientesBadge',Number(data.pedidos_pendientes||0)+' por atender');
+  poner('notifStock',Number(data.stock_bajo||0)+' producto(s) requieren atención');
+  poner('notifPedidos',Number(data.pedidos_pendientes||0)+' pendiente(s) o en proceso');
+  poner('notifVentasHoy',moneda(data.ventas_hoy));
+
+  const totalAlertas=Number(data.stock_bajo||0)+Number(data.pedidos_pendientes||0);
+  const count=document.getElementById('notificationCount');
+  if(count){
+   count.textContent=String(totalAlertas);
+   count.hidden=totalAlertas===0;
+  }
+
+  renderSerieBarras('chartVentas7',data.ventas_7_dias,'',true);
+  renderSerieBarras('chartPedidos7',data.pedidos_7_dias,'order-bar',false);
+  renderPedidosRecientes(data.ultimos_pedidos);
+  renderTopProductos(data.productos_mas_vendidos);
+  renderStockAlertas(data.alertas_stock);
+  renderPagosRecientes(data.pagos_recientes);
 
   const estado=document.getElementById('liveStatus');
   if(estado){
    estado.textContent='● Datos en vivo · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
    estado.style.opacity='1';
+  }
+
+  if(manual){
+   const toast=document.getElementById('toast');
+   if(toast){
+    toast.textContent='Dashboard actualizado con datos reales.';
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'),2200);
+   }
   }
  }catch(e){
   const estado=document.getElementById('liveStatus');
@@ -3024,11 +3167,18 @@ async function actualizarDashboardEnVivo(){
    estado.textContent='● Sin conexión en vivo';
    estado.style.opacity='.65';
   }
+ }finally{
+  if(manual){
+   refreshBtn?.classList.remove('is-loading');
+   if(refreshBtn) refreshBtn.textContent='↻ Actualizar';
+  }
  }
 }
 
+document.getElementById('liveRefreshBtn')?.addEventListener('click',()=>actualizarDashboardEnVivo(true));
+
 actualizarDashboardEnVivo();
-setInterval(actualizarDashboardEnVivo,15000);
+setInterval(()=>actualizarDashboardEnVivo(false),15000);
 
 const inicial=location.hash ? location.hash.substring(1) : 'inicio';
 mostrarPanel(inicial,false);
