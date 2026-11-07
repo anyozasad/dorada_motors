@@ -1,6 +1,7 @@
 <?php
 require_once "conexion.php";
 require_once "auth_admin.php";
+require_once "empresa_config.php";
 header("Content-Type: text/html; charset=UTF-8");
 
 requerirAdmin();
@@ -42,16 +43,7 @@ $stmt->bind_param("i",$comprobante["id_pedido"]);
 $stmt->execute();
 $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$config = [
-    "logo" => "logo_adn_imports.png",
-    "razon_social" => "ADN Import's",
-    "nombre_comercial" => "Dorada Motors",
-    "ruc" => "",
-    "direccion" => "",
-    "telefono" => "",
-    "correo" => "",
-    "igv" => 18,
-];
+$config = cargarConfigEmpresa();
 
 registrarBitacora(
     $conexion,
