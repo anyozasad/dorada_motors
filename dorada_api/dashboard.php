@@ -1606,7 +1606,7 @@ input:focus,select:focus,textarea:focus{
 
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
- <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v3.0<br>PHP · MySQL · Flutter</div>
+ <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v4.0<br>PHP · MySQL · Flutter · UI dinámica</div>
 </aside>
 
 <main class="main">
