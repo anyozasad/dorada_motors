@@ -8,7 +8,12 @@ $origenesPermitidos = array_filter(array_map(
     explode(",", getenv("APP_ORIGINS") ?: "http://localhost:8080,http://127.0.0.1:8080")
 ));
 
-if ($origen !== "" && in_array($origen, $origenesPermitidos, true)) {
+$esOrigenLocal = preg_match(
+    '#^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$#',
+    $origen
+) === 1;
+
+if ($origen !== "" && (in_array($origen, $origenesPermitidos, true) || $esOrigenLocal)) {
     header("Access-Control-Allow-Origin: " . $origen);
     header("Vary: Origin");
 }
