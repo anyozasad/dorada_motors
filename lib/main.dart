@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/local_store.dart';
@@ -72,36 +71,6 @@ class _AppRootState extends State<AppRoot> {
     });
   }
 
-  void _openDashboard() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DashboardScreen()),
-    );
-  }
-
-  Widget _withDashboardAccess(Widget child) {
-    return Stack(
-      children: [
-        Positioned.fill(child: child),
-        Positioned(
-          right: 18,
-          bottom: 96,
-          child: SafeArea(
-            child: FloatingActionButton.extended(
-              heroTag: 'dashboardFab',
-              onPressed: _openDashboard,
-              backgroundColor: AppColors.navy,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.dashboard_rounded, color: AppColors.gold),
-              label: const Text(
-                'Dashboard',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,22 +85,20 @@ class _AppRootState extends State<AppRoot> {
           onGuest: _guest,
         );
       case AppMode.guest:
-        return _withDashboardAccess(
-          MainShell(
-            isGuest: true,
-            onLoginRequested: _showLogin,
-            onLogout: _logout,
-          ),
+        return MainShell(
+          key: const ValueKey('guest'),
+          isGuest: true,
+          onLoginRequested: _showLogin,
+          onLogout: _logout,
         );
       case AppMode.authenticated:
-        return _withDashboardAccess(
-          MainShell(
-            isGuest: false,
-            userName: _session?['name'],
-            userEmail: _session?['email'],
-            onLoginRequested: _showLogin,
-            onLogout: _logout,
-          ),
+        return MainShell(
+          key: const ValueKey('authenticated'),
+          isGuest: false,
+          userName: _session?['name'],
+          userEmail: _session?['email'],
+          onLoginRequested: _showLogin,
+          onLogout: _logout,
         );
     }
   }
