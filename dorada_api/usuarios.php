@@ -3,6 +3,40 @@
 include("conexion.php");
 require_once "sistema_bootstrap.php";
 
+if ($_SERVER["REQUEST_METHOD"] === "PUT") {
+    $datos = json_decode(file_get_contents("php://input"), true);
+
+    if (!is_array($datos)) {
+        http_response_code(400);
+        echo json_encode(["estado"=>false,"mensaje"=>"Datos inválidos"], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    $telefono = trim($datos["telefono"] ?? "");
+
+    if ($idUsuario <= 0 || strlen($telefono) < 7) {
+        http_response_code(400);
+        echo json_encode(["estado"=>false,"mensaje"=>"Teléfono inválido"], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $stmt = $conexion->prepare("UPDATE usuario SET telefono=? WHERE id_usuario=?");
+    $stmt->bind_param("si", $telefono, $idUsuario);
+
+    if (!$stmt->execute()) {
+        http_response_code(500);
+        echo json_encode(["estado"=>false,"mensaje"=>"No se pudo actualizar el teléfono"], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    echo json_encode([
+        "estado"=>true,
+        "mensaje"=>"Teléfono actualizado"
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $datos = json_decode(file_get_contents("php://input"), true);
 
