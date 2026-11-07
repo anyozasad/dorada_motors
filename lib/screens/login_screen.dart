@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ui_motion.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -98,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         title: const Text('Recuperar contraseña'),
         content: const Text(
-          'La recuperación de contraseña se agregará como siguiente módulo del backend.',
+          'Para proteger tu cuenta, la recuperación debe validarse con el correo registrado. Contacta al administrador de Dorada Motors para restablecer el acceso.',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -127,11 +128,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   constraints: const BoxConstraints(maxWidth: 470),
                   child: Column(
                     children: [
-                      _brandHeader(),
+                      RevealOnMount(child: _brandHeader()),
                       const SizedBox(height: 22),
-                      _loginCard(),
+                      RevealOnMount(
+                        delay: const Duration(milliseconds: 90),
+                        child: _loginCard(),
+                      ),
                       const SizedBox(height: 22),
-                      _benefitsPanel(),
+                      RevealOnMount(
+                        delay: const Duration(milliseconds: 180),
+                        child: _benefitsPanel(),
+                      ),
                     ],
                   ),
                 ),
@@ -146,7 +153,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _brandHeader() {
     return Column(
       children: [
-        Container(
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: .92, end: 1),
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) => Transform.scale(
+            scale: value,
+            child: child,
+          ),
+          child: Container(
           width: 108,
           height: 108,
           padding: const EdgeInsets.all(5),
@@ -169,6 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
               fit: BoxFit.cover,
             ),
           ),
+        ),
         ),
         const SizedBox(height: 16),
         RichText(
