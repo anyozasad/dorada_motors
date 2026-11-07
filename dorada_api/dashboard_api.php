@@ -10,7 +10,7 @@ try {
     )->fetch_assoc()["total"];
 
     $totalUsuarios = (int)$conexion->query(
-        "SELECT COUNT(*) AS total FROM usuario"
+        "SELECT COUNT(*) AS total FROM usuario WHERE rol_sistema='Cliente'"
     )->fetch_assoc()["total"];
 
     $totalPedidos = (int)$conexion->query(
