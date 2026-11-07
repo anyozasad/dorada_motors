@@ -15,6 +15,15 @@ require_once __DIR__ . "/sistema_bootstrap.php";
 
 function adminActual(): ?array {
     if (empty($_SESSION["admin"])) return null;
+
+    $ultimo = (int)($_SESSION["admin_last_activity"] ?? 0);
+    if ($ultimo > 0 && (time() - $ultimo) > 7200) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        return null;
+    }
+
+    $_SESSION["admin_last_activity"] = time();
     return $_SESSION["admin"];
 }
 
@@ -70,8 +79,28 @@ function csrfValido(?string $token): bool {
 }
 
 function registrarBitacora(mysqli $conexion, string $modulo, string $accion, string $detalle = ""): void {
-    // La versión simplificada no usa una tabla de bitácora.
-    return;
+    $dir = __DIR__ . "/data";
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+
+    $admin = $_SESSION["admin"] ?? [];
+    $registro = [
+        "fecha" => date("Y-m-d H:i:s"),
+        "id_usuario" => (int)($admin["id_usuario"] ?? $admin["id_admin"] ?? 0),
+        "usuario" => (string)($admin["correo"] ?? ""),
+        "rol" => (string)($admin["rol"] ?? ""),
+        "modulo" => $modulo,
+        "accion" => $accion,
+        "detalle" => $detalle,
+        "ip" => (string)($_SERVER["REMOTE_ADDR"] ?? ""),
+    ];
+
+    @file_put_contents(
+        $dir . "/auditoria.jsonl",
+        json_encode($registro, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL,
+        FILE_APPEND | LOCK_EX
+    );
 }
 
 function limpiarNext(string $next): string {
