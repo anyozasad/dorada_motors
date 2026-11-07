@@ -21,6 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $tipoEntrega = trim($datos["tipo_entrega"] ?? "Recojo en tienda");
     $estado = trim($datos["estado_pedido"] ?? "Pendiente");
     $items = $datos["items"] ?? [];
+    $costoEntrega = max(0, (float)($datos["costo_entrega"] ?? 0));
 
     $stmt = $conexion->prepare("
         SELECT id_usuario,estado
@@ -85,7 +86,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 ];
             }
 
-            $total = round($total, 2);
+            $total = round($total + $costoEntrega, 2);
 
             if ($idDireccion !== null) {
                 $stmt = $conexion->prepare("
@@ -210,10 +211,27 @@ $idUsuarioFiltro = (int)($_GET["id_usuario"] ?? 0);
 if ($idUsuarioFiltro > 0) {
     $stmt = $conexion->prepare("
         SELECT
-            p.id_pedido,p.fecha_pedido,p.estado_pedido,p.total,p.tipo_entrega,p.id_direccion,
-            u.id_usuario,u.nombres,u.apellidos
+            p.id_pedido,
+            p.fecha_pedido,
+            p.estado_pedido,
+            p.total,
+            p.tipo_entrega,
+            p.id_direccion,
+            u.id_usuario,
+            u.nombres,
+            u.apellidos,
+            u.telefono,
+            d.direccion_detalle,
+            (
+                SELECT pg.metodo_pago
+                FROM pago pg
+                WHERE pg.id_pedido=p.id_pedido
+                ORDER BY pg.id_pago DESC
+                LIMIT 1
+            ) AS metodo_pago
         FROM pedido p
         INNER JOIN usuario u ON p.id_usuario=u.id_usuario
+        LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
         WHERE p.id_usuario=?
         ORDER BY p.id_pedido DESC
     ");
@@ -223,16 +241,64 @@ if ($idUsuarioFiltro > 0) {
 } else {
     $resultado = $conexion->query("
         SELECT
-            p.id_pedido,p.fecha_pedido,p.estado_pedido,p.total,p.tipo_entrega,p.id_direccion,
-            u.id_usuario,u.nombres,u.apellidos
+            p.id_pedido,
+            p.fecha_pedido,
+            p.estado_pedido,
+            p.total,
+            p.tipo_entrega,
+            p.id_direccion,
+            u.id_usuario,
+            u.nombres,
+            u.apellidos,
+            u.telefono,
+            d.direccion_detalle,
+            (
+                SELECT pg.metodo_pago
+                FROM pago pg
+                WHERE pg.id_pedido=p.id_pedido
+                ORDER BY pg.id_pago DESC
+                LIMIT 1
+            ) AS metodo_pago
         FROM pedido p
         INNER JOIN usuario u ON p.id_usuario=u.id_usuario
+        LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
         ORDER BY p.id_pedido DESC
     ");
 }
 
 $pedidos = [];
+
 while ($fila = $resultado->fetch_assoc()) {
+    $idPedido = (int)$fila["id_pedido"];
+
+    $stmtItems = $conexion->prepare("
+        SELECT
+            dp.id_producto,
+            dp.cantidad,
+            dp.precio_unitario,
+            dp.subtotal,
+            pr.nombre_producto
+        FROM detalle_pedido dp
+        INNER JOIN producto pr ON dp.id_producto=pr.id_producto
+        WHERE dp.id_pedido=?
+        ORDER BY dp.id_detalle ASC
+    ");
+    $stmtItems->bind_param("i",$idPedido);
+    $stmtItems->execute();
+    $itemsResultado = $stmtItems->get_result();
+
+    $itemsPedido = [];
+    while ($item = $itemsResultado->fetch_assoc()) {
+        $itemsPedido[] = [
+            "id_producto" => (int)$item["id_producto"],
+            "cantidad" => (int)$item["cantidad"],
+            "precio" => (float)$item["precio_unitario"],
+            "subtotal" => (float)$item["subtotal"],
+            "nombre_producto" => $item["nombre_producto"],
+        ];
+    }
+
+    $fila["items"] = $itemsPedido;
     $pedidos[] = $fila;
 }
 
