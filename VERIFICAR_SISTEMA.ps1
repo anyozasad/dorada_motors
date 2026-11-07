@@ -94,10 +94,18 @@ foreach ($endpoint in $endpoints) {
 
 try {
     $dash = Invoke-WebRequest "$BaseUrl/dashboard.php" -UseBasicParsing -TimeoutSec 10
-    if ($dash.StatusCode -eq 200 -and $dash.Content -match "Panel v3\.0") {
-        OK "Dashboard PHP v3.0 carga correctamente"
+    $dashboardDinamico =
+        $dash.Content -match "Panel v3\.0" -and
+        $dash.Content -match "Registrar nuevo pedido" -and
+        $dash.Content -match "actualizarDashboardEnVivo" -and
+        $dash.Content -match "actualizar_categoria" -and
+        $dash.Content -match "actualizar_marca" -and
+        $dash.Content -match "actualizar_proveedor"
+
+    if ($dash.StatusCode -eq 200 -and $dashboardDinamico) {
+        OK "Dashboard PHP dinamico: CRUD + venta manual + datos en vivo"
     } else {
-        FAIL "Dashboard no cargo la version final esperada"
+        FAIL "Dashboard carga, pero faltan funciones dinamicas de la version final"
     }
 } catch {
     FAIL "Dashboard PHP: $($_.Exception.Message)"
