@@ -1,16 +1,21 @@
 <?php
-
 include("conexion.php");
 
 header("Content-Type: application/json; charset=UTF-8");
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+function responderDireccion(array $data, int $status = 200): void {
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$metodo = $_SERVER["REQUEST_METHOD"];
+
+if ($metodo === "POST" || $metodo === "PUT") {
     $datos = json_decode(file_get_contents("php://input"), true);
 
     if (!is_array($datos)) {
-        http_response_code(400);
-        echo json_encode(["estado"=>false,"mensaje"=>"Datos de dirección inválidos"], JSON_UNESCAPED_UNICODE);
-        exit;
+        responderDireccion(["estado"=>false,"mensaje"=>"Datos de dirección inválidos"], 400);
     }
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
@@ -21,41 +26,85 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $referencia = trim($datos["referencia"] ?? "");
 
     if ($idUsuario <= 0 || $direccion === "") {
-        http_response_code(400);
-        echo json_encode(["estado"=>false,"mensaje"=>"Completa la dirección"], JSON_UNESCAPED_UNICODE);
-        exit;
+        responderDireccion(["estado"=>false,"mensaje"=>"Completa la dirección"], 400);
+    }
+
+    $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? LIMIT 1");
+    $stmt->bind_param("i",$idUsuario);
+    $stmt->execute();
+    if (!$stmt->get_result()->fetch_assoc()) {
+        responderDireccion(["estado"=>false,"mensaje"=>"Usuario no encontrado"], 404);
+    }
+
+    if ($metodo === "POST") {
+        $stmt = $conexion->prepare("
+            INSERT INTO direccion
+            (id_usuario,departamento,provincia,distrito,direccion_detalle,referencia)
+            VALUES (?,?,?,?,?,?)
+        ");
+        $stmt->bind_param("isssss",$idUsuario,$departamento,$provincia,$distrito,$direccion,$referencia);
+
+        if (!$stmt->execute()) {
+            responderDireccion(["estado"=>false,"mensaje"=>"No se pudo registrar la dirección"], 500);
+        }
+
+        responderDireccion([
+            "estado"=>true,
+            "mensaje"=>"Dirección registrada",
+            "id_direccion"=>$conexion->insert_id
+        ], 201);
+    }
+
+    $idDireccion = (int)($datos["id_direccion"] ?? $_GET["id"] ?? 0);
+    if ($idDireccion <= 0) {
+        responderDireccion(["estado"=>false,"mensaje"=>"Falta id_direccion"], 400);
     }
 
     $stmt = $conexion->prepare("
-        INSERT INTO direccion
-        (id_usuario,departamento,provincia,distrito,direccion_detalle,referencia)
-        VALUES (?,?,?,?,?,?)
+        UPDATE direccion
+        SET id_usuario=?,departamento=?,provincia=?,distrito=?,direccion_detalle=?,referencia=?
+        WHERE id_direccion=?
     ");
-    $stmt->bind_param(
-        "isssss",
-        $idUsuario,
-        $departamento,
-        $provincia,
-        $distrito,
-        $direccion,
-        $referencia
-    );
+    $stmt->bind_param("isssssi",$idUsuario,$departamento,$provincia,$distrito,$direccion,$referencia,$idDireccion);
+    $stmt->execute();
 
-    if (!$stmt->execute()) {
-        http_response_code(500);
-        echo json_encode(["estado"=>false,"mensaje"=>"No se pudo registrar la dirección"], JSON_UNESCAPED_UNICODE);
-        exit;
+    responderDireccion(["estado"=>true,"mensaje"=>"Dirección actualizada"]);
+}
+
+if ($metodo === "DELETE") {
+    $datos = json_decode(file_get_contents("php://input"), true) ?: [];
+    $idDireccion = (int)($datos["id_direccion"] ?? $_GET["id"] ?? 0);
+
+    if ($idDireccion <= 0) {
+        responderDireccion(["estado"=>false,"mensaje"=>"Falta id_direccion"], 400);
     }
 
-    echo json_encode([
-        "estado"=>true,
-        "mensaje"=>"Dirección registrada",
-        "id_direccion"=>$conexion->insert_id
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+    $stmt = $conexion->prepare("SELECT COUNT(*) AS total FROM pedido WHERE id_direccion=?");
+    $stmt->bind_param("i",$idDireccion);
+    $stmt->execute();
+    if ((int)$stmt->get_result()->fetch_assoc()["total"] > 0) {
+        responderDireccion(["estado"=>false,"mensaje"=>"La dirección está asociada a pedidos"], 409);
+    }
+
+    $stmt = $conexion->prepare("DELETE FROM direccion WHERE id_direccion=?");
+    $stmt->bind_param("i",$idDireccion);
+    $stmt->execute();
+
+    responderDireccion(["estado"=>true,"mensaje"=>"Dirección eliminada"]);
 }
 
 $idUsuario = (int)($_GET["id_usuario"] ?? 0);
+$idDireccion = (int)($_GET["id"] ?? 0);
+
+if ($idDireccion > 0) {
+    $stmt = $conexion->prepare("SELECT * FROM direccion WHERE id_direccion=? LIMIT 1");
+    $stmt->bind_param("i",$idDireccion);
+    $stmt->execute();
+    $fila = $stmt->get_result()->fetch_assoc();
+    if (!$fila) responderDireccion(["estado"=>false,"mensaje"=>"Dirección no encontrada"], 404);
+    echo json_encode($fila, JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 if ($idUsuario > 0) {
     $stmt = $conexion->prepare("SELECT * FROM direccion WHERE id_usuario=? ORDER BY id_direccion DESC");
@@ -67,8 +116,5 @@ if ($idUsuario > 0) {
 }
 
 $direcciones = [];
-while ($fila = $resultado->fetch_assoc()) {
-    $direcciones[] = $fila;
-}
-
+while ($fila = $resultado->fetch_assoc()) $direcciones[] = $fila;
 echo json_encode($direcciones, JSON_UNESCAPED_UNICODE);
