@@ -99,7 +99,7 @@ foreach ($endpoint in $endpoints) {
 try {
     $dash = Invoke-WebRequest "$BaseUrl/dashboard.php" -UseBasicParsing -TimeoutSec 10
     $dashboardDinamico =
-        $dash.Content -match "Panel v3\.0" -and
+        $dash.Content -match "Panel v4\.0" -and
         $dash.Content -match "Registrar nuevo pedido" -and
         $dash.Content -match "actualizarDashboardEnVivo" -and
         $dash.Content -match "actualizar_categoria" -and
