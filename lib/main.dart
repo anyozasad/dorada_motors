@@ -139,7 +139,7 @@ class _BrandSplash extends StatelessWidget {
             duration: const Duration(milliseconds: 720),
             curve: Curves.easeOutBack,
             builder: (context, value, child) => Opacity(
-              opacity: value.clamp(0, 1),
+              opacity: value.clamp(0.0, 1.0).toDouble(),
               child: Transform.scale(scale: value, child: child),
             ),
             child: Column(
