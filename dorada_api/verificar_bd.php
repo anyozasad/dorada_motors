@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . "/conexion.php";
+require_once __DIR__ . "/sistema_bootstrap.php";
 header("Content-Type: application/json; charset=UTF-8");
 
 $resultado = [
