@@ -129,6 +129,12 @@ class ApiService {
   static Future<List<dynamic>> obtenerProductos() =>
       _getList('productos.php');
 
+  static Future<List<dynamic>> obtenerCategorias() =>
+      _getList('categorias.php');
+
+  static Future<List<dynamic>> obtenerMarcas() =>
+      _getList('marcas.php');
+
   static Future<List<dynamic>> obtenerUsuarios() =>
       _getList('usuarios.php');
 
