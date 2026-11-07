@@ -88,7 +88,7 @@ foreach ($endpoint in $endpoints) {
             FAIL "API $endpoint devolvio HTTP $($resp.StatusCode)"
         }
     } catch {
-        FAIL "API $endpoint: $($_.Exception.Message)"
+        FAIL "API ${endpoint}: $($_.Exception.Message)"
     }
 }
 
