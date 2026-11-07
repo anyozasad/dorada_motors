@@ -79,6 +79,8 @@ Get-ChildItem $Backend -Force |
     Where-Object {
         $_.Name -notin @(
             "LEEME_PROFESOR.txt",
+            "carrito.php",
+            "favoritos.php",
             ".git",
             ".github",
             ".vscode"
