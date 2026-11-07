@@ -1154,7 +1154,6 @@ tbody tr:hover{background:#fafcff}
     <?php if(puede("pedidos")): ?><a href="#pedidos">Pedidos</a><?php endif; ?>
     <?php if(puede("pagos")): ?><a href="#pagos">Pagos</a><?php endif; ?>
     <?php if(puede("comprobantes")): ?><a href="#comprobantes">Comprobantes</a><?php endif; ?>
-    <?php if(puede("devoluciones")): ?><a href="#devoluciones">Devoluciones</a><?php endif; ?>
    </div>
   </div>
   <?php endif; ?>
@@ -1191,9 +1190,8 @@ tbody tr:hover{background:#fafcff}
     <span class="nav-icon">👤</span><span>Clientes</span><b class="nav-chevron">›</b>
    </button>
    <div class="nav-submenu">
-    <?php if(puede("clientes")): ?><a href="#clientes">Listado e historial</a><?php endif; ?>
-    <?php if(puede("usuarios")): ?><a href="#usuarios">Usuarios de la app</a><?php endif; ?>
-    <?php if(puede("favoritos")): ?><a href="#favoritos">Productos favoritos</a><?php endif; ?>
+     <a href="#clientes">Clientes e historial</a>
+     <a href="#direcciones">Direcciones</a>
    </div>
   </div>
   <?php endif; ?>
