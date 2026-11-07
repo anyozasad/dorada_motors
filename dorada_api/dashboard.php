@@ -22,6 +22,36 @@ function h($valor) {
     return htmlspecialchars((string)$valor, ENT_QUOTES, "UTF-8");
 }
 
+function sincronizarEstadoFinancieroPedido(mysqli $conexion, int $idPedido): void {
+    $stmt = $conexion->prepare("
+        SELECT
+            p.total,
+            p.estado_pedido,
+            COALESCE(SUM(CASE WHEN pg.estado_pago='Pagado' THEN pg.monto ELSE 0 END),0) AS pagado
+        FROM pedido p
+        LEFT JOIN pago pg ON pg.id_pedido=p.id_pedido
+        WHERE p.id_pedido=?
+        GROUP BY p.id_pedido,p.total,p.estado_pedido
+    ");
+    $stmt->bind_param("i",$idPedido);
+    $stmt->execute();
+    $fila = $stmt->get_result()->fetch_assoc();
+    if (!$fila) return;
+
+    $estadoActual = (string)$fila["estado_pedido"];
+    if (in_array($estadoActual, ["Cancelado","Completado"], true)) return;
+
+    $total = (float)$fila["total"];
+    $pagado = (float)$fila["pagado"];
+    $nuevoEstado = $pagado + 0.009 >= $total ? "Pagado" : ($estadoActual === "Pagado" ? "Procesando" : $estadoActual);
+
+    if ($nuevoEstado !== $estadoActual) {
+        $stmt = $conexion->prepare("UPDATE pedido SET estado_pedido=? WHERE id_pedido=?");
+        $stmt->bind_param("si",$nuevoEstado,$idPedido);
+        $stmt->execute();
+    }
+}
+
 function guardarImagenProducto(?array $archivo, string $actual = ""): string {
     if (!$archivo || ($archivo["error"] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
         return $actual;
@@ -484,14 +514,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         /* ================= PEDIDOS ================= */
         if (isset($_POST["registrar_pedido_manual"])) {
             $idUsuario = (int)($_POST["id_usuario_pedido"] ?? 0);
-            $idProducto = (int)($_POST["id_producto_pedido"] ?? 0);
-            $cantidad = (int)($_POST["cantidad_pedido"] ?? 0);
+            $productosPedido = $_POST["id_producto_pedido"] ?? [];
+            $cantidadesPedido = $_POST["cantidad_pedido"] ?? [];
             $tipoEntrega = trim($_POST["tipo_entrega_pedido"] ?? "Recojo en tienda");
             $metodoPago = trim($_POST["metodo_pago_pedido"] ?? "Efectivo");
             $idDireccion = (int)($_POST["id_direccion_pedido"] ?? 0);
 
-            if ($idUsuario <= 0 || $idProducto <= 0 || $cantidad <= 0) {
-                redir("Completa correctamente los datos del pedido", "error", "pedidos");
+            if (!is_array($productosPedido)) $productosPedido = [$productosPedido];
+            if (!is_array($cantidadesPedido)) $cantidadesPedido = [$cantidadesPedido];
+
+            if ($idUsuario <= 0 || !$productosPedido || count($productosPedido) !== count($cantidadesPedido)) {
+                redir("Completa correctamente los productos del pedido", "error", "pedidos");
             }
 
             if (!in_array($tipoEntrega, ["Recojo en tienda","Delivery"], true)) {
@@ -504,6 +537,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             if ($tipoEntrega === "Delivery" && $idDireccion <= 0) {
                 redir("Selecciona una dirección para el delivery", "error", "pedidos");
+            }
+
+            $cantidadesPorProducto = [];
+            foreach ($productosPedido as $idx => $idProductoRaw) {
+                $idProducto = (int)$idProductoRaw;
+                $cantidad = (int)($cantidadesPedido[$idx] ?? 0);
+                if ($idProducto <= 0 || $cantidad <= 0) {
+                    redir("Todos los productos deben tener una cantidad válida", "error", "pedidos");
+                }
+                $cantidadesPorProducto[$idProducto] = ($cantidadesPorProducto[$idProducto] ?? 0) + $cantidad;
             }
 
             $conexion->begin_transaction();
@@ -525,27 +568,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }
                 }
 
-                $stmt = $conexion->prepare("
-                    SELECT nombre_producto,precio,stock
-                    FROM producto
-                    WHERE id_producto=?
-                    FOR UPDATE
-                ");
-                $stmt->bind_param("i", $idProducto);
-                $stmt->execute();
-                $productoPedido = $stmt->get_result()->fetch_assoc();
+                $itemsValidados = [];
+                $total = 0.0;
 
-                if (!$productoPedido) {
-                    throw new RuntimeException("Producto no encontrado");
+                foreach ($cantidadesPorProducto as $idProducto => $cantidad) {
+                    $stmt = $conexion->prepare("
+                        SELECT
+                            nombre_producto,
+                            stock,
+                            CASE
+                                WHEN precio_oferta IS NOT NULL AND precio_oferta>0 AND precio_oferta<precio
+                                THEN precio_oferta
+                                ELSE precio
+                            END AS precio_venta
+                        FROM producto
+                        WHERE id_producto=?
+                        FOR UPDATE
+                    ");
+                    $stmt->bind_param("i", $idProducto);
+                    $stmt->execute();
+                    $productoPedido = $stmt->get_result()->fetch_assoc();
+
+                    if (!$productoPedido) {
+                        throw new RuntimeException("Producto no encontrado");
+                    }
+
+                    if ((int)$productoPedido["stock"] < $cantidad) {
+                        throw new RuntimeException("Stock insuficiente para " . $productoPedido["nombre_producto"]);
+                    }
+
+                    $precioUnitario = (float)$productoPedido["precio_venta"];
+                    $subtotal = round($precioUnitario * $cantidad, 2);
+                    $total += $subtotal;
+
+                    $itemsValidados[] = [
+                        "id_producto" => (int)$idProducto,
+                        "cantidad" => (int)$cantidad,
+                        "precio" => $precioUnitario,
+                        "subtotal" => $subtotal,
+                        "stock" => (int)$productoPedido["stock"],
+                    ];
                 }
 
-                if ((int)$productoPedido["stock"] < $cantidad) {
-                    throw new RuntimeException("Stock insuficiente para " . $productoPedido["nombre_producto"]);
-                }
-
-                $precioUnitario = (float)$productoPedido["precio"];
-                $subtotal = round($precioUnitario * $cantidad, 2);
-                $total = $subtotal;
+                $total = round($total, 2);
                 $estadoPedido = "Pendiente";
 
                 if ($idDireccion > 0) {
@@ -564,32 +629,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $stmt->bind_param("issd", $idUsuario, $tipoEntrega, $estadoPedido, $total);
                 }
                 $stmt->execute();
-                $idPedidoNuevo = $conexion->insert_id;
+                $idPedidoNuevo = (int)$conexion->insert_id;
 
-                $stmt = $conexion->prepare("
-                    INSERT INTO detalle_pedido
-                    (id_pedido,id_producto,cantidad,precio_unitario,subtotal)
-                    VALUES (?,?,?,?,?)
-                ");
-                $stmt->bind_param("iiidd", $idPedidoNuevo, $idProducto, $cantidad, $precioUnitario, $subtotal);
-                $stmt->execute();
+                foreach ($itemsValidados as $item) {
+                    $idProducto = $item["id_producto"];
+                    $cantidad = $item["cantidad"];
+                    $precioUnitario = $item["precio"];
+                    $subtotal = $item["subtotal"];
+                    $stockAnteriorPedido = $item["stock"];
+                    $stockNuevoPedido = $stockAnteriorPedido - $cantidad;
 
-                $stockAnteriorPedido = (int)$productoPedido["stock"];
-                $stockNuevoPedido = $stockAnteriorPedido - $cantidad;
+                    $stmt = $conexion->prepare("
+                        INSERT INTO detalle_pedido
+                        (id_pedido,id_producto,cantidad,precio_unitario,subtotal)
+                        VALUES (?,?,?,?,?)
+                    ");
+                    $stmt->bind_param("iiidd", $idPedidoNuevo, $idProducto, $cantidad, $precioUnitario, $subtotal);
+                    $stmt->execute();
 
-                $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
-                $stmt->bind_param("ii", $stockNuevoPedido, $idProducto);
-                $stmt->execute();
+                    $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                    $stmt->bind_param("ii", $stockNuevoPedido, $idProducto);
+                    $stmt->execute();
 
-                $tipoSalida = "Salida";
-                $motivoSalida = "Pedido manual #" . $idPedidoNuevo;
-                $stmt = $conexion->prepare("
-                    INSERT INTO movimiento_stock
-                    (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
-                    VALUES (?,?,?,?,NOW(),?,?)
-                ");
-                $stmt->bind_param("isisii", $idProducto, $tipoSalida, $cantidad, $motivoSalida, $stockAnteriorPedido, $stockNuevoPedido);
-                $stmt->execute();
+                    $tipoSalida = "Salida";
+                    $motivoSalida = "Pedido manual #" . $idPedidoNuevo;
+                    $stmt = $conexion->prepare("
+                        INSERT INTO movimiento_stock
+                        (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                        VALUES (?,?,?,?,NOW(),?,?)
+                    ");
+                    $stmt->bind_param("isisii", $idProducto, $tipoSalida, $cantidad, $motivoSalida, $stockAnteriorPedido, $stockNuevoPedido);
+                    $stmt->execute();
+                }
 
                 $estadoPago = "Pendiente";
                 $stmt = $conexion->prepare("
@@ -601,7 +672,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $stmt->execute();
 
                 $conexion->commit();
-                redir("Pedido #".$idPedidoNuevo." registrado. Stock y pago actualizados", "ok", "pedidos");
+                redir("Pedido #".$idPedidoNuevo." registrado con ".count($itemsValidados)." producto(s)", "ok", "pedidos");
             } catch (Throwable $e) {
                 $conexion->rollback();
                 redir($e->getMessage(), "error", "pedidos");
@@ -922,61 +993,107 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         /* ================= COMPRAS ================= */
         if (isset($_POST["registrar_compra"])) {
             $idProveedor = (int)($_POST["id_proveedor_compra"] ?? 0);
-            $idProducto = (int)($_POST["id_producto_compra"] ?? 0);
-            $cantidad = (int)($_POST["cantidad_compra"] ?? 0);
-            $precioCompra = (float)($_POST["precio_compra"] ?? 0);
+            $productosCompra = $_POST["id_producto_compra"] ?? [];
+            $cantidadesCompra = $_POST["cantidad_compra"] ?? [];
+            $preciosCompra = $_POST["precio_compra"] ?? [];
 
-            if ($idProveedor <= 0 || $idProducto <= 0 || $cantidad <= 0 || $precioCompra < 0) {
+            if (!is_array($productosCompra)) $productosCompra = [$productosCompra];
+            if (!is_array($cantidadesCompra)) $cantidadesCompra = [$cantidadesCompra];
+            if (!is_array($preciosCompra)) $preciosCompra = [$preciosCompra];
+
+            if ($idProveedor <= 0 || !$productosCompra ||
+                count($productosCompra) !== count($cantidadesCompra) ||
+                count($productosCompra) !== count($preciosCompra)) {
                 redir("Completa correctamente los datos de la compra", "error", "compras");
             }
 
-            $subtotal = $cantidad * $precioCompra;
-            $conexion->begin_transaction();
+            $itemsCompra = [];
+            $totalCompraNueva = 0.0;
 
-            $stmt = $conexion->prepare("
-                INSERT INTO compra (id_proveedor, fecha_compra, total, estado)
-                VALUES (?, NOW(), ?, 'Registrado')
-            ");
-            $stmt->bind_param("id", $idProveedor, $subtotal);
-            $stmt->execute();
-            $idCompra = $conexion->insert_id;
+            foreach ($productosCompra as $idx => $idProductoRaw) {
+                $idProducto = (int)$idProductoRaw;
+                $cantidad = (int)($cantidadesCompra[$idx] ?? 0);
+                $precioCompra = (float)($preciosCompra[$idx] ?? 0);
 
-            $stmt = $conexion->prepare("
-                INSERT INTO detalle_compra (id_compra, id_producto, cantidad, precio_compra, subtotal)
-                VALUES (?, ?, ?, ?, ?)
-            ");
-            $stmt->bind_param("iiidd", $idCompra, $idProducto, $cantidad, $precioCompra, $subtotal);
-            $stmt->execute();
+                if ($idProducto <= 0 || $cantidad <= 0 || $precioCompra < 0) {
+                    redir("Cada producto de la compra debe tener cantidad y costo válidos", "error", "compras");
+                }
 
-            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
-            $stmt->bind_param("i", $idProducto);
-            $stmt->execute();
-            $filaStockCompra = $stmt->get_result()->fetch_assoc();
-
-            if (!$filaStockCompra) {
-                $conexion->rollback();
-                redir("Producto no encontrado", "error", "compras");
+                $subtotal = round($cantidad * $precioCompra, 2);
+                $totalCompraNueva += $subtotal;
+                $itemsCompra[] = [
+                    "id_producto"=>$idProducto,
+                    "cantidad"=>$cantidad,
+                    "precio"=>$precioCompra,
+                    "subtotal"=>$subtotal,
+                ];
             }
 
-            $stockAnteriorCompra = (int)$filaStockCompra["stock"];
-            $stockNuevoCompra = $stockAnteriorCompra + $cantidad;
+            $totalCompraNueva = round($totalCompraNueva, 2);
+            $conexion->begin_transaction();
 
-            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
-            $stmt->bind_param("ii", $stockNuevoCompra, $idProducto);
-            $stmt->execute();
+            try {
+                $stmt = $conexion->prepare("SELECT id_proveedor FROM proveedor WHERE id_proveedor=? AND estado='Activo' LIMIT 1");
+                $stmt->bind_param("i",$idProveedor);
+                $stmt->execute();
+                if (!$stmt->get_result()->fetch_assoc()) {
+                    throw new RuntimeException("Proveedor no disponible");
+                }
 
-            $motivo = "Compra #" . $idCompra;
-            $tipoEntrada = "Entrada";
-            $stmt = $conexion->prepare("
-                INSERT INTO movimiento_stock
-                (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento, stock_anterior, stock_nuevo)
-                VALUES (?, ?, ?, ?, NOW(), ?, ?)
-            ");
-            $stmt->bind_param("isisii", $idProducto, $tipoEntrada, $cantidad, $motivo, $stockAnteriorCompra, $stockNuevoCompra);
-            $stmt->execute();
+                $stmt = $conexion->prepare("
+                    INSERT INTO compra (id_proveedor, fecha_compra, total, estado)
+                    VALUES (?, NOW(), ?, 'Registrado')
+                ");
+                $stmt->bind_param("id", $idProveedor, $totalCompraNueva);
+                $stmt->execute();
+                $idCompra = (int)$conexion->insert_id;
 
-            $conexion->commit();
-            redir("Compra registrada y stock actualizado", "ok", "compras");
+                foreach ($itemsCompra as $item) {
+                    $idProducto = $item["id_producto"];
+                    $cantidad = $item["cantidad"];
+                    $precioCompra = $item["precio"];
+                    $subtotal = $item["subtotal"];
+
+                    $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+                    $stmt->bind_param("i", $idProducto);
+                    $stmt->execute();
+                    $filaStockCompra = $stmt->get_result()->fetch_assoc();
+                    if (!$filaStockCompra) {
+                        throw new RuntimeException("Producto no encontrado en la compra");
+                    }
+
+                    $stmt = $conexion->prepare("
+                        INSERT INTO detalle_compra
+                        (id_compra,id_producto,cantidad,precio_compra,subtotal)
+                        VALUES (?,?,?,?,?)
+                    ");
+                    $stmt->bind_param("iiidd", $idCompra, $idProducto, $cantidad, $precioCompra, $subtotal);
+                    $stmt->execute();
+
+                    $stockAnteriorCompra = (int)$filaStockCompra["stock"];
+                    $stockNuevoCompra = $stockAnteriorCompra + $cantidad;
+
+                    $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                    $stmt->bind_param("ii", $stockNuevoCompra, $idProducto);
+                    $stmt->execute();
+
+                    $motivo = "Compra #" . $idCompra;
+                    $tipoEntrada = "Entrada";
+                    $stmt = $conexion->prepare("
+                        INSERT INTO movimiento_stock
+                        (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                        VALUES (?,?,?,?,NOW(),?,?)
+                    ");
+                    $stmt->bind_param("isisii", $idProducto, $tipoEntrada, $cantidad, $motivo, $stockAnteriorCompra, $stockNuevoCompra);
+                    $stmt->execute();
+                }
+
+                $conexion->commit();
+                redir("Compra #".$idCompra." registrada con ".count($itemsCompra)." producto(s)", "ok", "compras");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                redir($e->getMessage(), "error", "compras");
+            }
         }
 
         if (isset($_POST["actualizar_estado_compra"])) {
