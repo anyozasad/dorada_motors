@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] === "PUT") {
         exit;
     }
 
-    $stmt = $conexion->prepare("UPDATE usuario SET telefono=? WHERE id_usuario=?");
+    $stmt = $conexion->prepare("UPDATE usuario SET telefono=? WHERE id_usuario=? AND rol_sistema='Cliente'");
     $stmt->bind_param("si", $telefono, $idUsuario);
 
     if (!$stmt->execute()) {
@@ -132,6 +132,7 @@ $resultado = $conexion->query("
         telefono,
         estado
     FROM usuario
+    WHERE rol_sistema='Cliente'
     ORDER BY id_usuario DESC
 ");
 
