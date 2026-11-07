@@ -164,6 +164,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (isset($_POST["actualizar_producto"])) {
             $idProducto = (int)($_POST["id_producto"] ?? 0);
+
+            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? LIMIT 1");
+            $stmt->bind_param("i", $idProducto);
+            $stmt->execute();
+            $productoStockAnterior = $stmt->get_result()->fetch_assoc();
+            if (!$productoStockAnterior) {
+                redir("Producto no encontrado", "error", "gestion-productos");
+            }
+            $stockAntesEdicion = (int)$productoStockAnterior["stock"];
             $idCategoria = (int)($_POST["id_categoria"] ?? 0);
             $idMarca = (int)($_POST["id_marca"] ?? 0);
             $nombre = trim($_POST["nombre_producto"] ?? "");
@@ -183,6 +192,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ");
             $stmt->bind_param("iissdiisi", $idCategoria, $idMarca, $nombre, $descripcion, $precio, $stock, $stockMinimo, $imagen, $idProducto);
             $stmt->execute();
+
+            if ($stock !== $stockAntesEdicion) {
+                $tipoMovimiento = $stock > $stockAntesEdicion ? "Entrada" : "Salida";
+                $cantidadMovimiento = abs($stock - $stockAntesEdicion);
+                $motivoMovimiento = "Ajuste desde edición de producto";
+
+                $stmt = $conexion->prepare("
+                    INSERT INTO movimiento_stock
+                    (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                    VALUES (?,?,?,?,NOW(),?,?)
+                ");
+                $stmt->bind_param(
+                    "isisii",
+                    $idProducto,
+                    $tipoMovimiento,
+                    $cantidadMovimiento,
+                    $motivoMovimiento,
+                    $stockAntesEdicion,
+                    $stock
+                );
+                $stmt->execute();
+            }
+
             redir("Producto actualizado correctamente", "ok", "gestion-productos");
         }
 
@@ -423,10 +455,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $idPago = (int)($_POST["id_pago"] ?? 0);
             $estado = trim($_POST["estado_pago"] ?? "Pendiente");
 
-            $stmt = $conexion->prepare("UPDATE pago SET estado_pago=? WHERE id_pago=?");
-            $stmt->bind_param("si", $estado, $idPago);
-            $stmt->execute();
-            redir("Estado del pago actualizado", "ok", "pagos");
+            if (!in_array($estado, ["Pendiente","Pagado","Rechazado"], true)) {
+                redir("Estado de pago inválido", "error", "pagos");
+            }
+
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare("SELECT id_pedido FROM pago WHERE id_pago=? FOR UPDATE");
+                $stmt->bind_param("i", $idPago);
+                $stmt->execute();
+                $pagoActual = $stmt->get_result()->fetch_assoc();
+
+                if (!$pagoActual) {
+                    throw new RuntimeException("Pago no encontrado");
+                }
+
+                $stmt = $conexion->prepare("UPDATE pago SET estado_pago=? WHERE id_pago=?");
+                $stmt->bind_param("si", $estado, $idPago);
+                $stmt->execute();
+
+                if ($estado === "Pagado") {
+                    $idPedidoPago = (int)$pagoActual["id_pedido"];
+                    $stmt = $conexion->prepare("
+                        UPDATE pedido
+                        SET estado_pedido='Pagado'
+                        WHERE id_pedido=? AND estado_pedido NOT IN ('Cancelado','Completado')
+                    ");
+                    $stmt->bind_param("i", $idPedidoPago);
+                    $stmt->execute();
+                }
+
+                $conexion->commit();
+                redir("Estado del pago actualizado", "ok", "pagos");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                redir($e->getMessage(), "error", "pagos");
+            }
         }
 
 
