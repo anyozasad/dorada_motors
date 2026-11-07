@@ -32,8 +32,19 @@ try {
         "SELECT COALESCE(SUM(total),0) AS total FROM pedido WHERE DATE(fecha_pedido)=CURDATE() AND LOWER(estado_pedido)<>'cancelado'"
     )->fetch_assoc()["total"];
 
+    $ventasMes = (float)$conexion->query(
+        "SELECT COALESCE(SUM(total),0) AS total FROM pedido
+         WHERE YEAR(fecha_pedido)=YEAR(CURDATE())
+           AND MONTH(fecha_pedido)=MONTH(CURDATE())
+           AND LOWER(estado_pedido)<>'cancelado'"
+    )->fetch_assoc()["total"];
+
     $stockBajo = (int)$conexion->query(
         "SELECT COUNT(*) AS total FROM producto WHERE stock<=stock_minimo"
+    )->fetch_assoc()["total"];
+
+    $stockCritico = (int)$conexion->query(
+        "SELECT COUNT(*) AS total FROM producto WHERE stock<=2"
     )->fetch_assoc()["total"];
 
     $proveedores = (int)$conexion->query(
@@ -80,7 +91,9 @@ try {
         "pedidos_pendientes" => $pedidosPendientes,
         "ventas" => $totalVentas,
         "ventas_hoy" => $ventasHoy,
+        "ventas_mes" => $ventasMes,
         "stock_bajo" => $stockBajo,
+        "stock_critico" => $stockCritico,
         "proveedores" => $proveedores,
         "compras" => $compras,
         "ultimos_pedidos" => $ultimosPedidos,
