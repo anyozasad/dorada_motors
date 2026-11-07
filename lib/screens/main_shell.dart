@@ -81,6 +81,10 @@ class _MainShellState extends State<MainShell> {
         final id = int.tryParse(row['id_producto']?.toString() ?? '') ?? 0;
         final precio = double.tryParse(row['precio']?.toString() ?? '0') ?? 0;
         final stock = int.tryParse(row['stock']?.toString() ?? '0') ?? 0;
+        final precioOfertaRaw = double.tryParse(row['precio_oferta']?.toString() ?? '');
+        final precioOferta = precioOfertaRaw != null && precioOfertaRaw > 0 && precioOfertaRaw < precio
+            ? precioOfertaRaw
+            : null;
         final imagenRaw = (row['imagen_url']?.toString() ?? '').trim();
 
         String imagen = imagenRaw;
@@ -101,9 +105,12 @@ class _MainShellState extends State<MainShell> {
           descripcion: row['descripcion']?.toString() ?? '',
           marca: row['nombre_marca']?.toString() ?? 'Sin marca',
           categoria: row['nombre_categoria']?.toString() ?? 'Otros',
-          tipoVehiculo: 'Motocicleta / Motokar',
-          compatibilidad: 'Consultar compatibilidad según modelo',
+          tipoVehiculo: (row['tipo_vehiculo']?.toString() ?? 'Motocicleta / Motokar').trim(),
+          compatibilidad: (row['compatibilidad']?.toString() ?? '').trim().isEmpty
+              ? 'Consultar compatibilidad según modelo'
+              : row['compatibilidad'].toString(),
           precio: precio,
+          precioOferta: precioOferta,
           stock: stock,
           imagen: imagen,
         );
