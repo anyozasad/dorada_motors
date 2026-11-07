@@ -14,10 +14,10 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 009. [IMPLEMENTADO] Dashboard muestra total de proveedores
 010. [IMPLEMENTADO] Dashboard muestra total de compras
 011. [IMPLEMENTADO] Dashboard actualiza métricas automáticamente
-012. [IMPLEMENTADO] Dashboard muestra últimos pedidos
-013. [IMPLEMENTADO] Dashboard muestra alertas de stock
-014. [IMPLEMENTADO] Dashboard tiene buscador global
-015. [IMPLEMENTADO] Dashboard navega entre módulos sin recargar diseño
+012. [IMPLEMENTADO] Seguridad: dashboard protegido por login administrativo
+013. [IMPLEMENTADO] Seguridad: primera configuración crea administrador inicial
+014. [IMPLEMENTADO] Seguridad: formularios administrativos protegidos con CSRF
+015. [IMPLEMENTADO] Seguridad: cierre de sesión administrativo
 016. [IMPLEMENTADO] Productos: listar productos
 017. [IMPLEMENTADO] Productos: registrar producto
 018. [IMPLEMENTADO] Productos: editar producto
@@ -25,12 +25,12 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 020. [IMPLEMENTADO] Productos: impedir eliminar producto con movimientos
 021. [IMPLEMENTADO] Productos: registrar precio de oferta
 022. [IMPLEMENTADO] Productos: validar oferta menor al precio
-023. [IMPLEMENTADO] Productos: limitar imagen a 3 MB
-024. [IMPLEMENTADO] Productos: conservar imagen al editar
+023. [IMPLEMENTADO] Seguridad: sesión administrativa expira por inactividad
+024. [IMPLEMENTADO] Seguridad: auditoría registra acciones administrativas
 025. [IMPLEMENTADO] Productos: filtrar por categoría
 026. [IMPLEMENTADO] Productos: filtrar por nivel de stock
-027. [IMPLEMENTADO] Productos: buscar por texto
-028. [IMPLEMENTADO] Productos: mostrar precio de oferta
+027. [IMPLEMENTADO] Seguridad: clientes y personal usan accesos separados
+028. [IMPLEMENTADO] Seguridad: roles Administrador, Vendedor y Almacén
 029. [IMPLEMENTADO] Productos: registrar ajuste de stock en Kardex
 030. [IMPLEMENTADO] Categorías: listar categorías
 031. [IMPLEMENTADO] Categorías: registrar categoría
@@ -51,8 +51,8 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 046. [IMPLEMENTADO] Clientes: activar cliente
 047. [IMPLEMENTADO] Clientes: bloquear cliente
 048. [IMPLEMENTADO] Clientes: ver historial del cliente
-049. [IMPLEMENTADO] Clientes: mostrar total comprado
-050. [IMPLEMENTADO] Clientes: mostrar última compra
+049. [IMPLEMENTADO] Personal: crear cuentas administrativas
+050. [IMPLEMENTADO] Personal: cambiar rol y estado del personal
 051. [IMPLEMENTADO] Direcciones: listar direcciones
 052. [IMPLEMENTADO] Direcciones: registrar dirección
 053. [IMPLEMENTADO] Direcciones: editar dirección
@@ -95,19 +95,19 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 090. [IMPLEMENTADO] Pedidos: permitir Delivery
 091. [IMPLEMENTADO] Pagos: listar pagos
 092. [IMPLEMENTADO] Pagos: registrar pago manual
-093. [IMPLEMENTADO] Pagos: seleccionar método Transferencia
+093. [IMPLEMENTADO] Pagos: controlar saldo pendiente del pedido
 094. [IMPLEMENTADO] Pagos: validar monto mayor a cero
 095. [IMPLEMENTADO] Pagos: marcar Pendiente
 096. [IMPLEMENTADO] Pagos: marcar Pagado
 097. [IMPLEMENTADO] Pagos: marcar Rechazado
 098. [IMPLEMENTADO] Pagos: sincronizar pedido al pagar
 099. [IMPLEMENTADO] Pagos: impedir pago a pedido cancelado
-100. [IMPLEMENTADO] Pagos: exportar CSV
+100. [IMPLEMENTADO] Pagos: impedir sobrepago del pedido
 101. [IMPLEMENTADO] Comprobantes: listar comprobantes
 102. [IMPLEMENTADO] Comprobantes: emitir boleta
 103. [IMPLEMENTADO] Comprobantes: emitir factura
 104. [IMPLEMENTADO] Comprobantes: exigir pedido totalmente pagado
-105. [IMPLEMENTADO] Comprobantes: validar número único
+105. [IMPLEMENTADO] Comprobantes: generar numeración automática
 106. [IMPLEMENTADO] Comprobantes: impedir duplicado por pedido
 107. [IMPLEMENTADO] Comprobantes: calcular subtotal sin IGV
 108. [IMPLEMENTADO] Comprobantes: calcular IGV
@@ -151,8 +151,8 @@ No incluyen Flutter, empaquetado ni pruebas de entrega.
 146. [IMPLEMENTADO] Reportes: mostrar productos más vendidos
 147. [IMPLEMENTADO] Reportes: mostrar unidades vendidas
 148. [IMPLEMENTADO] Reportes: mostrar importe por producto
-149. [IMPLEMENTADO] Reportes: imprimir reporte
-150. [IMPLEMENTADO] Reportes: exportar productos CSV
+149. [IMPLEMENTADO] Configuración: guardar datos fiscales y contacto de la empresa
+150. [IMPLEMENTADO] Configuración: guardar IGV, moneda y costo de delivery
 
 VALIDACION:
 - Las funciones se implementan en dorada_api/dashboard.php.
