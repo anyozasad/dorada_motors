@@ -118,9 +118,9 @@ class _MainShellState extends State<MainShell> {
 
       if (!mounted) return;
       setState(() {
-        if (productosApi.isNotEmpty) {
-          _productos = productosApi;
-        }
+        // Si la API respondió correctamente, el catálogo refleja MySQL
+        // incluso cuando todavía no existen productos registrados.
+        _productos = productosApi;
         _cargandoProductosApi = false;
       });
     } catch (e) {
