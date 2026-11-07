@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/productos_data.dart';
 import '../models/producto.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
@@ -37,26 +36,17 @@ class _MainShellState extends State<MainShell> {
   String _vehicle = 'Todos';
   Set<int> _favorites = {};
   Map<int, int> _cart = {};
-  List<Producto> _productos = List<Producto>.from(productosData);
+  List<Producto> _productos = [];
+  List<String> _categorias = [];
+  List<String> _marcas = [];
   bool _cargandoProductosApi = false;
   String? _errorProductosApi;
-
-  final _categories = const [
-    ['Motor', Icons.settings],
-    ['Frenos', Icons.album_outlined],
-    ['Llantas', Icons.tire_repair],
-    ['Luces', Icons.lightbulb_outline],
-    ['Aceites', Icons.water_drop_outlined],
-    ['Eléctrico', Icons.bolt_outlined],
-    ['Suspensión', Icons.swap_vert_circle_outlined],
-    ['Accesorios', Icons.extension_outlined],
-  ];
 
   @override
   void initState() {
     super.initState();
     _loadLocalData();
-    _loadProductosApi();
+    _loadCatalogoApi();
   }
 
   Future<void> _loadLocalData() async {
@@ -68,7 +58,7 @@ class _MainShellState extends State<MainShell> {
       _cart = cart;
     });
   }
-  Future<void> _loadProductosApi() async {
+  Future<void> _loadCatalogoApi() async {
     if (mounted) {
       setState(() {
         _cargandoProductosApi = true;
@@ -77,7 +67,14 @@ class _MainShellState extends State<MainShell> {
     }
 
     try {
-      final data = await ApiService.obtenerProductos();
+      final resultados = await Future.wait([
+        ApiService.obtenerProductos(),
+        ApiService.obtenerCategorias(),
+        ApiService.obtenerMarcas(),
+      ]);
+      final data = resultados[0];
+      final categoriasData = resultados[1];
+      final marcasData = resultados[2];
 
       final productosApi = data.map((raw) {
         final row = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
@@ -87,14 +84,10 @@ class _MainShellState extends State<MainShell> {
         final imagenRaw = (row['imagen_url']?.toString() ?? '').trim();
 
         String imagen = imagenRaw;
-        if (imagen.isEmpty) {
-          for (final local in productosData) {
-            if (local.id == id) {
-              imagen = local.imagen;
-              break;
-            }
-          }
-        } else if (!imagen.startsWith('http://') && !imagen.startsWith('https://') && !imagen.startsWith('assets/')) {
+        if (imagen.isNotEmpty &&
+            !imagen.startsWith('http://') &&
+            !imagen.startsWith('https://') &&
+            !imagen.startsWith('assets/')) {
           imagen = '${ApiService.baseUrl}/$imagen';
         }
 
@@ -118,9 +111,23 @@ class _MainShellState extends State<MainShell> {
 
       if (!mounted) return;
       setState(() {
-        // Si la API respondió correctamente, el catálogo refleja MySQL
-        // incluso cuando todavía no existen productos registrados.
         _productos = productosApi;
+        _categorias = categoriasData
+            .map((e) => e is Map ? (e['nombre_categoria']?.toString() ?? '') : '')
+            .where((e) => e.isNotEmpty)
+            .toList();
+        _marcas = marcasData
+            .map((e) => e is Map ? (e['nombre_marca']?.toString() ?? '') : '')
+            .where((e) => e.isNotEmpty)
+            .toList();
+
+        if (_category != 'Todos' && !_categorias.contains(_category)) {
+          _category = 'Todos';
+        }
+        if (_brand != 'Todas' && !_marcas.contains(_brand)) {
+          _brand = 'Todas';
+        }
+
         _cargandoProductosApi = false;
       });
     } catch (e) {
@@ -130,6 +137,19 @@ class _MainShellState extends State<MainShell> {
         _errorProductosApi = e.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  IconData _iconoCategoria(String nombre) {
+    final valor = nombre.toLowerCase();
+    if (valor.contains('freno')) return Icons.album_outlined;
+    if (valor.contains('motor')) return Icons.settings;
+    if (valor.contains('llanta') || valor.contains('neum')) return Icons.tire_repair;
+    if (valor.contains('luz') || valor.contains('elect')) return Icons.bolt_outlined;
+    if (valor.contains('aceite') || valor.contains('lub')) return Icons.water_drop_outlined;
+    if (valor.contains('susp')) return Icons.swap_vert_circle_outlined;
+    if (valor.contains('acces')) return Icons.extension_outlined;
+    if (valor.contains('trans')) return Icons.sync_alt_rounded;
+    return Icons.inventory_2_outlined;
   }
 
   Widget _imagenProducto(String ruta, {BoxFit fit = BoxFit.contain}) {
@@ -580,7 +600,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _openFilters() async {
-    final brands = ['Todas', ...{for (final p in _productos) p.marca}];
+    final brands = ['Todas', ..._marcas];
     String tempCategory = _category;
     String tempBrand = _brand;
     String tempVehicle = _vehicle;
@@ -614,7 +634,7 @@ class _MainShellState extends State<MainShell> {
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
-                    children: ['Todos', ..._categories.map((e) => e[0] as String)].map((value) => ChoiceChip(
+                    children: ['Todos', ..._categorias].map((value) => ChoiceChip(
                       label: Text(value),
                       selected: tempCategory == value,
                       onSelected: (_) => refresh(() => tempCategory = value),
@@ -747,14 +767,14 @@ class _MainShellState extends State<MainShell> {
             height: 116,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
+              itemCount: _categorias.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
-                final item = _categories[index];
+                final item = _categorias[index];
                 return InkWell(
                   borderRadius: BorderRadius.circular(20),
                   onTap: () => setState(() {
-                    _category = item[0] as String;
+                    _category = item;
                     _page = 1;
                   }),
                   child: Container(
@@ -773,10 +793,10 @@ class _MainShellState extends State<MainShell> {
                           width: 49,
                           height: 49,
                           decoration: BoxDecoration(color: AppColors.goldSoft, borderRadius: BorderRadius.circular(15)),
-                          child: Icon(item[1] as IconData, color: AppColors.goldDark, size: 25),
+                          child: Icon(_iconoCategoria(item), color: AppColors.goldDark, size: 25),
                         ),
                         const SizedBox(height: 8),
-                        Text(item[0] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                        Text(item, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                       ],
                     ),
                   ),
@@ -1055,11 +1075,11 @@ class _MainShellState extends State<MainShell> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Sin conexión con la API. Mostrando catálogo local.',
+                      'Sin conexión con la API. Revisa Apache y MySQL.',
                       style: const TextStyle(fontSize: 10, color: AppColors.muted),
                     ),
                   ),
-                  TextButton(onPressed: _loadProductosApi, child: const Text('Reintentar')),
+                  TextButton(onPressed: _loadCatalogoApi, child: const Text('Reintentar')),
                 ],
               ),
             )
