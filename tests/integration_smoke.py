@@ -246,6 +246,17 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "stock": "9", "stock_minimo": "2", "imagen_url": "",
     }
 
+    for campos, error in [
+        ({"precio": "-2.00", "precio_oferta": "0"}, "precio debe ser mayor"),
+        ({"stock": "-3"}, "stock no puede ser negativo"),
+        ({"precio_oferta": "200.00"}, "oferta debe ser mayor"),
+    ]:
+        invalido = admin_page(
+            navegador, "dashboard.php",
+            form={**formulario, **campos, "registrar_producto": "1"},
+        )
+        assert error in invalido, (campos, invalido[:250])
+
     nuevo = admin_page(
         navegador, "dashboard.php",
         form={**formulario, "registrar_producto": "1"},
