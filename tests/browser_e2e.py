@@ -113,7 +113,7 @@ def main():
         page.locator("#reportes button:has-text('Aplicar periodo')").click()
         expect(page.locator("#reportes")).to_have_class(re.compile("active"))
         with page.expect_download() as info:
-            page.locator('a[href="exportar_csv.php?tipo=productos"]').click()
+            page.locator("#reportes a[href^='exportar_csv.php?tipo=ventas']").click()
         descarga = info.value
         assert descarga.suggested_filename.endswith(".csv"), descarga.suggested_filename
         page.screenshot(path="artifacts/ui/04_reportes.png", full_page=True)
