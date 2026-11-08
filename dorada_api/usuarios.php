@@ -110,12 +110,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     );
 
     if ($stmt->execute()) {
-        $token = emitirTokenCliente($conexion, (int)$conexion->insert_id);
+        $idNuevo = (int)$conexion->insert_id;
+        $token = emitirTokenCliente($conexion, $idNuevo);
         echo json_encode([
             "estado" => true,
             "token" => $token,
             "mensaje" => "Usuario registrado",
-            "id_usuario" => $conexion->insert_id
+            "id_usuario" => $idNuevo
         ]);
     } else {
         echo json_encode([
