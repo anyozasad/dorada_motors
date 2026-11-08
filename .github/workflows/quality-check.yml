@@ -82,7 +82,8 @@ jobs:
           $archivos = @(
             'INICIAR_DEMO.ps1',
             'VERIFICAR_SISTEMA.ps1',
-            'PREPARAR_ENTREGA_INDICADOR_II.ps1'
+            'PREPARAR_ENTREGA_INDICADOR_II.ps1',
+            'PREPARAR_ENTREGA_INDICADOR_IV.ps1'
           )
           foreach ($archivo in $archivos) {
             $tokens = $null
