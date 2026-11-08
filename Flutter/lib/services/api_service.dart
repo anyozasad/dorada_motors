@@ -55,7 +55,8 @@ class ApiService {
 
       final decoded = jsonDecode(respuesta.body);
       if (decoded is! Map || decoded['estado'] != true) return null;
-      return decoded['usuario'] is Map;
+      if (decoded['usuario'] is! Map) return null;
+      return true;
     } catch (_) {
       return null;
     } finally {
