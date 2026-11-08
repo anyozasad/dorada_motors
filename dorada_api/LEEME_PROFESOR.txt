@@ -23,21 +23,25 @@ A) En PHP:
    - Mostrar productos, marcas, categorías, clientes, pedidos, pagos, proveedores,
      compras, inventario, movimientos de stock, comprobantes y reportes.
    - Editar un producto y guardar sus cambios.
+   - Consultar y atender solicitudes de soporte del cliente.
+   - Registrar compras a proveedores, ajustar inventario y comprobar Kardex.
 B) En Flutter:
    - Mostrar acceso, registro, catálogo, búsqueda y filtros.
    - Ver el producto editado en PHP.
-   - Iniciar sesión como cliente, agregar al carrito y realizar un pedido.
+   - Iniciar sesión como cliente, editar perfil, direcciones, favoritos y carrito.
+   - Realizar un pedido seleccionando una dirección guardada.
    - Consultar el historial de compras.
+   - Enviar una solicitud de soporte desde Flutter y responderla en PHP.
 C) En MySQL:
    - Mostrar que los pedidos y el detalle se guardaron realmente.
    - Verificar que el stock disminuyó y quedó registrado el movimiento.
    - Mostrar que el pago queda pendiente hasta ser confirmado en administración.
 
 4. BASE DE DATOS
-El esquema principal es dorada_motors.sql e incluye 17 tablas:
+El esquema principal es dorada_motors.sql e incluye 18 tablas:
 usuario, sesion_cliente, direccion, categoria, marca, producto, pedido,
 detalle_pedido, pago, proveedor, compra, detalle_compra, movimiento_stock,
-comprobante, carrito, detalle_carrito y favorito.
+comprobante, carrito, detalle_carrito, favorito y solicitud_soporte.
 
 Si el inventario está vacío al instalar la base, se agregan 19 artículos de
 demostración y sus imágenes. No se sobrescribe inventario ya existente.
@@ -62,4 +66,6 @@ OBSERVACIONES
   los pedidos confirmados se envían al servidor.
 - Yape/Plin son opciones de pago registradas, no cobros reales automáticos.
 - Los comprobantes de la demo no sustituyen un comprobante electrónico SUNAT.
+- Consultar MATRIZ_VALIDACION_FUNCIONAL_150.md para verificar los 150 requisitos.
+- Ejecutar desde la carpeta principal: powershell -ExecutionPolicy Bypass -File .\\VERIFICAR_SISTEMA.ps1
 - El funcionamiento definitivo debe verificarse en la PC del profesor.
