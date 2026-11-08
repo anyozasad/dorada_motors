@@ -114,7 +114,7 @@ class _ProductCardState extends State<ProductCard> {
                                         ? Image.network(
                                             product.imagen,
                                             fit: BoxFit.contain,
-                                            errorBuilder: (_, __, ___) =>
+                                            errorBuilder: (_, _, _) =>
                                                 const Center(
                                               child: Icon(
                                                 Icons.image_not_supported_outlined,
@@ -126,7 +126,7 @@ class _ProductCardState extends State<ProductCard> {
                                         : Image.asset(
                                             product.imagen,
                                             fit: BoxFit.contain,
-                                            errorBuilder: (_, __, ___) =>
+                                            errorBuilder: (_, _, _) =>
                                                 const Center(
                                               child: Icon(
                                                 Icons.image_not_supported_outlined,
