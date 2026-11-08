@@ -54,6 +54,14 @@ foreach ($relativa in $Privados) {
   if (Test-Path $ruta) { Remove-Item $ruta -Recurse -Force }
 }
 
+# Mantener la protección Apache de la carpeta operativa, sin copiar auditoría ni datos.
+$DataDestino = Join-Path $ProyectoTemporal 'dorada_api\data'
+New-Item -ItemType Directory -Path $DataDestino -Force | Out-Null
+$ReglaPrivada = Join-Path $Proyecto 'dorada_api\data\.htaccess'
+if (Test-Path $ReglaPrivada) {
+  Copy-Item $ReglaPrivada (Join-Path $DataDestino '.htaccess') -Force
+}
+
 $SqlFuente = Join-Path $Proyecto 'dorada_api\dorada_motors.sql'
 $SqlEntrega = Join-Path $Entrega 'Dorada_Motors_BD.sql'
 Copy-Item $SqlFuente $SqlEntrega -Force
