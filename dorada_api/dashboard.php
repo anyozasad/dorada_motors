@@ -2699,7 +2699,7 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("pagos")): ?>
 <section id="pagos" class="card page-panel">
- <div class="section-intro"><div><h2>Pagos</h2><p>Controla montos y confirma el estado de cada pago recibido.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPagos','pagos_adn.csv')">Exportar CSV</button><span class="badge">S/ <?= number_format($totalPagos,2) ?> confirmados</span></div></div>
+ <div class="section-intro"><div><h2>Pagos</h2><p>Controla montos y confirma el estado de cada pago recibido. Las referencias Yape/Plin/transferencia enviadas desde Flutter se verifican manualmente antes de marcar «Pagado».</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPagos','pagos_adn.csv')">Exportar CSV</button><span class="badge">S/ <?= number_format($totalPagos,2) ?> confirmados</span></div></div>
  <details class="detail-card" style="margin-bottom:16px">
   <summary style="cursor:pointer;font-weight:900">+ Registrar pago manual</summary>
   <form method="POST" class="form-grid" style="margin-top:14px">
@@ -2710,9 +2710,20 @@ input:focus,select:focus,textarea:focus{
    <div class="form-actions"><button class="btn btn-primary" name="registrar_pago_manual">Registrar pago</button></div>
   </form>
  </details>
- <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Monto</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
- <?php if(!$pagos): ?><tr><td colspan="7" class="empty-cell">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr>
-  <td>#<?= h($pg["id_pago"]) ?></td><td><a class="link-action" href="dashboard.php?pedido_detalle=<?= h($pg["id_pedido"]) ?>#pedidos">#<?= h($pg["id_pedido"]) ?></a></td><td><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong></td><td><?= h($pg["metodo_pago"]) ?></td><td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td><td><span class="status-pill"><?= h($pg["estado_pago"]) ?></span></td>
+ <div class="table-wrap"><table id="tablaPagos"><thead><tr><th>ID</th><th>Pedido</th><th>Cliente</th><th>Método</th><th>Referencia cliente</th><th>Monto</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+ <?php if(!$pagos): ?><tr><td colspan="10" class="empty-cell">Todavía no hay pagos.</td></tr><?php else: foreach($pagos as $pg): ?><tr>
+  <td>#<?= h($pg["id_pago"]) ?></td>
+  <td><a class="link-action" href="dashboard.php?pedido_detalle=<?= h($pg["id_pedido"]) ?>#pedidos">#<?= h($pg["id_pedido"]) ?></a></td>
+  <td><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong></td>
+  <td><?= h($pg["metodo_pago"]) ?></td>
+  <td><?php if(trim((string)($pg["referencia_cliente"]??""))!==""): ?>
+   <strong><?= h($pg["referencia_cliente"]) ?></strong>
+   <small class="table-sub"><?= h($pg["fecha_referencia"]??"") ?> · Por verificar</small>
+   <?php else: ?>—<?php endif; ?></td>
+  <td class="price">S/ <?= number_format((float)$pg["monto"],2) ?></td>
+  <td class="price">S/ <?= number_format((float)$pg["total_pagado"],2) ?></td>
+  <td class="price">S/ <?= number_format((float)$pg["saldo"],2) ?></td>
+  <td><span class="status-pill"><?= h($pg["estado_pago"]) ?></span></td>
   <td><form method="POST" class="inline-form"><input type="hidden" name="id_pago" value="<?= h($pg["id_pago"]) ?>"><select name="estado_pago"><?php foreach(["Pendiente","Pagado","Rechazado"] as $estPago): ?><option value="<?= h($estPago) ?>" <?= $pg["estado_pago"]===$estPago?"selected":"" ?>><?= h($estPago) ?></option><?php endforeach; ?></select><button class="btn btn-primary btn-small" name="actualizar_estado_pago">Actualizar</button></form></td>
  </tr><?php endforeach; endif; ?>
  </tbody></table></div>
