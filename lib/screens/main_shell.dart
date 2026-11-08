@@ -767,7 +767,11 @@ class _MainShellState extends State<MainShell> {
                                     builder: (_) => CheckoutScreen(
                                       cart: Map<int, int>.from(_cartValido),
                                       products: _productos,
-                                      onCompleted: () => setState(() => _cart.clear()),
+                                      onCompleted: () {
+                                        if (!mounted) return;
+                                        setState(() => _cart.clear());
+                                        _loadCatalogoApi();
+                                      },
                                     ),
                                   ),
                                 );
