@@ -2,9 +2,12 @@
 """Prueba integral real de la API PHP contra MySQL temporal de GitHub Actions."""
 import json
 import os
+import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+from http.cookiejar import CookieJar
 from uuid import uuid4
 
 BASE = os.getenv("DORADA_API_URL", "http://127.0.0.1:8090").rstrip("/")
@@ -38,6 +41,112 @@ def api(path, *, method="GET", body=None, token=None, status=200):
         f"{method} {path}: esperado HTTP {status}, recibido {code}: {data}"
     )
     return data
+
+
+def admin_page(opener, path, form=None):
+    headers = {"Accept": "text/html, application/json"}
+    data = None
+    if form is not None:
+        data = urllib.parse.urlencode(form).encode("utf-8")
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    request = urllib.request.Request(
+        f"{BASE}/{path.lstrip('/')}", headers=headers,
+        method="POST" if form is not None else "GET", data=data,
+    )
+    with opener.open(request, timeout=20) as response:
+        return response.read().decode("utf-8")
+
+
+def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original):
+    navegador = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(CookieJar())
+    )
+    inicio = admin_page(navegador, "admin_login.php")
+    match = re.search(r'name="csrf_token" value="([a-f0-9]{64})"', inicio)
+    assert match, "No se encontró el token CSRF del formulario administrativo"
+    csrf = match.group(1)
+
+    # Primera instalación: crear un administrador desde el formulario real.
+    creada = admin_page(navegador, "admin_login.php", form={
+        "csrf_token": csrf, "crear_admin_inicial": "1",
+        "nombres": "Administración", "apellidos": "Pruebas",
+        "correo": f"admin-{uuid4().hex[:10]}@example.test",
+        "contrasena": "ClaveAdmin_2026",
+        "confirmar_contrasena": "ClaveAdmin_2026",
+    })
+    assert "Producto" in creada and "Pedidos" in creada, (
+        "No se abrió el dashboard tras crear el administrador"
+    )
+    metricas = json.loads(admin_page(navegador, "dashboard_api.php"))
+    assert metricas["estado"] is True, metricas
+
+    categorias = api("categorias.php")
+    marcas = api("marcas.php")
+    assert categorias and marcas
+    id_categoria = int(categorias[0]["id_categoria"])
+    id_marca = int(marcas[0]["id_marca"])
+    nombre = f"Repuesto de control {uuid4().hex[:8]}"
+    formulario = {
+        "csrf_token": csrf, "id_categoria": id_categoria,
+        "id_marca": id_marca, "nombre_producto": nombre,
+        "descripcion": "Artículo creado desde el dashboard PHP",
+        "tipo_vehiculo": "Motocicleta", "compatibilidad": "125cc",
+        "precio": "24.50", "precio_oferta": "22.00",
+        "stock": "9", "stock_minimo": "2", "imagen_url": "",
+    }
+
+    nuevo = admin_page(
+        navegador, "dashboard.php",
+        form={**formulario, "registrar_producto": "1"},
+    )
+    assert "Producto registrado correctamente" in nuevo, (
+        "No se registró el producto desde el dashboard"
+    )
+    productos = api("productos.php")
+    encontrados = [p for p in productos if p["nombre_producto"] == nombre]
+    assert len(encontrados) == 1, encontrados
+    id_nuevo = int(encontrados[0]["id_producto"])
+
+    actualizado = admin_page(
+        navegador, "dashboard.php",
+        form={**formulario, "actualizar_producto": "1",
+              "id_producto": str(id_nuevo), "precio": "28.00",
+              "stock": "12"},
+    )
+    assert "Producto actualizado correctamente" in actualizado
+    registro = api(f"productos.php?id={id_nuevo}")
+    assert float(registro["precio"]) == 28.0, registro
+    assert int(registro["stock"]) == 12, registro
+
+    borrado = admin_page(
+        navegador, "dashboard.php",
+        form={"csrf_token": csrf, "eliminar_producto": "1",
+              "id_producto": str(id_nuevo)},
+    )
+    assert "Producto eliminado correctamente" in borrado
+    assert api(f"productos.php?id={id_nuevo}", status=404)["estado"] is False
+
+    # Cancelar desde el dashboard revierte el stock descontado por Flutter.
+    cancelado = admin_page(
+        navegador, "dashboard.php",
+        form={"csrf_token": csrf, "actualizar_estado_pedido": "1",
+              "id_pedido": str(id_pedido), "estado_pedido": "Cancelado"},
+    )
+    assert "Estado del pedido actualizado" in cancelado, (
+        "No se canceló el pedido desde PHP"
+    )
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_original
+    historial = api(f"pedidos.php?id_usuario={id_usuario}", token=token)
+    registro_pedido = next(p for p in historial if int(p["id_pedido"]) == id_pedido)
+    assert registro_pedido["estado_pedido"] == "Cancelado", registro_pedido
+
+    pagos = json.loads(admin_page(navegador, "pagos.php"))
+    assert any(
+        int(p["id_pedido"]) == id_pedido and p["estado_pago"] == "Rechazado"
+        for p in pagos
+    ), pagos
+    print("OK: dashboard PHP, sesión admin, CSRF, CRUD producto,")
+    print("    métricas, cancelación de pedido, reversión stock y pago.")
 
 
 def crear_cliente(nombre):
@@ -187,6 +296,11 @@ def main():
         method="DELETE", token=token,
     )
     assert eliminada["estado"] is True, eliminada
+
+    # Verificar las operaciones reales del dashboard sobre ese mismo pedido.
+    probar_dashboard_admin(
+        id_pedido, id_usuario, token, id_producto, stock_anterior,
+    )
 
     # El cierre de sesión revoca el token y prohíbe futuras consultas.
     assert api("cliente_logout.php", method="POST", token=token)["estado"] is True
