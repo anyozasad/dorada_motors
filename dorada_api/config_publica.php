@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . "/conexion.php";
 require_once __DIR__ . "/empresa_config.php";
 
 header("Content-Type: application/json; charset=UTF-8");
