@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
+import '../widgets/product_image.dart';
 import '../widgets/ui_motion.dart';
 import 'checkout_screen.dart';
 import 'orders_screen.dart';
@@ -248,23 +249,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _imagenProducto(String ruta, {BoxFit fit = BoxFit.contain}) {
-    if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
-      return Image.network(
-        ruta,
-        fit: fit,
-        errorBuilder: (_, _, _) => const Center(
-          child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
-        ),
-      );
-    }
-
-    return Image.asset(
-      ruta,
-      fit: fit,
-      errorBuilder: (_, _, _) => const Center(
-        child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
-      ),
-    );
+    return ProductImage(source: ruta, fit: fit);
   }
 
   Producto _productById(int id) => _productos.firstWhere((p) => p.id == id);
