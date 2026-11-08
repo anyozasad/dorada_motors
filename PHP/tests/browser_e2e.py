@@ -56,8 +56,7 @@ def main():
         page.screenshot(path="artifacts/ui/01_dashboard.png", full_page=True)
         print("OK BROWSER: alta del administrador y acceso a dashboard")
 
-        # Todas las secciones administrativas se abren desde botones reales.
-        # Si falta una sección o un enlace no responde, la prueba falla.
+        # Abrir cada módulo por su enlace: no aceptar paneles estáticos.
         grupos = {
             "ventas": ["pedidos", "pagos", "comprobantes"],
             "catalogo": ["gestion-productos", "categorias", "marcas"],
@@ -66,13 +65,31 @@ def main():
         }
         for grupo, secciones in grupos.items():
             carpeta = page.locator(f'[data-nav-folder="{grupo}"]')
-            toggle = page.locator(f'button[data-nav-toggle="{grupo}"]')
+            boton = page.locator(f'button[data-nav-toggle="{grupo}"]')
             for seccion in secciones:
                 if "open" not in (carpeta.get_attribute("class") or "").split():
-                    toggle.click()
+                    boton.click()
                 page.locator(f'#sidebar a[href="#{seccion}"]').click()
-                expect(page.locator(f'#{seccion}')).to_have_class(re.compile(r'\bactive\b'))
-                expect(page).to_have_url(re.compile(rf'#' + re.escape(seccion) + r'        page.locator('button[data-nav-toggle="catalogo"]').click()
+                expect(page.locator(f'#{seccion}')).to_have_class(re.compile("active"))
+                assert page.url.endswith("#" + seccion), page.url
+                assert page.locator("#topTitle").inner_text().strip() != "ADN Import's"
+        for seccion, titulo in (
+            ("soporte", "Atención al cliente"),
+            ("reportes", "Reportes"),
+        ):
+            page.locator(f'#sidebar a[href="#{seccion}"]').click()
+            expect(page.locator(f'#{seccion}')).to_have_class(re.compile("active"))
+            expect(page.locator("#topTitle")).to_have_text(titulo)
+        page.locator('a.admin[href="#configuracion"]').click()
+        expect(page.locator("#configuracion")).to_have_class(re.compile("active"))
+        expect(page.locator("#topTitle")).to_have_text("Configuración")
+        page.locator('#sidebar a[href="#inicio"]').click()
+        expect(page.locator("#inicio")).to_have_class(re.compile("active"))
+        page.screenshot(path="artifacts/ui/00_menu_modulos.png", full_page=True)
+        print("OK BROWSER: navegación de las 14 secciones administrativas")
+
+        # Ejercitar de nuevo el enlace al catálogo antes de registrar el producto.
+        page.locator('button[data-nav-toggle="catalogo"]').click()
         page.locator('.nav-submenu a[href="#gestion-productos"]').click()
         expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
 
