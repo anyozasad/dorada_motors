@@ -423,6 +423,16 @@ class ApiService {
     throw Exception('Respuesta inválida al registrar el pedido');
   }
 
+  static Future<Map<String, dynamic>> cancelarPedidoCliente(int idPedido) async {
+    final respuesta = await _postJson('cliente_cancelar_pedido.php', {
+      'id_pedido': idPedido,
+    });
+    if (respuesta is! Map) {
+      throw Exception('Respuesta inválida al cancelar el pedido');
+    }
+    return Map<String, dynamic>.from(respuesta);
+  }
+
   static Future<List<dynamic>> obtenerPedidosUsuario(int idUsuario) =>
       _getList('pedidos.php?id_usuario=$idUsuario');
 
