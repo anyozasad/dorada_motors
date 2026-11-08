@@ -94,6 +94,30 @@ php VALIDAR_DASHBOARD_150.php
 
 GitHub Actions ejecuta la sintaxis de PHP, el análisis y las pruebas Flutter, y una **integración real con MySQL temporal** que comprueba registro, autenticación, permisos, carrito, favoritos, compras, pagos, stock, cancelaciones, CRUD administrativo y comprobantes. Su resultado actual se puede consultar en **Actions** del repositorio: https://github.com/anyozasad/dorada_motors/actions
 
+## Preparar el ZIP para entregar
+
+Desde la carpeta principal de `dorada_motors` en PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\PREPARAR_ENTREGA_INDICADOR_II.ps1
+```
+
+El script crea `ENTREGA_DORADA_MOTORS.zip` en el **Escritorio**, con `Dorada_Motors_PROYECTO_COMPLETO.zip`, esquema SQL de instalación y guía/matriz de requisitos. Incluye Flutter, PHP, carrito, favoritos, soporte e imágenes; no exporta clientes, contraseñas, pedidos reales ni registros privados de auditoría.
+
+Para generar además paquetes separados de Flutter y web PHP:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\PREPARAR_ENTREGA_INDICADOR_II.ps1 -PaquetesSeparados
+```
+
+Antes de presentar, ejecutar con Apache y MySQL de XAMPP encendidos:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\VERIFICAR_SISTEMA.ps1
+```
+
+Este último es un control técnico; la matriz debe completarse con evidencias funcionales de las operaciones que revisará el profesor.
+
 ## Archivos clave
 
 - `lib/main.dart`: arranque Flutter.
