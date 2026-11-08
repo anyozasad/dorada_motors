@@ -12,7 +12,8 @@ Empresa del caso: ADN Import's / Dorada Motors.
 - El script copia PHP y las imágenes a C:\xampp\htdocs\dorada_api e inicia Flutter en Chrome.
 
 2. DIRECCIONES
-Flutter: http://localhost:8080
+Flutter Web: http://localhost:8080
+En Android real: pantalla de login > Configurar conexión con PHP > http://IP_PC/dorada_api, con ambos dispositivos en la misma red y acceso permitido en Apache/firewall.
 Panel PHP: http://localhost/dorada_api/admin_login.php
 Catálogo API: http://localhost/dorada_api/productos.php
 phpMyAdmin: http://localhost/phpmyadmin/
