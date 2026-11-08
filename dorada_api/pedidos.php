@@ -329,11 +329,13 @@ $stmt = $conexion->prepare("
             ORDER BY pg.id_pago DESC
             LIMIT 1
         ) AS metodo_pago,
-        (
-            SELECT pg.estado_pago
-            FROM pago pg WHERE pg.id_pedido=p.id_pedido
-            ORDER BY pg.id_pago DESC LIMIT 1
-        ) AS estado_pago,
+        COALESCE(resumen_pago.pagado,0) AS monto_pagado,
+        GREATEST(0,ROUND(p.total-COALESCE(resumen_pago.pagado,0),2)) AS saldo_pendiente,
+        CASE
+            WHEN p.estado_pedido='Cancelado' THEN 'Rechazado'
+            WHEN COALESCE(resumen_pago.pagado,0)>=p.total-0.009 THEN 'Pagado'
+            ELSE 'Pendiente'
+        END AS estado_pago,
         (
             SELECT pg.referencia_cliente
             FROM pago pg WHERE pg.id_pedido=p.id_pedido
@@ -342,6 +344,10 @@ $stmt = $conexion->prepare("
     FROM pedido p
     INNER JOIN usuario u ON p.id_usuario=u.id_usuario
     LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
+    LEFT JOIN (
+        SELECT id_pedido, SUM(CASE WHEN estado_pago='Pagado' THEN monto ELSE 0 END) AS pagado
+        FROM pago GROUP BY id_pedido
+    ) resumen_pago ON resumen_pago.id_pedido=p.id_pedido
     WHERE p.id_usuario=?
     ORDER BY p.id_pedido DESC
 ");
