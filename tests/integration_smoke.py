@@ -57,7 +57,7 @@ def admin_page(opener, path, form=None):
         return response.read().decode("utf-8")
 
 
-def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original, otro_id, otro_token):
+def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original, otro_id, otro_token, id_solicitud):
     navegador = urllib.request.build_opener(
         urllib.request.HTTPCookieProcessor(CookieJar())
     )
@@ -77,6 +77,22 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert "Producto" in creada and "Pedidos" in creada, (
         "No se abrió el dashboard tras crear el administrador"
     )
+    assert "Atención al cliente" in creada, "El dashboard no muestra el módulo de soporte"
+    atendido = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf,
+        "responder_soporte": "1",
+        "id_solicitud": str(id_solicitud),
+        "estado_soporte": "Respondido",
+        "respuesta_soporte": "Tu consulta fue revisada. Puedes continuar con la compra.",
+    })
+    assert f"Solicitud #{id_solicitud} actualizada correctamente" in atendido, (
+        "El administrador no pudo responder la solicitud"
+    )
+    solicitudes = api("soporte.php", token=token)
+    caso = next(x for x in solicitudes["solicitudes"] if int(x["id_solicitud"]) == id_solicitud)
+    assert caso["estado"] == "Respondido", caso
+    assert "Tu consulta fue revisada" in caso["respuesta"], caso
+
     metricas = json.loads(admin_page(navegador, "dashboard_api.php"))
     assert metricas["estado"] is True, metricas
 
@@ -209,6 +225,69 @@ def verificar_cors_web():
     print("OK: CORS Flutter Web (GET y preflight autenticado).")
 
 
+def probar_cuenta_soporte(id_usuario, token, otro_token):
+    assert api("cuenta.php", status=401)["estado"] is False
+    assert api("soporte.php", status=401)["estado"] is False
+
+    cuenta = api("cuenta.php", token=token)["usuario"]
+    assert int(cuenta["id_usuario"]) == id_usuario, cuenta
+    nuevo_correo = f"perfil-{uuid4().hex[:12]}@example.test"
+    perfil = api("cuenta.php", method="PUT", token=token, body={
+        "accion": "perfil",
+        "nombres": "Cliente Actualizado",
+        "apellidos": "Pruebas",
+        "correo": nuevo_correo,
+        "telefono": "988776655",
+    })
+    assert perfil["estado"] is True, perfil
+    cuenta = api("cuenta.php", token=token)["usuario"]
+    assert cuenta["correo"] == nuevo_correo, cuenta
+    assert cuenta["telefono"] == "988776655", cuenta
+
+    otro = api("cuenta.php", method="PUT", token=otro_token, status=409, body={
+        "accion": "perfil",
+        "nombres": "Otro",
+        "apellidos": "Pruebas",
+        "correo": nuevo_correo,
+        "telefono": "977654321",
+    })
+    assert otro["estado"] is False, otro
+
+    clave_mala = api("cuenta.php", method="PUT", token=token, status=403, body={
+        "accion": "clave",
+        "contrasena_actual": "contraseña-incorrecta",
+        "contrasena_nueva": "NuevaClave_2026",
+    })
+    assert clave_mala["estado"] is False
+    cambio = api("cuenta.php", method="PUT", token=token, body={
+        "accion": "clave",
+        "contrasena_actual": "DemoSeguro_2026",
+        "contrasena_nueva": "NuevaClave_2026",
+    })
+    assert cambio["estado"] is True
+    assert api("login.php", method="POST", body={
+        "correo": nuevo_correo,
+        "contrasena": "DemoSeguro_2026",
+    })["estado"] is False
+    assert api("login.php", method="POST", body={
+        "correo": nuevo_correo,
+        "contrasena": "NuevaClave_2026",
+    })["estado"] is True
+
+    caso = api("soporte.php", method="POST", token=token, status=201, body={
+        "asunto": "Consulta por repuesto",
+        "mensaje": "Necesito consultar compatibilidad de una pieza de motor.",
+    })
+    assert caso["estado"] is True, caso
+    id_solicitud = int(caso["id_solicitud"])
+    mis_casos = api("soporte.php", token=token)["solicitudes"]
+    assert any(int(x["id_solicitud"]) == id_solicitud for x in mis_casos)
+    casos_otra_cuenta = api("soporte.php", token=otro_token)["solicitudes"]
+    assert not any(int(x["id_solicitud"]) == id_solicitud for x in casos_otra_cuenta)
+    print("OK: perfil editable, cambio de clave, correos únicos y soporte privado.")
+    return id_solicitud
+
+
 def crear_cliente(nombre):
     correo = f"ci-{uuid4().hex[:12]}@example.test"
     respuesta = api("usuarios.php", method="POST", status=200, body={
@@ -263,6 +342,7 @@ def main():
 
     id_usuario, token = crear_cliente("Cliente Uno")
     otro_id, otro_token = crear_cliente("Cliente Dos")
+    id_solicitud = probar_cuenta_soporte(id_usuario, token, otro_token)
 
     # Un token no permite suplantar otra cuenta a través de id_usuario.
     assert api(f"pedidos.php?id_usuario={id_usuario}", token=otro_token, status=403)["estado"] is False
@@ -361,7 +441,7 @@ def main():
     # Verificar las operaciones reales del dashboard sobre ese mismo pedido.
     probar_dashboard_admin(
         id_pedido, id_usuario, token, id_producto, stock_anterior,
-        otro_id, otro_token,
+        otro_id, otro_token, id_solicitud,
     )
 
     # El cierre de sesión revoca el token y prohíbe futuras consultas.
