@@ -14,6 +14,7 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   late Future<List<Pedido>> _orders;
+  final Set<String> _cancelando = <String>{};
 
   @override
   void initState() {
@@ -82,6 +83,52 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _refresh() async {
     setState(() => _orders = _loadOrders());
     await _orders;
+  }
+
+  Future<void> _cancelarPedido(Pedido pedido) async {
+    if (_cancelando.contains(pedido.id) || pedido.estado != 'Pendiente') return;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancelar pedido'),
+        content: Text(
+          '¿Confirmas la cancelación del pedido ${pedido.id}? '
+          'Los repuestos volverán al inventario y el pago pendiente quedará rechazado.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sí, cancelar'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmado != true) return;
+
+    final id = int.tryParse(pedido.id.replaceFirst('DM-', '')) ?? 0;
+    if (id <= 0) return;
+    setState(() => _cancelando.add(pedido.id));
+    try {
+      await ApiService.cancelarPedidoCliente(id);
+      if (!mounted) return;
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pedido cancelado. El inventario se actualizó en MySQL.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+      await _refresh();
+    } finally {
+      if (mounted) setState(() => _cancelando.remove(pedido.id));
+    }
   }
 
   @override
@@ -258,6 +305,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
             _infoRow(Icons.phone_outlined, 'Teléfono', order.telefono),
             if (order.tipoEntrega == 'Delivery')
               _infoRow(Icons.location_on_outlined, 'Dirección', order.direccion),
+            if (order.estado == 'Pendiente') ...[
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _cancelando.contains(order.id)
+                      ? null : () => _cancelarPedido(order),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: Text(_cancelando.contains(order.id)
+                      ? 'Cancelando...' : 'Cancelar pedido'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
