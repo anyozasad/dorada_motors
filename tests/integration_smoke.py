@@ -109,7 +109,7 @@ def probar_administracion_integral(navegador, csrf, id_producto):
     }, "Proveedor registrado correctamente")
     html = admin_page(navegador, "dashboard.php")
     match = re.search(
-        rf"<td>#(\\d+)</td><td><strong>{re.escape(razon)}</strong>", html
+        rf"<td>#(\d+)</td><td><strong>{re.escape(razon)}</strong>", html
     )
     assert match, "No aparece el nuevo proveedor en el dashboard"
     id_proveedor = int(match.group(1))
@@ -160,7 +160,7 @@ def probar_administracion_integral(navegador, csrf, id_producto):
         "cantidad_compra[]": [3, 2],
         "precio_compra[]": ["11.00", "12.50"],
     }, "registrada con 2 producto(s)")
-    match = re.search(r"Compra #(\\d+) registrada", html)
+    match = re.search(r"Compra #(\d+) registrada", html)
     assert match, "No se encontró identificador de la compra creada"
     id_compra = int(match.group(1))
     assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 8
