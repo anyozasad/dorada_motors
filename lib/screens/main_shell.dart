@@ -1262,10 +1262,7 @@ class _MainShellState extends State<MainShell> {
             width: double.infinity,
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: () async {
-                await LocalStore.logout();
-                widget.onLogout();
-              },
+              onPressed: widget.onLogout,
               icon: const Icon(Icons.logout_rounded),
               label: const Text('Cerrar sesión'),
             ),
