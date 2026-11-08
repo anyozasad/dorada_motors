@@ -259,6 +259,73 @@ class _MainShellState extends State<MainShell> {
     }).toList();
   }
 
+  Future<void> _configurarConexion() async {
+    final personalizada = await LocalStore.getApiBaseUrl();
+    if (!mounted) return;
+    final controller = TextEditingController(
+      text: personalizada?.isNotEmpty == true
+          ? personalizada
+          : ApiService.baseUrl,
+    );
+    final nuevaUrl = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Configuración de conexión'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Indica la dirección de la API PHP. En esta PC normalmente es http://localhost/dorada_api.',
+              style: TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'Servidor PHP',
+                prefixIcon: Icon(Icons.dns_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, ''),
+            child: const Text('Restablecer'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (!mounted || nuevaUrl == null) return;
+    final valor = nuevaUrl.trim();
+    if (valor.isNotEmpty) {
+      final uri = Uri.tryParse(valor);
+      if (uri == null ||
+          (uri.scheme != 'http' && uri.scheme != 'https') ||
+          uri.host.isEmpty) {
+        _message('Ingresa una dirección HTTP o HTTPS válida.');
+        return;
+      }
+    }
+
+    await LocalStore.saveApiBaseUrl(valor);
+    ApiService.configurarServidor(valor);
+    if (!mounted) return;
+    _message('Configuración guardada. Actualizando catálogo...');
+    await _loadCatalogoApi();
+  }
+
   void _message(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
@@ -1265,9 +1332,7 @@ class _MainShellState extends State<MainShell> {
               children: const [Text("Aplicación de ADN Import's para consultar y comprar repuestos de motocicletas y motokar.")],
             );
           }),
-          _profileOption(Icons.settings_outlined, 'Configuración', 'Preferencias de la aplicación', () {
-            _message('Configuración lista para futuras preferencias.');
-          }),
+          _profileOption(Icons.settings_outlined, 'Configuración', 'Configura la conexión con el servidor PHP', _configurarConexion),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
