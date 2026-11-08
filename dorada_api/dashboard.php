@@ -208,9 +208,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $compatibilidad = trim($_POST["compatibilidad"] ?? "");
             $precio = (float)($_POST["precio"] ?? 0);
             $precioOferta = (float)($_POST["precio_oferta"] ?? 0);
-            if ($precioOferta <= 0 || $precioOferta >= $precio) $precioOferta = 0;
+            if ($precioOferta < 0 || ($precioOferta > 0 && $precioOferta >= $precio)) {
+                redir("La oferta debe ser mayor que cero y menor al precio normal", "error", "gestion-productos");
+            }
             $stock = (int)($_POST["stock"] ?? 0);
             $stockMinimo = max(0, (int)($_POST["stock_minimo"] ?? 5));
+            if ($precio <= 0 || $stock < 0) {
+                redir("El precio debe ser mayor a cero y el stock no puede ser negativo", "error", "gestion-productos");
+            }
             $imagenBase = trim($_POST["imagen_url"] ?? "");
             $imagen = guardarImagenProducto($_FILES["imagen_archivo"] ?? null, $imagenBase);
 
@@ -247,9 +252,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $compatibilidad = trim($_POST["compatibilidad"] ?? "");
             $precio = (float)($_POST["precio"] ?? 0);
             $precioOferta = (float)($_POST["precio_oferta"] ?? 0);
-            if ($precioOferta <= 0 || $precioOferta >= $precio) $precioOferta = 0;
+            if ($precioOferta < 0 || ($precioOferta > 0 && $precioOferta >= $precio)) {
+                redir("La oferta debe ser mayor que cero y menor al precio normal", "error", "gestion-productos");
+            }
             $stock = (int)($_POST["stock"] ?? 0);
             $stockMinimo = max(0, (int)($_POST["stock_minimo"] ?? 5));
+            if ($precio <= 0 || $stock < 0) {
+                redir("El precio debe ser mayor a cero y el stock no puede ser negativo", "error", "gestion-productos");
+            }
             $imagenActual = trim($_POST["imagen_actual"] ?? "");
             $imagenManual = trim($_POST["imagen_url"] ?? "");
             $imagenBase = $imagenManual !== "" ? $imagenManual : $imagenActual;
