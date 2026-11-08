@@ -53,7 +53,7 @@ foreach ($archivo in @('productos.php','categorias.php','marcas.php','config_pub
       FAIL "Ruta pública $archivo devolvió HTTP $($respuesta.StatusCode)"
     }
   } catch {
-    FAIL "API $archivo: $($_.Exception.Message)"
+    FAIL "API ${archivo}: $($_.Exception.Message)"
   }
 }
 
