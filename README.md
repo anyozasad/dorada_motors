@@ -44,12 +44,12 @@ flutter run -d chrome --web-port 8080
 2. En Flutter, abrir el catálogo o pulsar **Reintentar** para actualizarlo y verificar que el producto aparece.
 3. Crear una cuenta de cliente, editar el perfil y cambiar la contraseña desde Flutter. Verificar la opción «¿Olvidaste tu contraseña?» y su atención en soporte. El primer acceso al panel PHP permite crear el administrador inicial.
 4. Agregar un producto a **Favoritos** y al **Carrito** y comprobar ambos datos en MySQL. Desde **Ayuda y soporte**, enviar una consulta y responderla en la nueva sección del panel PHP.
-5. Completar un pedido con recojo o delivery, elegir una dirección guardada en MySQL y verificar la tarifa de entrega configurada en PHP.
-6. Verificar en PHP el pedido, el pago pendiente y los movimientos de stock. Confirmar el pago desde el dashboard.
+5. Completar un pedido con recojo o delivery, elegir una dirección guardada en MySQL y verificar la tarifa de entrega configurada en PHP. Los reintentos de compra usan una clave única para evitar pedidos duplicados.
+6. Para Yape/Plin/Transferencia, configurar primero el destino oficial en Administración > Configuración. El cliente puede informar la referencia desde **Mis pedidos**; el administrador verifica el pago externamente y lo confirma en PHP. Comprobar el pago pendiente y los movimientos de stock.
 7. Emitir e imprimir un comprobante de demostración, y revisar en Flutter **Mis pedidos** y sus estados.
-8. Probar en PHP la cancelación de un pedido pendiente y comprobar que se repone el inventario.
+8. Probar la cancelación de un pedido pendiente desde Flutter y comprobar que se repone el inventario. Reintentar la cancelación no debe devolver stock dos veces. El panel bloquea cancelar ventas ya pagadas sin gestionar un reembolso.
 
-Flutter obtiene los productos, favoritos y carrito de MySQL a través de `ApiService` cuando el cliente ha iniciado sesión; en modo invitado el carrito es local. El backend comprueba el stock de cada pedido dentro de una transacción, calcula el total en el servidor, vacía el carrito persistido y guarda el pago con estado **Pendiente**. Seleccionar Yape o Plin no equivale a confirmar un cobro real.
+Flutter obtiene los productos, favoritos y carrito de MySQL a través de `ApiService` cuando el cliente ha iniciado sesión; en modo invitado el carrito es local. El backend comprueba el stock de cada pedido dentro de una transacción, calcula el total en el servidor, vacía el carrito persistido y guarda el pago con estado **Pendiente**. Seleccionar Yape o Plin no equivale a confirmar un cobro real. El número de operación que informa el cliente se registra en el pago **pendiente** y es visible en PHP para verificación manual. Los destinos de pago no se muestran como configurados hasta que el administrador guarde los datos oficiales.
 
 ## Autenticación y permisos
 
@@ -131,6 +131,9 @@ Este último es un control técnico; la matriz debe completarse con evidencias f
 - `dorada_api/dashboard.php`: panel administrativo.
 - `dorada_api/config_publica.php`: tarifa de entrega compartida con Flutter.
 - `dorada_api/carrito.php` y `dorada_api/favoritos.php`: datos persistidos en MySQL por cliente.
+- `dorada_api/cliente_cancelar_pedido.php`: cancelación segura del pedido pendiente con reversión de inventario.
+- `dorada_api/cliente_reportar_pago.php`: informa número de operación sin aprobar cobros.
+- `dorada_api/pedidos.php`: registro con clave de operación única para evitar duplicados por reintentos.
 - `tests/integration_smoke.py`: pruebas de integración real contra PHP y MySQL (clientes, soporte, pedidos, inventario, compras y otros flujos).
 - `MATRIZ_VALIDACION_FUNCIONAL_150.md`: matriz de los 150 requisitos del panel para verificar cada punto con el profesor.
 - `VERIFICAR_SISTEMA.ps1`: verificación local de XAMPP, API pública/privada, PHP y Flutter.
