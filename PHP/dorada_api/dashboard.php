@@ -2539,6 +2539,7 @@ select:focus-visible,textarea:focus-visible{
 .cashflow-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#65c982)}
 @media(max-width:620px){.cashflow-strip{grid-template-columns:1fr}.cashflow-amount{font-size:22px}}
 </style>
+<link rel="stylesheet" href="dashboard_profesional_2026.css?v=1">
 </head>
 <body>
 
