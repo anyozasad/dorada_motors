@@ -47,6 +47,21 @@ void main() {
     ApiService.configurarServidor(null);
   });
 
+  test('el carrito de invitado es independiente del autenticado', () async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStore.saveCart({1: 2});
+    await LocalStore.saveGuestCart({3: 1, 7: 4});
+    expect(await LocalStore.getCart(), {1: 2});
+    expect(await LocalStore.getGuestCart(), {3: 1, 7: 4});
+
+    await LocalStore.clearCart();
+    expect(await LocalStore.getCart(), isEmpty);
+    expect(await LocalStore.getGuestCart(), {3: 1, 7: 4});
+
+    await LocalStore.clearGuestCart();
+    expect(await LocalStore.getGuestCart(), isEmpty);
+  });
+
   test('el carrito y favoritos conservan sus valores locales', () async {
     SharedPreferences.setMockInitialValues({});
     await LocalStore.saveFavorites({2, 5});
