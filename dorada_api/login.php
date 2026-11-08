@@ -2,6 +2,7 @@
 
 include("conexion.php");
 require_once "sistema_bootstrap.php";
+require_once __DIR__ . "/cliente_auth.php";
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     echo json_encode([
@@ -60,6 +61,8 @@ if (!$usuario || ($usuario["estado"] ?? "Activo") !== "Activo" || !password_veri
     exit;
 }
 
+$token = emitirTokenCliente($conexion, (int)$usuario["id_usuario"]);
+
 unset($usuario["contrasena"]);
 unset($usuario["estado"]);
 unset($usuario["rol_sistema"]);
@@ -67,5 +70,6 @@ unset($usuario["rol_sistema"]);
 echo json_encode([
     "estado" => true,
     "mensaje" => "Inicio de sesión correcto",
-    "usuario" => $usuario
+    "usuario" => $usuario,
+    "token" => $token
 ]);
