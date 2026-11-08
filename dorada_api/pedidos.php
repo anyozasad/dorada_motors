@@ -213,6 +213,16 @@ if ($metodo === "POST") {
         $stmt->bind_param("isds",$idPedido,$metodoPago,$total,$estadoPago);
         $stmt->execute();
 
+        // La compra comprende todo el carrito del cliente: se vacía dentro
+        // de la misma transacción que guarda pedido, pago y movimientos.
+        $stmtVaciar = $conexion->prepare(
+            "DELETE dc FROM detalle_carrito dc
+             INNER JOIN carrito c ON c.id_carrito=dc.id_carrito
+             WHERE c.id_usuario=? AND c.estado='Activo'"
+        );
+        $stmtVaciar->bind_param("i", $idUsuario);
+        $stmtVaciar->execute();
+
         $conexion->commit();
 
         responderPedido([
