@@ -459,11 +459,21 @@ class _MainShellState extends State<MainShell> {
       }
     }
 
-    await LocalStore.saveApiBaseUrl(valor);
+    // No dejar la aplicación apuntando a un servidor que no responde.
+    final servidorAnterior = await LocalStore.getApiBaseUrl();
     ApiService.configurarServidor(valor);
-    if (!mounted) return;
-    _message('Configuración guardada. Actualizando catálogo...');
-    await _loadCatalogoApi();
+    try {
+      await ApiService.obtenerProductos();
+      await LocalStore.saveApiBaseUrl(valor);
+      if (!mounted) return;
+      _message('Conexión verificada. Catálogo sincronizado con MySQL.');
+      await _loadCatalogoApi();
+    } catch (e) {
+      ApiService.configurarServidor(servidorAnterior);
+      if (!mounted) return;
+      _message('No se guardó la dirección: el servidor no respondió correctamente. '
+          '${e.toString().replaceFirst('Exception: ', '')}');
+    }
   }
 
   void _message(String text) {
