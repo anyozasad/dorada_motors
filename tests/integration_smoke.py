@@ -375,6 +375,34 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert cancelacion_pagada["estado"] is False
     assert api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)[0]["estado_pedido"] == "Pagado"
 
+    # Pago digital completo: Flutter informa referencia y el administrador valida.
+    pedido_yape = api("pedidos.php", method="POST", token=otro_token, status=201, body={
+        "id_usuario": otro_id, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Yape",
+        "items": [{"id_producto": id_producto, "cantidad": 1}],
+    })
+    id_yape = int(pedido_yape["id_pedido"])
+    reporte = api("cliente_reportar_pago.php", method="POST", token=otro_token, body={
+        "id_pedido": id_yape, "referencia": "YAPE-20261107",
+    })
+    assert reporte["estado_pago"] == "Pendiente", reporte
+    pagos_antes = json.loads(admin_page(navegador, "pagos.php"))
+    pago_yape = next(p for p in pagos_antes if int(p["id_pedido"]) == id_yape)
+    assert pago_yape["referencia_cliente"] == "YAPE-20261107", pago_yape
+    assert pago_yape["estado_pago"] == "Pendiente", pago_yape
+    actualizado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf,
+        "actualizar_estado_pago": "1",
+        "id_pago": str(pago_yape["id_pago"]), "estado_pago": "Pagado",
+    })
+    assert "Estado del pago actualizado" in actualizado
+    historial_yape = api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)
+    pagado_yape = next(p for p in historial_yape if int(p["id_pedido"]) == id_yape)
+    assert pagado_yape["estado_pedido"] == "Pagado", pagado_yape
+    assert pagado_yape["estado_pago"] == "Pagado", pagado_yape
+    assert pagado_yape["referencia_pago"] == "YAPE-20261107", pagado_yape
+    print("OK: referencia de Yape, verificación administrativa y estado pagado en Flutter.")
+
     comprobante = admin_page(navegador, "dashboard.php", form={
         "csrf_token": csrf, "registrar_comprobante": "1",
         "id_pedido_comprobante": str(id_otro_pedido),
