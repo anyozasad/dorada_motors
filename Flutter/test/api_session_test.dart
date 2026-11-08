@@ -15,7 +15,7 @@ void main() {
         userId: 8,
         name: 'Cliente de prueba',
         email: 'cliente@example.test',
-        token: 'a' * 64,
+        token: List.filled(64, 'a').join(),
       );
 
   test('Sin token local no intenta autenticar al cliente', () async {
@@ -28,7 +28,7 @@ void main() {
     await guardarCliente();
     final client = MockClient((request) async {
       expect(request.url.path, '/dorada_api/cuenta.php');
-      expect(request.headers['Authorization'], 'Bearer ${'a' * 64}');
+      expect(request.headers['Authorization'], 'Bearer ${List.filled(64, 'a').join()}');
       return http.Response(
         '{"estado":true,"usuario":{"id_usuario":8,"correo":"cliente@example.test"}}',
         200,
