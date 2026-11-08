@@ -34,10 +34,27 @@ CopiarFuentes $Php (Join-Path $Temporal 'PHP')
 $Data = Join-Path $Temporal 'PHP\dorada_api\data'
 New-Item -Path $Data -ItemType Directory -Force | Out-Null
 $Htaccess = Join-Path $Php 'dorada_api\data\.htaccess'
-if (Test-Path $Htaccess) { Copy-Item $Htaccess (Join-Path $Data '.htaccess') -Force }
+if (!(Test-Path -LiteralPath $Htaccess)) { throw 'Falta la regla de seguridad PHP/dorada_api/data/.htaccess' }
+Copy-Item -LiteralPath $Htaccess -Destination (Join-Path $Data '.htaccess') -Force
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-# .NET incluye tambien .htaccess y otros archivos ocultos que Compress-Archive omite.
 [System.IO.Compression.ZipFile]::CreateFromDirectory($Temporal, $Zip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+# Comprobar y agregar explicitamente los archivos ocultos que Windows pudiera omitir.
+$ArchivoZip = [System.IO.Compression.ZipFile]::Open($Zip, [System.IO.Compression.ZipArchiveMode]::Update)
+try {
+  foreach ($recurso in @(
+    @{ Origen=$Htaccess; Entrada='PHP/dorada_api/data/.htaccess' },
+    @{ Origen=(Join-Path $Flutter '.metadata'); Entrada='Flutter/.metadata' }
+  )) {
+    if (!(Test-Path -LiteralPath $recurso.Origen)) { throw "No existe archivo requerido: $($recurso.Origen)" }
+    if (!$ArchivoZip.GetEntry($recurso.Entrada)) {
+      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $ArchivoZip, $recurso.Origen, $recurso.Entrada
+      ) | Out-Null
+    }
+  }
+} finally {
+  $ArchivoZip.Dispose()
+}
 if (!(Test-Path $Zip) -or (Get-Item $Zip).Length -lt 100000) { throw 'ZIP incompleto o ausente.' }
 if ($PaquetesSeparados) {
   Compress-Archive -Path (Join-Path $Temporal 'Flutter') -DestinationPath (Join-Path $Desktop 'DORADA_FLUTTER.zip') -CompressionLevel Optimal -Force
