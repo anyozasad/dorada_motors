@@ -32,6 +32,7 @@ B) En Flutter:
    - Realizar un pedido seleccionando una dirección guardada.
    - Consultar el historial de compras.
    - Enviar una solicitud de soporte desde Flutter y responderla en PHP.
+   - Probar «Olvidé mi contraseña»: registro en soporte y restablecimiento solo tras verificar identidad.
 C) En MySQL:
    - Mostrar que los pedidos y el detalle se guardaron realmente.
    - Verificar que el stock disminuyó y quedó registrado el movimiento.
@@ -48,6 +49,7 @@ demostración y sus imágenes. No se sobrescribe inventario ya existente.
 
 5. SEGURIDAD
 Los clientes reciben un token que se envía con cada operación privada.
+La recuperación asistida no envía correos automáticos: el administrador verifica identidad, asigna una clave temporal por un canal seguro y se revocan sesiones anteriores.
 El servidor valida que el pedido, las direcciones, el carrito y los favoritos
 pertenezcan a la cuenta autenticada. El panel PHP tiene roles y protección CSRF.
 
