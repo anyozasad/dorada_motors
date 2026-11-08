@@ -25,6 +25,23 @@ if (-not (Test-Path $apiDestino)) {
 }
 Write-Host "[1/5] Actualizando PHP, esquema e imágenes del dashboard..." -ForegroundColor Cyan
 Copy-Item -Path (Join-Path $apiLocal "*") -Destination $apiDestino -Force -Recurse
+# Verificar que las reglas Apache de privacidad tambien se trasladan a XAMPP.
+foreach ($archivoSeguridad in @('.htaccess', 'data\.htaccess')) {
+    $origenSeguro = Join-Path $apiLocal $archivoSeguridad
+    $destinoSeguro = Join-Path $apiDestino $archivoSeguridad
+    if (!(Test-Path -LiteralPath $origenSeguro)) {
+        throw "Falta una regla de seguridad del backend: $archivoSeguridad"
+    }
+    $carpetaSegura = Split-Path -Parent $destinoSeguro
+    if (!(Test-Path $carpetaSegura)) {
+        New-Item -ItemType Directory -Force -Path $carpetaSegura | Out-Null
+    }
+    Copy-Item -LiteralPath $origenSeguro -Destination $destinoSeguro -Force
+    if (!(Test-Path -LiteralPath $destinoSeguro)) {
+        throw "No se instalo la protección Apache: $archivoSeguridad"
+    }
+}
+Write-Host "Protección Apache del esquema SQL y datos privados instalada." -ForegroundColor Green
 
 $phpExe = Join-Path (Split-Path $htdocs -Parent) "php\php.exe"
 if (Test-Path $phpExe) {
