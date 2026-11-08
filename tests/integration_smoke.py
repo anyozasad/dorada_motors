@@ -90,6 +90,8 @@ def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token
     })
     id_pedido = int(pedido["id_pedido"])
     total_centimos = round(float(pedido["total"]) * 100)
+    caja_antes = admin_api(navegador, "dashboard_api.php")
+    assert float(caja_antes["por_cobrar"]) >= total_centimos/100 - 0.01
     assert total_centimos >= 2
     mitad = total_centimos // 2
     restante = total_centimos - mitad
@@ -123,6 +125,11 @@ def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token
     assert saldado["estado_pago"] == "Pagado", saldado
     assert abs(float(saldado["monto_pagado"]) - (total_centimos / 100)) < 0.01
     assert abs(float(saldado["saldo_pendiente"])) < 0.01
+    caja_despues = admin_api(navegador, "dashboard_api.php")
+    assert abs((float(caja_despues["cobrado"]) -
+                float(caja_antes["cobrado"])) - total_centimos/100) < 0.02
+    assert abs((float(caja_antes["por_cobrar"]) -
+                float(caja_despues["por_cobrar"])) - total_centimos/100) < 0.02
 
     sobrepago = admin_api(navegador, "pagos.php", method="POST", csrf=csrf,
                          body=datos, status=409)
@@ -503,6 +510,11 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
 
     metricas = json.loads(admin_page(navegador, "dashboard_api.php"))
     assert metricas["estado"] is True, metricas
+    assert "cobrado" in metricas and "por_cobrar" in metricas, metricas
+    assert "cobros_7_dias" in metricas and len(metricas["cobros_7_dias"]) == 7
+    assert abs(float(metricas["ventas"]) -
+               (float(metricas["cobrado"]) + float(metricas["por_cobrar"]))) < 0.02, metricas
+    assert "Cobros confirmados" in creada and "Saldo por cobrar" in creada
 
     categorias = api("categorias.php")
     marcas = api("marcas.php")
