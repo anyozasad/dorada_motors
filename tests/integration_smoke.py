@@ -183,6 +183,32 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     print("    métricas, cancelación de pedido, reversión stock y pago.")
 
 
+def verificar_cors_web():
+    origen = "http://localhost:8080"
+    request = urllib.request.Request(
+        f"{BASE}/config_publica.php", headers={"Origin": origen},
+    )
+    with urllib.request.urlopen(request, timeout=20) as response:
+        assert response.status == 200
+        assert response.headers.get("Access-Control-Allow-Origin") == origen
+
+    preflight = urllib.request.Request(
+        f"{BASE}/pedidos.php",
+        method="OPTIONS",
+        headers={
+            "Origin": origen,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,authorization",
+        },
+    )
+    with urllib.request.urlopen(preflight, timeout=20) as response:
+        assert response.status == 204
+        assert response.headers.get("Access-Control-Allow-Origin") == origen
+        allowed = response.headers.get("Access-Control-Allow-Headers", "").lower()
+        assert "authorization" in allowed and "content-type" in allowed
+    print("OK: CORS Flutter Web (GET y preflight autenticado).")
+
+
 def crear_cliente(nombre):
     correo = f"ci-{uuid4().hex[:12]}@example.test"
     respuesta = api("usuarios.php", method="POST", status=200, body={
@@ -227,6 +253,7 @@ def main():
     assert configuracion["estado"] is True
     costo_delivery = float(configuracion["costo_delivery"])
     assert costo_delivery == 5.0, configuracion
+    verificar_cors_web()
 
     # Los datos de compra y otros clientes no son públicos.
     assert api("pedidos.php?id_usuario=1", status=401)["estado"] is False
