@@ -29,6 +29,7 @@ def seleccionar_producto(select, texto):
 
 def main():
     errores_js = []
+    os.makedirs("artifacts/ui", exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 1366, "height": 900}, accept_downloads=True)
@@ -46,6 +47,7 @@ def main():
         page.wait_for_url(re.compile(r".*/dashboard\.php.*"))
         expect(page.locator("#inicio")).to_have_class(re.compile("active"))
         expect(page.locator(".top-title")).to_contain_text("Dashboard")
+        page.screenshot(path="artifacts/ui/01_dashboard.png", full_page=True)
         print("OK BROWSER: alta del administrador y acceso a dashboard")
 
         # Navegación real del menú sin alterar plantilla ni Javascript.
@@ -76,6 +78,7 @@ def main():
         expect(fila).to_be_hidden()
         page.locator("#buscador").fill("")
         expect(fila).to_be_visible()
+        page.screenshot(path="artifacts/ui/02_producto.png", full_page=True)
         print("OK BROWSER: formulario producto, MySQL, búsqueda y filtros")
 
         # Editar desde el enlace real, y comprobar la actualización de stock.
@@ -99,6 +102,7 @@ def main():
         mov.get_by_role("button", name="Registrar movimiento").click()
         expect(page.locator(".alert.ok")).to_contain_text("Movimiento de stock registrado")
         expect(page.locator("#tablaKardex")).to_contain_text("Entrada verificada desde Chromium")
+        page.screenshot(path="artifacts/ui/03_kardex.png", full_page=True)
         print("OK BROWSER: edición de producto e inventario/Kardex reales")
 
         # El informe y la descarga deben leer todos los registros, no solo la página visible.
@@ -112,6 +116,7 @@ def main():
             page.locator('a[href="exportar_csv.php?tipo=productos"]').click()
         descarga = info.value
         assert descarga.suggested_filename.endswith(".csv"), descarga.suggested_filename
+        page.screenshot(path="artifacts/ui/04_reportes.png", full_page=True)
         print("OK BROWSER: reportes con fechas y exportación CSV real")
 
         # La versión móvil conserva una navegación interactiva.
@@ -120,6 +125,7 @@ def main():
         expect(page.locator("#inicio")).to_have_class(re.compile("active"))
         page.locator(".mobile-bottom a[href='#pedidos']").click()
         expect(page.locator("#pedidos")).to_have_class(re.compile("active"))
+        page.screenshot(path="artifacts/ui/05_movil.png", full_page=True)
         print("OK BROWSER: navegación responsive del dashboard")
 
         assert not errores_js, "Errores Javascript del dashboard: " + "; ".join(errores_js)
