@@ -46,10 +46,10 @@ function puede(string $modulo): bool {
         "Administrador" => [
             "inicio","clientes","pedidos","pagos","comprobantes","reportes",
             "gestion-productos","productos","inventario","compras","proveedores","categorias","marcas",
-            "configuracion"
+            "configuracion","soporte"
         ],
         "Vendedor" => [
-            "inicio","clientes","pedidos","pagos","comprobantes","reportes"
+            "inicio","clientes","pedidos","pagos","comprobantes","reportes","soporte"
         ],
         "Almacen" => [
             "inicio","gestion-productos","productos","inventario","compras",
