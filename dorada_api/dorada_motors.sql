@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS pago (
   monto DECIMAL(10,2) NOT NULL DEFAULT 0,
   fecha_pago DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado_pago VARCHAR(30) NOT NULL DEFAULT 'Pendiente',
+  referencia_cliente VARCHAR(100) NULL DEFAULT NULL,
+  fecha_referencia DATETIME NULL,
   INDEX idx_pago_pedido (id_pedido),
   CONSTRAINT fk_pago_pedido FOREIGN KEY (id_pedido)
     REFERENCES pedido(id_pedido) ON DELETE CASCADE ON UPDATE CASCADE
