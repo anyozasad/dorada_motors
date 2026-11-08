@@ -28,7 +28,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final idUsuario = int.tryParse(session?['id'] ?? '') ?? 0;
 
     if (idUsuario <= 0) {
-      return LocalStore.getOrders();
+      throw Exception('Tu sesión venció. Inicia sesión para ver tus pedidos.');
     }
 
     try {
