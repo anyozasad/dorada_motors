@@ -1496,65 +1496,95 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         /* ================= COMPROBANTES ================= */
         if (isset($_POST["registrar_comprobante"])) {
             $idPedido = (int)($_POST["id_pedido_comprobante"] ?? 0);
-            $tipo = trim($_POST["tipo_comprobante"] ?? "Boleta");
-            $numero = strtoupper(trim($_POST["numero_comprobante"] ?? ""));
-
-            if ($idPedido <= 0 || !in_array($tipo, ["Boleta","Factura"], true)) {
+            $tipo = trim((string)($_POST["tipo_comprobante"] ?? "Boleta"));
+            $numero = strtoupper(trim((string)($_POST["numero_comprobante"] ?? "")));
+            if ($idPedido<=0 || !in_array($tipo,["Boleta","Factura"],true)) {
                 redir("Selecciona un pedido y tipo de comprobante válido", "error", "comprobantes");
             }
-
-            $stmt = $conexion->prepare("SELECT id_comprobante FROM comprobante WHERE id_pedido=? LIMIT 1");
-            $stmt->bind_param("i", $idPedido);
-            $stmt->execute();
-            if ($stmt->get_result()->fetch_assoc()) {
-                redir("Ya existe un comprobante para este pedido", "error", "comprobantes");
+            if ($numero!=="" && !preg_match('/^[A-Z0-9-]{5,40}$/',$numero)) {
+                redir("Número de comprobante inválido", "error", "comprobantes");
             }
 
-            $stmt = $conexion->prepare("
-                SELECT
-                    p.total,
-                    p.estado_pedido,
-                    COALESCE(SUM(CASE WHEN pg.estado_pago='Pagado' THEN pg.monto ELSE 0 END),0) AS pagado
-                FROM pedido p
-                LEFT JOIN pago pg ON pg.id_pedido=p.id_pedido
-                WHERE p.id_pedido=?
-                GROUP BY p.id_pedido,p.total,p.estado_pedido
-            ");
-            $stmt->bind_param("i", $idPedido);
-            $stmt->execute();
-            $pedidoComprobante = $stmt->get_result()->fetch_assoc();
+            $conexion->begin_transaction();
+            try {
+                // Este bloqueo impide que dos administradores emitan simultáneamente
+                // comprobantes distintos para un mismo pedido.
+                $stmt=$conexion->prepare(
+                    "SELECT id_pedido,total,estado_pedido FROM pedido
+                     WHERE id_pedido=? FOR UPDATE"
+                );
+                $stmt->bind_param("i",$idPedido);
+                $stmt->execute();
+                $pedido=$stmt->get_result()->fetch_assoc();
+                if (!$pedido) throw new RuntimeException("Pedido no encontrado");
 
-            if (!$pedidoComprobante) {
-                redir("Pedido no encontrado", "error", "comprobantes");
+                $stmt=$conexion->prepare(
+                    "SELECT id_comprobante FROM comprobante WHERE id_pedido=? LIMIT 1"
+                );
+                $stmt->bind_param("i",$idPedido);
+                $stmt->execute();
+                if ($stmt->get_result()->fetch_assoc()) {
+                    throw new RuntimeException("Ya existe un comprobante para este pedido");
+                }
+                if ((string)$pedido["estado_pedido"]==="Cancelado") {
+                    throw new RuntimeException("No se puede emitir comprobante de un pedido cancelado");
+                }
+
+                $stmt=$conexion->prepare(
+                    "SELECT COALESCE(SUM(monto),0) AS pagado FROM pago
+                     WHERE id_pedido=? AND estado_pago='Pagado'"
+                );
+                $stmt->bind_param("i",$idPedido);
+                $stmt->execute();
+                $pagado=(float)$stmt->get_result()->fetch_assoc()["pagado"];
+                $total=(float)$pedido["total"];
+                if ($pagado+0.009<$total) {
+                    throw new RuntimeException(
+                        "El pedido todavía tiene saldo pendiente de S/ ".number_format($total-$pagado,2)
+                    );
+                }
+
+                $factorIgv=1+($igvEmpresa/100);
+                $subtotal=$factorIgv>0 ? round($total/$factorIgv,2) : $total;
+                $igv=round($total-$subtotal,2);
+                $numeroAutomatico=$numero==="";
+                if ($numeroAutomatico) {
+                    // Número temporal único dentro de la misma transacción.
+                    $numero="TMP-".strtoupper(bin2hex(random_bytes(12)));
+                }
+                $stmt=$conexion->prepare(
+                    "INSERT INTO comprobante
+                     (id_pedido,tipo_comprobante,numero_comprobante,fecha_emision,subtotal,igv,total)
+                     VALUES (?,?,?,NOW(),?,?,?)"
+                );
+                $stmt->bind_param("issddd",$idPedido,$tipo,$numero,$subtotal,$igv,$total);
+                $stmt->execute();
+
+                if ($numeroAutomatico) {
+                    // Basado en el ID AUTO_INCREMENT, no en MAX(id)+1:
+                    // dos administradores nunca recibirán el mismo número.
+                    $idComprobante=(int)$conexion->insert_id;
+                    $numero=($tipo==="Factura" ? "F001-" : "B001-")
+                        . str_pad((string)$idComprobante,6,"0",STR_PAD_LEFT);
+                    $stmt=$conexion->prepare(
+                        "UPDATE comprobante SET numero_comprobante=?
+                         WHERE id_comprobante=?"
+                    );
+                    $stmt->bind_param("si",$numero,$idComprobante);
+                    $stmt->execute();
+                }
+
+                $conexion->commit();
+                redir("Comprobante ".$numero." registrado correctamente", "ok", "comprobantes");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                if ((int)$e->getCode()===1062) {
+                    redir("Ya existe un comprobante con ese número o para ese pedido", "error", "comprobantes");
+                }
+                error_log("Emitir comprobante PHP: ".$e->getMessage());
+                redir($e instanceof RuntimeException
+                    ? $e->getMessage() : "No se pudo emitir el comprobante", "error", "comprobantes");
             }
-
-            if ((string)$pedidoComprobante["estado_pedido"] === "Cancelado") {
-                redir("No se puede emitir comprobante de un pedido cancelado", "error", "comprobantes");
-            }
-
-            $total = (float)$pedidoComprobante["total"];
-            $pagado = (float)$pedidoComprobante["pagado"];
-            if ($pagado + 0.009 < $total) {
-                redir("El pedido todavía tiene saldo pendiente de S/ " . number_format($total-$pagado,2), "error", "comprobantes");
-            }
-
-            if ($numero === "") {
-                $siguiente = (int)$conexion->query("SELECT COALESCE(MAX(id_comprobante),0)+1 AS n FROM comprobante")->fetch_assoc()["n"];
-                $numero = ($tipo === "Factura" ? "F001-" : "B001-") . str_pad((string)$siguiente, 6, "0", STR_PAD_LEFT);
-            }
-
-            $factorIgv = 1 + ($igvEmpresa / 100);
-            $subtotal = $factorIgv > 0 ? round($total / $factorIgv, 2) : $total;
-            $igv = round($total - $subtotal, 2);
-
-            $stmt = $conexion->prepare("
-                INSERT INTO comprobante
-                (id_pedido, tipo_comprobante, numero_comprobante, fecha_emision, subtotal, igv, total)
-                VALUES (?, ?, ?, NOW(), ?, ?, ?)
-            ");
-            $stmt->bind_param("issddd", $idPedido, $tipo, $numero, $subtotal, $igv, $total);
-            $stmt->execute();
-            redir("Comprobante ".$numero." registrado correctamente", "ok", "comprobantes");
         }
 
         if (isset($_POST["eliminar_comprobante"])) {
