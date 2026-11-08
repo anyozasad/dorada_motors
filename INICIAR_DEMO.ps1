@@ -44,13 +44,22 @@ try {
     Write-Host "API disponible. Abriendo acceso administrativo." -ForegroundColor Green
     Start-Process "http://localhost/dorada_api/admin_login.php"
 } catch {
-    Write-Warning "No responde la API. En XAMPP enciende Apache y MySQL; revisa la base dorada_motors."
-    Write-Warning $_.Exception.Message
+    throw "La API no responde: enciende Apache y MySQL en XAMPP y comprueba http://localhost/dorada_api/productos.php. $($_.Exception.Message)"
 }
 
 Write-Host "[4/5] Instalando dependencias Flutter..." -ForegroundColor Cyan
 & flutter pub get
-if ($LASTEXITCODE -ne 0) { throw "Falló flutter pub get. Comprueba Flutter SDK." }
+if ($LASTEXITCODE -ne 0) {
+    throw "Falló flutter pub get. Si Windows indica error de symlink, abre ms-settings:developers y activa el Modo de desarrollador."
+}
+
+Write-Host "Comprobando Flutter (análisis)..." -ForegroundColor Cyan
+& flutter analyze
+if ($LASTEXITCODE -ne 0) { throw "Flutter detectó errores de análisis. Revisa la salida anterior." }
+
+Write-Host "Comprobando Flutter (pruebas)..." -ForegroundColor Cyan
+& flutter test
+if ($LASTEXITCODE -ne 0) { throw "No pasaron todas las pruebas de Flutter." }
 
 Write-Host "[5/5] Ejecutando Flutter Web en Chrome..." -ForegroundColor Green
 & flutter run -d chrome --web-port 8080
