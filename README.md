@@ -26,14 +26,10 @@ El script copia **PHP/dorada_api** a **C:\xampp\htdocs\dorada_api** e inicia Flu
 
 Para iniciar Flutter por separado: `cd Flutter`, luego `flutter pub get` y `flutter run -d chrome --web-port 8080`.
 
-## Indicador IV: una sola entrega
-Desde la raíz:
+## Indicador IV — avance funcional en desarrollo
+No se genera ni publica ZIP automáticamente mientras se corrigen y prueban las funciones. La entrega se preparará solamente cuando se solicite expresamente.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\PREPARAR_ENTREGA_INDICADOR_IV.ps1
-```
-
-Genera `INDICADOR_IV_DORADA_MOTORS.zip` en el Escritorio, con **solo Flutter y PHP**, sin ZIP anidados ni datos privados de clientes.
+El trabajo actual se concentra en login Flutter y sesiones MySQL, catálogo, carrito, pedidos, pagos, movimientos de stock, dashboard PHP, navegación y reportes. GitHub Actions ejecuta pruebas de PHP, Flutter y navegación del panel.
 
 Para verificar funciones:
 
