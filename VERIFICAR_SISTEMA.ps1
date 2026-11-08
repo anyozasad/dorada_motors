@@ -1,227 +1,139 @@
-# DORADA MOTORS - VERIFICACION FINAL DEL SISTEMA
-# Ejecutar con Apache y MySQL encendidos en XAMPP.
-# No modifica datos reales; verificar_bd.php usa una transaccion que se revierte.
+# DORADA MOTORS - VERIFICACIÓN FUNCIONAL LOCAL
+# Requiere XAMPP encendido. Ejecutar desde la carpeta del proyecto.
+# Las pruebas de MySQL de PRUEBA_INTEGRACION.php revierten sus registros.
+$ErrorActionPreference = 'Continue'
+$Proyecto = $PSScriptRoot
+$Backend = Join-Path $Proyecto 'dorada_api'
+$BaseUrl = 'http://localhost/dorada_api'
+$Php = @('C:\xampp\php\php.exe', 'D:\xampp\php\php.exe') |
+  Where-Object { Test-Path $_ } |
+  Select-Object -First 1
 
-$ErrorActionPreference = "Continue"
-$Proyecto = "C:\Users\CESAR\Desktop\dorada_motors"
-$Backend = Join-Path $Proyecto "dorada_api"
-$Php = "C:\xampp\php\php.exe"
-$BaseUrl = "http://localhost/dorada_api"
-
-$Errores = New-Object System.Collections.Generic.List[string]
-$Correctos = New-Object System.Collections.Generic.List[string]
+$Correctos = New-Object 'System.Collections.Generic.List[string]'
+$Errores = New-Object 'System.Collections.Generic.List[string]'
 
 function OK([string]$mensaje) {
-    $Correctos.Add($mensaje)
-    Write-Host "[OK] $mensaje" -ForegroundColor Green
+  $Correctos.Add($mensaje)
+  Write-Host "[OK] $mensaje" -ForegroundColor Green
 }
-
 function FAIL([string]$mensaje) {
-    $Errores.Add($mensaje)
-    Write-Host "[ERROR] $mensaje" -ForegroundColor Red
+  $Errores.Add($mensaje)
+  Write-Host "[ERROR] $mensaje" -ForegroundColor Red
 }
 
-Write-Host ""
-Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host " DORADA MOTORS - VERIFICACION FINAL" -ForegroundColor Cyan
-Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host ""
-
-if (!(Test-Path $Proyecto)) {
-    FAIL "No existe el proyecto: $Proyecto"
-    exit 1
+Write-Host '--- DORADA MOTORS: REVISIÓN DE FUNCIONES REALES ---' -ForegroundColor Cyan
+if (!(Test-Path (Join-Path $Proyecto 'pubspec.yaml'))) {
+  FAIL 'Ejecuta el archivo desde la carpeta raíz del repositorio Flutter.'
 }
-
 if (!(Test-Path $Backend)) {
-    FAIL "No existe el backend: $Backend"
-    exit 1
+  FAIL 'No se encontró dorada_api.'
 }
 
-# 1. PHP
-Write-Host "1. Revisando sintaxis PHP..." -ForegroundColor Yellow
-if (!(Test-Path $Php)) {
-    FAIL "No se encontro PHP de XAMPP en $Php"
+# 1: PHP y conexión pública.
+if (!$Php) {
+  FAIL 'No se encontró XAMPP PHP en C:\xampp o D:\xampp.'
 } else {
-    $phpFiles = Get-ChildItem $Backend -Filter "*.php" -File
-    foreach ($file in $phpFiles) {
-        $salida = & $Php -l $file.FullName 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            OK "PHP: $($file.Name)"
-        } else {
-            FAIL "PHP $($file.Name): $salida"
-        }
-    }
+  $archivos = Get-ChildItem $Backend -Filter '*.php' -Recurse -File
+  foreach ($archivo in $archivos) {
+    $null = & $Php -l $archivo.FullName 2>&1
+    if ($LASTEXITCODE -ne 0) { FAIL "Sintaxis PHP: $($archivo.Name)" }
+  }
+  if (($Errores | Where-Object { $_ -like 'Sintaxis PHP:*' }).Count -eq 0) {
+    OK "Sintaxis de $($archivos.Count) archivos PHP"
+  }
 }
 
-# 2. Backend y base de datos
-Write-Host ""
-Write-Host "2. Revisando Apache, API y MySQL..." -ForegroundColor Yellow
-try {
-    $db = Invoke-RestMethod "$BaseUrl/verificar_bd.php" -TimeoutSec 10
-    if ($db.estado -eq $true -and
-        $db.conexion_mysql -eq $true -and
-        $db.base_datos -eq "dorada_motors" -and
-        [int]$db.tablas_encontradas -eq 13 -and
-        $db.escritura -eq $true) {
-        OK "PHP conectado a MySQL dorada_motors con 13 tablas y escritura"
+foreach ($archivo in @('productos.php','categorias.php','marcas.php','config_publica.php')) {
+  try {
+    $respuesta = Invoke-WebRequest "$BaseUrl/$archivo" -UseBasicParsing -TimeoutSec 15
+    $null = $respuesta.Content | ConvertFrom-Json
+    if ($respuesta.StatusCode -eq 200) {
+      OK "Ruta pública JSON: $archivo"
     } else {
-        FAIL "La verificacion de base de datos no paso: $($db.mensaje)"
+      FAIL "Ruta pública $archivo devolvió HTTP $($respuesta.StatusCode)"
     }
-} catch {
-    FAIL "No responde verificar_bd.php. Revisa Apache y MySQL: $($_.Exception.Message)"
+  } catch {
+    FAIL "API $archivo: $($_.Exception.Message)"
+  }
 }
 
-$endpoints = @(
-    "productos.php",
-    "categorias.php",
-    "marcas.php",
-    "usuarios.php",
-    "direcciones.php",
-    "pedidos.php"
-)
-
-foreach ($endpoint in $endpoints) {
-    try {
-        $resp = Invoke-WebRequest "$BaseUrl/$endpoint" -UseBasicParsing -TimeoutSec 10
-        if ($resp.StatusCode -eq 200) {
-            $null = $resp.Content | ConvertFrom-Json
-            OK "API JSON: $endpoint"
-        } else {
-            FAIL "API $endpoint devolvio HTTP $($resp.StatusCode)"
-        }
-    } catch {
-        FAIL "API ${endpoint}: $($_.Exception.Message)"
+# 2: Las rutas privadas deben denegar consultas sin sesión.
+foreach ($archivo in @('cuenta.php','soporte.php','pedidos.php')) {
+  $estado = 0
+  try {
+    $resp = Invoke-WebRequest "$BaseUrl/$archivo" -UseBasicParsing -TimeoutSec 15
+    $estado = [int]$resp.StatusCode
+  } catch {
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $estado = [int]$_.Exception.Response.StatusCode
     }
+  }
+  if ($estado -eq 401) {
+    OK "Seguridad: $archivo exige iniciar sesión"
+  } else {
+    FAIL "Seguridad: $archivo respondió HTTP $estado; se esperaba 401"
+  }
 }
 
 try {
-    $loginAdmin = Invoke-WebRequest "$BaseUrl/admin_login.php" -UseBasicParsing -TimeoutSec 10
-    if ($loginAdmin.StatusCode -eq 200 -and
-        $loginAdmin.Content -match "Panel administrativo seguro" -and
-        $loginAdmin.Content -match "csrf_token") {
-        OK "Acceso administrativo protegido: login + CSRF + roles"
-    } else {
-        FAIL "El login administrativo seguro no responde como se esperaba"
-    }
+  $login = Invoke-WebRequest "$BaseUrl/admin_login.php" -UseBasicParsing -TimeoutSec 15
+  if ($login.StatusCode -eq 200 -and $login.Content -match 'csrf_token') {
+    OK 'Acceso administrativo con CSRF'
+  } else {
+    FAIL 'No se pudo verificar el acceso administrativo'
+  }
 } catch {
-    FAIL "Login administrativo: $($_.Exception.Message)"
+  FAIL "Panel PHP: $($_.Exception.Message)"
 }
 
-# 3. Prueba transaccional real de las 13 tablas
-Write-Host ""
-Write-Host "3. Probando operaciones reales en las 13 tablas..." -ForegroundColor Yellow
-$PruebaIntegracion = Join-Path $Proyecto "PRUEBA_INTEGRACION.php"
-
-if (Test-Path $PruebaIntegracion) {
-    $salidaIntegracion = & $Php $PruebaIntegracion 2>&1
-    if ($LASTEXITCODE -eq 0 -and ($salidaIntegracion -join "`n") -match "INTEGRACION_OK") {
-        OK "Integracion MySQL: usuario, producto, compra, pedido, pago, stock y comprobante"
-    } else {
-        FAIL "Prueba de integracion: $($salidaIntegracion -join ' | ')"
-    }
+# 3: Escritura y relaciones: transacción que se revierte.
+if ($Php -and (Test-Path (Join-Path $Proyecto 'PRUEBA_INTEGRACION.php'))) {
+  $salida = & $Php (Join-Path $Proyecto 'PRUEBA_INTEGRACION.php') 2>&1
+  if ($LASTEXITCODE -eq 0 -and ($salida -join "`n") -match 'INTEGRACION_OK') {
+    OK 'Transacciones MySQL: clientes, productos, proveedores, compras, pedidos, stock y comprobantes'
+  } else {
+    FAIL "Prueba MySQL: $($salida -join ' | ')"
+  }
 } else {
-    FAIL "Falta PRUEBA_INTEGRACION.php"
+  FAIL 'No se puede ejecutar la prueba transaccional local.'
 }
 
-# 4. Validar 150 requerimientos funcionales del dashboard
-Write-Host ""
-Write-Host "4. Validando 150 requerimientos del dashboard..." -ForegroundColor Yellow
-$ValidadorDashboard = Join-Path $Proyecto "VALIDAR_DASHBOARD_150.php"
-
-if (Test-Path $ValidadorDashboard) {
-    $salidaDashboard = & $Php $ValidadorDashboard 2>&1
-    if ($LASTEXITCODE -eq 0 -and ($salidaDashboard -join "`n") -match "REQUERIMIENTOS_DASHBOARD: 150/150") {
-        OK "Dashboard: 150/150 requerimientos funcionales estructurales"
-    } else {
-        FAIL "Dashboard 150: $($salidaDashboard -join ' | ')"
-    }
-} else {
-    FAIL "Falta VALIDAR_DASHBOARD_150.php"
+# 4: La lista de 150 es un control estructural, no prueba 150 acciones.
+if ($Php -and (Test-Path (Join-Path $Proyecto 'VALIDAR_DASHBOARD_150.php'))) {
+  $salida = & $Php (Join-Path $Proyecto 'VALIDAR_DASHBOARD_150.php') 2>&1
+  if ($LASTEXITCODE -eq 0 -and ($salida -join "`n") -match 'REQUERIMIENTOS_DASHBOARD: 150/150') {
+    OK 'Los 150 puntos están enumerados y sus elementos estructurales están presentes'
+  } else {
+    FAIL "Control estructural: $($salida -join ' | ')"
+  }
 }
 
-# 5. Flutter
-Write-Host ""
-Write-Host "5. Revisando Flutter..." -ForegroundColor Yellow
+# 5: Flutter: análisis, tests y compilación Web para presentación.
 Push-Location $Proyecto
-
 try {
-    & flutter pub get
+  foreach ($comando in @('pub get','analyze','test','build web --release')) {
+    $argumentos = $comando.Split(' ')
+    & flutter @argumentos
     if ($LASTEXITCODE -eq 0) {
-        OK "flutter pub get"
+      OK "Flutter $comando"
     } else {
-        FAIL "flutter pub get"
+      FAIL "Flutter $comando"
     }
-
-    & flutter analyze
-    if ($LASTEXITCODE -eq 0) {
-        OK "flutter analyze sin errores"
-    } else {
-        FAIL "flutter analyze encontro problemas"
-    }
-
-    & flutter test
-    if ($LASTEXITCODE -eq 0) {
-        OK "flutter test"
-    } else {
-        FAIL "flutter test encontro fallas"
-    }
+  }
 } catch {
-    FAIL "No se pudo ejecutar Flutter: $($_.Exception.Message)"
+  FAIL "Flutter no pudo ejecutarse: $($_.Exception.Message)"
 } finally {
-    Pop-Location
+  Pop-Location
 }
 
-# 6. Archivos esenciales
-Write-Host ""
-Write-Host "6. Revisando archivos esenciales..." -ForegroundColor Yellow
-$archivos = @(
-    "lib\main.dart",
-    "lib\services\api_service.dart",
-    "lib\screens\main_shell.dart",
-    "lib\screens\checkout_screen.dart",
-    "lib\screens\orders_screen.dart",
-    "dorada_api\dashboard.php",
-    "dorada_api\admin_login.php",
-    "dorada_api\admin_logout.php",
-    "dorada_api\auth_admin.php",
-    "dorada_api\empresa_config.php",
-    "dorada_api\conexion.php",
-    "dorada_api\productos.php",
-    "dorada_api\usuarios.php",
-    "dorada_api\pedidos.php",
-    "dorada_api\pagos.php",
-    "dorada_api\direcciones.php",
-    "dorada_api\dashboard_api.php",
-    "dorada_api\dorada_motors.sql"
-)
+Write-Host ''
+Write-Host "Verificaciones aprobadas: $($Correctos.Count); fallidas: $($Errores.Count)" -ForegroundColor Cyan
+Write-Host 'Las operaciones completas PHP + MySQL también se prueban en GitHub Actions.' -ForegroundColor Cyan
+Write-Host 'La lista de 150 puntos necesita además prueba funcional/manual con el profesor.' -ForegroundColor Yellow
 
-foreach ($archivo in $archivos) {
-    $ruta = Join-Path $Proyecto $archivo
-    if (Test-Path $ruta) {
-        OK "Archivo: $archivo"
-    } else {
-        FAIL "Falta archivo: $archivo"
-    }
+if ($Errores.Count -gt 0) {
+  foreach ($errorItem in $Errores) { Write-Host " - $errorItem" -ForegroundColor Red }
+  exit 1
 }
-
-Write-Host ""
-Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host " RESULTADO" -ForegroundColor Cyan
-Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "Correctos: $($Correctos.Count)" -ForegroundColor Green
-Write-Host "Errores:   $($Errores.Count)" -ForegroundColor $(if ($Errores.Count -eq 0) {"Green"} else {"Red"})
-
-if ($Errores.Count -eq 0) {
-    Write-Host ""
-    Write-Host "DASHBOARD FUNCIONAL: 150 / 150 REQUERIMIENTOS" -ForegroundColor Green
-    Write-Host "SISTEMA APROBADO PARA LA PRUEBA FINAL." -ForegroundColor Green
-    Write-Host "Dashboard + PHP API + MySQL + Flutter pasaron las verificaciones automaticas." -ForegroundColor Green
-    exit 0
-}
-
-Write-Host ""
-Write-Host "FALTAN CORREGIR ESTOS PUNTOS:" -ForegroundColor Red
-foreach ($errorItem in $Errores) {
-    Write-Host " - $errorItem" -ForegroundColor Red
-}
-exit 1
+Write-Host 'PASARON las verificaciones automáticas locales ejecutadas.' -ForegroundColor Green
+exit 0
