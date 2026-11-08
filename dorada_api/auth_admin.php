@@ -14,15 +14,52 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 require_once __DIR__ . "/sistema_bootstrap.php";
 
 function adminActual(): ?array {
+    global $conexion;
     if (empty($_SESSION["admin"])) return null;
 
     $ultimo = (int)($_SESSION["admin_last_activity"] ?? 0);
-    if ($ultimo > 0 && (time() - $ultimo) > 7200) {
+    if ($ultimo <= 0 || (time() - $ultimo) > 7200) {
         $_SESSION = [];
         session_regenerate_id(true);
         return null;
     }
 
+    // No confiar en el rol guardado en la cookie/sesión tras cambios de personal.
+    // Se consulta la cuenta una sola vez por petición PHP.
+    static $cuentaComprobada = false;
+    if (!$cuentaComprobada) {
+        $cuentaComprobada = true;
+        $idAdmin = (int)($_SESSION["admin"]["id_usuario"]
+            ?? $_SESSION["admin"]["id_admin"] ?? 0);
+        if ($idAdmin <= 0 || !($conexion instanceof mysqli)) {
+            $_SESSION = [];
+            return null;
+        }
+
+        $stmt = $conexion->prepare(
+            "SELECT id_usuario,nombres,apellidos,correo,rol_sistema
+             FROM usuario
+             WHERE id_usuario=? AND estado='Activo'
+               AND rol_sistema IN ('Administrador','Vendedor','Almacen')
+             LIMIT 1"
+        );
+        $stmt->bind_param("i", $idAdmin);
+        $stmt->execute();
+        $usuario = $stmt->get_result()->fetch_assoc();
+        if (!$usuario) {
+            $_SESSION = [];
+            session_regenerate_id(true);
+            return null;
+        }
+
+        $_SESSION["admin"]["rol"] = (string)$usuario["rol_sistema"];
+        $_SESSION["admin"]["nombres"] = trim(
+            (string)$usuario["nombres"]." ".(string)$usuario["apellidos"]
+        );
+        $_SESSION["admin"]["correo"] = (string)$usuario["correo"];
+    }
+
+    if (empty($_SESSION["admin"])) return null;
     $_SESSION["admin_last_activity"] = time();
     return $_SESSION["admin"];
 }
