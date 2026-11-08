@@ -314,6 +314,9 @@ $stmt = $conexion->prepare("
         p.total,
         p.tipo_entrega,
         p.id_direccion,
+        (SELECT co.id_comprobante
+         FROM comprobante co WHERE co.id_pedido=p.id_pedido
+         ORDER BY co.id_comprobante DESC LIMIT 1) AS id_comprobante,
         u.id_usuario,
         u.nombres,
         u.apellidos,
