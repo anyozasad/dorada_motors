@@ -28,6 +28,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _delivery = 'Recojo en tienda';
   String _payment = 'Yape';
   bool _saving = false;
+  bool _costoDeliveryCargado = false;
+  double _costoDeliveryServidor = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarCostoDelivery();
+  }
+
+  Future<void> _cargarCostoDelivery() async {
+    try {
+      final costo = await ApiService.obtenerCostoDelivery();
+      if (!mounted) return;
+      setState(() {
+        _costoDeliveryServidor = costo;
+        _costoDeliveryCargado = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _costoDeliveryCargado = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -45,10 +67,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return total;
   }
 
-  double get _deliveryCost => _delivery == 'Delivery' ? 5.0 : 0.0;
+  double get _deliveryCost => _delivery == 'Delivery' ? _costoDeliveryServidor : 0.0;
   double get _total => _subtotal + _deliveryCost;
 
   Future<void> _confirm() async {
+    if (_saving) return;
+    if (_delivery == 'Delivery' && !_costoDeliveryCargado) {
+      _message('No se pudo consultar el costo de delivery. Pulsa Reintentar.');
+      return;
+    }
     if (_phoneController.text.trim().length < 7) {
       _message('Ingresa un teléfono válido.');
       return;
@@ -133,8 +160,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Se conserva una copia local como respaldo, pero el pedido real
       // ya fue registrado mediante la API en MySQL.
-      await LocalStore.addOrder(order);
-      await LocalStore.clearCart();
+      // Un error del respaldo local no debe convertir un pedido ya guardado
+      // en MySQL en un falso fallo que lleve al usuario a comprar dos veces.
+      try {
+        await LocalStore.addOrder(order);
+        await LocalStore.clearCart();
+      } catch (_) {
+        // El historial principal se consulta desde el servidor.
+      }
 
       if (!mounted) return;
       setState(() => _saving = false);
@@ -288,7 +321,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Expanded(
                           child: _selectCard(
                             title: 'Delivery',
-                            subtitle: 'S/ 5.00',
+                            subtitle: !_costoDeliveryCargado
+                                ? 'Consultando...'
+                                : (_costoDeliveryServidor == 0
+                                    ? 'Gratis'
+                                    : 'S/ ${_costoDeliveryServidor.toStringAsFixed(2)}'),
                             icon: Icons.delivery_dining_outlined,
                             selected: _delivery == 'Delivery',
                             onTap: () => setState(() => _delivery = 'Delivery'),
@@ -297,6 +334,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     ),
                     if (_delivery == 'Delivery') ...[
+                      if (!_costoDeliveryCargado)
+                        TextButton.icon(
+                          onPressed: _cargarCostoDelivery,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Reintentar costo de delivery'),
+                        ),
                       const SizedBox(height: 14),
                       TextField(
                         controller: _addressController,
@@ -392,7 +435,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 width: double.infinity,
                 height: 58,
                 child: FilledButton.icon(
-                  onPressed: _saving ? null : _confirm,
+                  onPressed: _saving || (_delivery == 'Delivery' && !_costoDeliveryCargado)
+                      ? null
+                      : _confirm,
                   icon: _saving
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.lock_outline_rounded),
