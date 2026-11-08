@@ -20,5 +20,9 @@ $config = cargarConfigEmpresa();
 echo json_encode([
     "estado" => true,
     "costo_delivery" => round(max(0, (float)($config["costo_delivery"] ?? 0)), 2),
-    "moneda" => (string)($config["moneda"] ?? "S/")
+    "moneda" => (string)($config["moneda"] ?? "S/"),
+    "nombre_comercial" => (string)($config["nombre_comercial"] ?? "Dorada Motors"),
+    "numero_yape" => (string)($config["numero_yape"] ?? ""),
+    "numero_plin" => (string)($config["numero_plin"] ?? ""),
+    "cuenta_transferencia" => (string)($config["cuenta_transferencia"] ?? "")
 ], JSON_UNESCAPED_UNICODE);
