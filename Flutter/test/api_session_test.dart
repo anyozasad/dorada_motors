@@ -66,7 +66,7 @@ void main() {
           '{"estado":true,"usuario":null}',
           200,
         ));
-    expect(await ApiService.verificarSesion(client: respuestaInvalida), isFalse);
+    expect(await ApiService.verificarSesion(client: respuestaInvalida), isNull);
     respuestaInvalida.close();
   });
 }
