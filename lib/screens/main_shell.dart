@@ -405,11 +405,8 @@ class _MainShellState extends State<MainShell> {
   Future<void> _configurarConexion() async {
     final personalizada = await LocalStore.getApiBaseUrl();
     if (!mounted) return;
-    final controller = TextEditingController(
-      text: personalizada?.isNotEmpty == true
-          ? personalizada
-          : ApiService.baseUrl,
-    );
+    var direccionIngresada = personalizada?.isNotEmpty == true
+        ? personalizada! : ApiService.baseUrl;
     final nuevaUrl = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -422,8 +419,9 @@ class _MainShellState extends State<MainShell> {
               style: TextStyle(color: AppColors.muted, fontSize: 13),
             ),
             const SizedBox(height: 15),
-            TextField(
-              controller: controller,
+            TextFormField(
+              initialValue: direccionIngresada,
+              onChanged: (valor) => direccionIngresada = valor,
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
                 labelText: 'Servidor PHP',
@@ -442,14 +440,13 @@ class _MainShellState extends State<MainShell> {
             child: const Text('Restablecer'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            onPressed: () => Navigator.pop(dialogContext, direccionIngresada.trim()),
             child: const Text('Guardar'),
           ),
         ],
       ),
     );
 
-    controller.dispose();
     if (!mounted || nuevaUrl == null) return;
     final valor = nuevaUrl.trim();
     if (valor.isNotEmpty) {
