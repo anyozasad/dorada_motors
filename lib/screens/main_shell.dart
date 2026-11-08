@@ -63,7 +63,7 @@ class _MainShellState extends State<MainShell> {
     // Invitados mantienen únicamente un carrito local. Para clientes,
     // MySQL es la fuente de verdad, incluso al cambiar de dispositivo.
     if (widget.isGuest) {
-      final cart = await LocalStore.getCart();
+      final cart = await LocalStore.getGuestCart();
       if (!mounted) return;
       setState(() {
         _favorites = {};
@@ -86,6 +86,30 @@ class _MainShellState extends State<MainShell> {
         final cantidad = int.tryParse(item['cantidad']?.toString() ?? '') ?? 0;
         if (id > 0 && cantidad > 0) carrito[id] = cantidad;
       }
+      // Los productos agregados como invitado se incorporan al servidor
+      // al iniciar sesión. Se elimina cada pendiente solo tras confirmarse.
+      final pendientesInvitado = await LocalStore.getGuestCart();
+      var invitadoSinSincronizar = false;
+      for (final entry in pendientesInvitado.entries) {
+        final cantidad = (carrito[entry.key] ?? 0) + entry.value;
+        try {
+          await ApiService.guardarCantidadCarrito(
+            idUsuario: idUsuario,
+            idProducto: entry.key,
+            cantidad: cantidad,
+          );
+          carrito[entry.key] = cantidad;
+          final restantes = await LocalStore.getGuestCart();
+          restantes.remove(entry.key);
+          await LocalStore.saveGuestCart(restantes);
+        } catch (_) {
+          invitadoSinSincronizar = true;
+        }
+      }
+      if (invitadoSinSincronizar && mounted) {
+        _message('Algunos productos de invitado no se pudieron agregar. Revisa el stock.');
+      }
+
       final favoritos = <int>{};
       for (final item in respuestaFavoritos) {
         if (item is! Map) continue;
@@ -291,7 +315,9 @@ class _MainShellState extends State<MainShell> {
       }
       if (!mounted) return;
       setState(() => _cart[id] = current + 1);
-      await LocalStore.saveCart(_cart);
+      await (widget.isGuest
+          ? LocalStore.saveGuestCart(_cart)
+          : LocalStore.saveCart(_cart));
       if (mounted) _message('${product.nombre} agregado al carrito.');
     } catch (e) {
       if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
@@ -330,7 +356,9 @@ class _MainShellState extends State<MainShell> {
       });
       // La lámina del carrito puede haberse cerrado durante la petición.
       try { modalRefresh?.call(); } catch (_) {}
-      await LocalStore.saveCart(_cart);
+      await (widget.isGuest
+          ? LocalStore.saveGuestCart(_cart)
+          : LocalStore.saveCart(_cart));
     } catch (e) {
       if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
