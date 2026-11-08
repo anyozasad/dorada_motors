@@ -142,38 +142,52 @@ if ($metodo === "POST" || $metodo === "PUT") {
 }
 
 if ($metodo === "DELETE") {
-    $datos = json_decode(file_get_contents("php://input"), true) ?: [];
-    $idProducto = (int)($datos["id_producto"] ?? $_GET["id"] ?? 0);
-
-    if ($idProducto <= 0) {
-        responderProducto(["estado"=>false,"mensaje"=>"Falta id_producto"], 400);
+    $datos=json_decode(file_get_contents("php://input"),true) ?: [];
+    $idProducto=(int)($datos["id_producto"] ?? $_GET["id"] ?? 0);
+    if ($idProducto<=0) {
+        responderProducto(["estado"=>false,"mensaje"=>"Falta id_producto"],422);
     }
 
-    $stmt = $conexion->prepare("
-        SELECT
-            (SELECT COUNT(*) FROM detalle_pedido WHERE id_producto=?) +
-            (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) AS usos
-    ");
-    $stmt->bind_param("ii",$idProducto,$idProducto);
-    $stmt->execute();
-    $usos = (int)$stmt->get_result()->fetch_assoc()["usos"];
+    $conexion->begin_transaction();
+    try {
+        $stmt=$conexion->prepare(
+            "SELECT id_producto FROM producto WHERE id_producto=? FOR UPDATE"
+        );
+        $stmt->bind_param("i",$idProducto);
+        $stmt->execute();
+        if (!$stmt->get_result()->fetch_assoc()) {
+            $conexion->rollback();
+            responderProducto(["estado"=>false,"mensaje"=>"Producto no encontrado"],404);
+        }
 
-    if ($usos > 0) {
-        responderProducto([
-            "estado"=>false,
-            "mensaje"=>"No se puede eliminar un producto con movimientos"
-        ], 409);
+        $stmt=$conexion->prepare(
+            "SELECT
+               (SELECT COUNT(*) FROM detalle_pedido WHERE id_producto=?) +
+               (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) AS total"
+        );
+        $stmt->bind_param("ii",$idProducto,$idProducto);
+        $stmt->execute();
+        if ((int)$stmt->get_result()->fetch_assoc()["total"]>0) {
+            $conexion->rollback();
+            responderProducto([
+                "estado"=>false,
+                "mensaje"=>"No se puede eliminar un producto ligado a pedidos o compras"
+            ],409);
+        }
+
+        $stmt=$conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
+        $stmt->bind_param("i",$idProducto);
+        $stmt->execute();
+        $stmt=$conexion->prepare("DELETE FROM producto WHERE id_producto=?");
+        $stmt->bind_param("i",$idProducto);
+        $stmt->execute();
+        $conexion->commit();
+        responderProducto(["estado"=>true,"mensaje"=>"Producto eliminado"]);
+    } catch (Throwable $e) {
+        $conexion->rollback();
+        error_log("Eliminar producto API: ".$e->getMessage());
+        responderProducto(["estado"=>false,"mensaje"=>"No se pudo eliminar el producto"],500);
     }
-
-    $stmt = $conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
-    $stmt->bind_param("i",$idProducto);
-    $stmt->execute();
-
-    $stmt = $conexion->prepare("DELETE FROM producto WHERE id_producto=?");
-    $stmt->bind_param("i",$idProducto);
-    $stmt->execute();
-
-    responderProducto(["estado"=>true,"mensaje"=>"Producto eliminado"]);
 }
 
 $id = (int)($_GET["id"] ?? 0);
