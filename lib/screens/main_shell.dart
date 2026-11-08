@@ -1183,70 +1183,136 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _header() {
-    return Row(
-      children: [
-        Container(
-          width: 62,
-          height: 62,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(19), border: Border.all(color: AppColors.border)),
-          child: ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/imagenes/logo_adn_imports.png', fit: BoxFit.cover)),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('DORADA MOTORS', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: .2)),
-              const SizedBox(height: 3),
-              Text(
-                widget.isGuest ? "ADN Import's • Explorando catálogo" : 'Hola, ${widget.userName?.split(' ').first ?? 'Cliente'} 👋',
-                style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
-        _roundAction(
-          icon: Icons.notifications_none_rounded,
-          onTap: () {
-            if (widget.isGuest) {
-              _message('Inicia sesión para ver el estado de tus pedidos.');
-            } else {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
-            }
-          },
-        ),
-        const SizedBox(width: 7),
-        Stack(
-          clipBehavior: Clip.none,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compacto = constraints.maxWidth < 385;
+        final logoSize = compacto ? 48.0 : 62.0;
+        final actionSize = compacto ? 39.0 : 45.0;
+        return Row(
           children: [
-            _roundAction(icon: Icons.shopping_cart_outlined, onTap: _openCart),
-            if (_cartCount > 0)
-              Positioned(
-                right: -2,
-                top: -4,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 19, minHeight: 19),
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
-                  child: Text('$_cartCount', style: const TextStyle(color: AppColors.ink, fontSize: 9, fontWeight: FontWeight.w900)),
+            Container(
+              width: logoSize,
+              height: logoSize,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Image.asset(
+                  'assets/imagenes/logo_adn_imports.png',
+                  fit: BoxFit.contain,
                 ),
               ),
+            ),
+            SizedBox(width: compacto ? 8 : 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'DORADA MOTORS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: compacto ? 15 : 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .2,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    widget.isGuest
+                        ? "ADN Import's • Catálogo"
+                        : 'Hola, ${widget.userName?.split(' ').first ?? 'Cliente'} 👋',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: compacto ? 10 : 12,
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _roundAction(
+              size: actionSize,
+              icon: Icons.notifications_none_rounded,
+              onTap: () {
+                if (widget.isGuest) {
+                  _message('Inicia sesión para ver el estado de tus pedidos.');
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OrdersScreen()),
+                  );
+                }
+              },
+            ),
+            const SizedBox(width: 7),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _roundAction(
+                  size: actionSize,
+                  icon: Icons.shopping_cart_outlined,
+                  onTap: _openCart,
+                ),
+                if (_cartCount > 0)
+                  Positioned(
+                    right: -2,
+                    top: -4,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 19, minHeight: 19,
+                      ),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.gold,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '$_cartCount',
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _roundAction({required IconData icon, required VoidCallback onTap}) {
+  Widget _roundAction({
+    required IconData icon,
+    required VoidCallback onTap,
+    double size = 45,
+  }) {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(15),
-        child: Container(width: 45, height: 45, decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), border: Border.all(color: AppColors.border)), child: Icon(icon, size: 22, color: AppColors.ink)),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Icon(icon, size: size < 42 ? 20 : 22, color: AppColors.ink),
+        ),
       ),
     );
   }
