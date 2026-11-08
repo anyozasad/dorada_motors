@@ -2947,6 +2947,9 @@ input:focus,select:focus,textarea:focus{
     <div class="field full"><label>DIRECCIÓN</label><input name="direccion_empresa" value="<?= h($configEmpresa["direccion"]) ?>"></div>
     <div class="field"><label>IGV (%)</label><input type="number" min="0" max="100" step="0.01" name="igv" value="<?= h($configEmpresa["igv"]) ?>"></div>
     <div class="field"><label>COSTO DELIVERY</label><input type="number" min="0" step="0.01" name="costo_delivery" value="<?= h($configEmpresa["costo_delivery"] ?? 0) ?>"></div>
+    <div class="field"><label>NÚMERO YAPE</label><input type="tel" name="numero_yape" maxlength="16" value="<?= h($configEmpresa["numero_yape"]??"") ?>" placeholder="Opcional, número oficial de la empresa"></div>
+    <div class="field"><label>NÚMERO PLIN</label><input type="tel" name="numero_plin" maxlength="16" value="<?= h($configEmpresa["numero_plin"]??"") ?>" placeholder="Opcional, número oficial de la empresa"></div>
+    <div class="field full"><label>CUENTA DE TRANSFERENCIA</label><input name="cuenta_transferencia" maxlength="120" value="<?= h($configEmpresa["cuenta_transferencia"]??"") ?>" placeholder="Banco + número de cuenta o CCI oficial"></div>
     <div class="form-actions"><button class="btn btn-primary" name="guardar_config_empresa">Guardar empresa</button></div>
    </form>
   </div>
