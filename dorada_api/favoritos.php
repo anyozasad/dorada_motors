@@ -2,6 +2,7 @@
 
 include("conexion.php");
 require_once "sistema_bootstrap.php";
+require_once __DIR__ . "/cliente_auth.php";
 
 function responderFavorito(array $data, int $status = 200): void {
     http_response_code($status);
@@ -10,6 +11,7 @@ function responderFavorito(array $data, int $status = 200): void {
 }
 
 $metodo = $_SERVER["REQUEST_METHOD"];
+$idClienteSesion = requerirClienteApi($conexion);
 
 if ($metodo === "POST") {
     $datos = json_decode(file_get_contents("php://input"), true);
@@ -19,6 +21,7 @@ if ($metodo === "POST") {
     }
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $idProducto = (int)($datos["id_producto"] ?? 0);
     $accion = strtolower(trim($datos["accion"] ?? "agregar"));
 
@@ -47,6 +50,7 @@ if ($metodo === "POST") {
 if ($metodo === "DELETE") {
     $datos = json_decode(file_get_contents("php://input"), true) ?: [];
     $idUsuario = (int)($datos["id_usuario"] ?? $_GET["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $idProducto = (int)($datos["id_producto"] ?? $_GET["id_producto"] ?? 0);
 
     if ($idUsuario <= 0 || $idProducto <= 0) {
@@ -61,6 +65,8 @@ if ($metodo === "DELETE") {
 }
 
 $idUsuario = (int)($_GET["id_usuario"] ?? 0);
+if ($idUsuario <= 0) $idUsuario = $idClienteSesion;
+requerirClienteApi($conexion, $idUsuario);
 
 if ($idUsuario > 0) {
     $stmt = $conexion->prepare("
