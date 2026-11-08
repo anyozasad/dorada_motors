@@ -169,6 +169,7 @@ Este documento permite al profesor evaluar **los 150 requisitos del panel PHP un
 6. **Compras y proveedores:** registrar proveedor, compra de varias líneas, anular/reactivar y comprobar Kardex.
 7. **Reportes:** filtrar fechas y contrastar ventas, pedidos, unidades y ticket promedio con registros de prueba.
 8. **Soporte:** enviar consulta desde Flutter, responderla desde Administración y verla al volver a actualizar.
+10. **Recuperación:** solicitar ayuda desde el login, confirmar el caso en soporte, verificar identidad y restablecer con clave temporal; comprobar revocación de la sesión anterior.
 9. **Errores esperados:** intentar pedidos sin stock, usuarios duplicados, eliminar productos en uso y acceder a cuentas ajenas.
 
 ## Alcance y límites
