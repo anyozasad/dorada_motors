@@ -232,4 +232,166 @@ INSERT IGNORE INTO marca (nombre_marca) VALUES
 ('BJR'),
 ('KIGKOL');
 
+-- Catálogo de demostración para una base recién instalada.
+
+-- No se insertan productos si ya existe inventario en MySQL.
+
+INSERT IGNORE INTO categoria (nombre_categoria) VALUES ('Motor'),('Frenos'),('Luces'),('Llantas'),('Aceites'),('Suspensión'),('Eléctrico'),('Accesorios');
+
+INSERT IGNORE INTO marca (nombre_marca) VALUES ('DTIEX'),('GDM'),('KIGKOL'),('BJR'),('NGK'),('TVS'),('LIFAN');
+
+SET @sembrar_catalogo_dorada = (SELECT COUNT(*)=0 FROM producto);
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Kit de transmisión','Kit completo de transmisión para uso diario, con cadena y coronas de alta resistencia.','Motocicleta','Modelos 125cc a 200cc según medida',185.00,169.00,14,5,'assets/imagenes/01_kit_transmision_dtiex.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='DTIEX'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Pastillas de freno','Pastillas de freno delanteras con buen agarre y respuesta estable.','Motocicleta','Consultar modelo y cáliper',45.00,NULL,22,5,'assets/imagenes/02_pastillas_freno_dtiex.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Frenos'
+AND m.nombre_marca='DTIEX'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Faro LED','Faro LED de alta iluminación para conducción nocturna.','Motocicleta / Motokar','Sistema 12V',95.00,NULL,10,5,'assets/imagenes/03_faro_led_gdm.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Luces'
+AND m.nombre_marca='GDM'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Llanta 450-12 Motokar','Llanta reforzada para motokar, diseñada para carga y uso urbano.','Motokar','Aro 12, medida 4.50-12',210.00,NULL,8,5,'assets/imagenes/04_llanta_kigkol_450_12.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Llantas'
+AND m.nombre_marca='KIGKOL'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Aceite 20W-50','Aceite de motor 4T para protección y lubricación en uso diario.','Motocicleta / Motokar','Motores 4 tiempos',35.00,NULL,35,5,'assets/imagenes/05_aceite_gdm_20w50.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Aceites'
+AND m.nombre_marca='GDM'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Filtro de aire','Filtro de aire para ayudar a proteger el motor de polvo e impurezas.','Motocicleta','Verificar medida antes de comprar',40.00,NULL,18,5,'assets/imagenes/06_filtro_aire_dtiex.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='DTIEX'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Amortiguadores','Par de amortiguadores posteriores para mejorar estabilidad y comodidad.','Motocicleta','Consultar longitud y anclaje',165.00,NULL,9,5,'assets/imagenes/07_amortiguadores_bjr.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Suspensión'
+AND m.nombre_marca='BJR'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Batería 12V','Batería de 12 voltios para sistema eléctrico y arranque.','Motocicleta / Motokar','Sistema eléctrico 12V',120.00,NULL,12,5,'assets/imagenes/08_bateria_kigkol_12v.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Eléctrico'
+AND m.nombre_marca='KIGKOL'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Carburador','Carburador de reemplazo para una mezcla estable de aire y combustible.','Motocicleta','Consultar diámetro y cilindrada',110.00,NULL,7,5,'assets/imagenes/09_carburador_dtiex.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='DTIEX'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Disco de freno','Disco de freno ventilado para una frenada uniforme.','Motocicleta','Verificar diámetro y perforaciones',89.00,NULL,11,5,'assets/imagenes/10_disco_freno_gdm.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Frenos'
+AND m.nombre_marca='GDM'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Bujía','Bujía para encendido estable y mantenimiento preventivo.','Motocicleta / Motokar','Consultar código recomendado por el motor',25.00,NULL,40,5,'assets/imagenes/11_bujia_ngk.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='NGK'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Cadena reforzada','Cadena reforzada para transmisión con buena resistencia al desgaste.','Motocicleta','Verificar paso y cantidad de eslabones',75.00,NULL,16,5,'assets/imagenes/12_cadena_kigkol.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='KIGKOL'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Espejos retrovisores','Juego de espejos retrovisores para mejor visibilidad y seguridad.','Motocicleta','Rosca estándar según modelo',55.00,NULL,20,5,'assets/imagenes/13_espejos_gdm.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Accesorios'
+AND m.nombre_marca='GDM'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Pastillas de freno TVS','Pastillas de freno de reemplazo para modelos compatibles TVS.','Motocicleta / Motokar','Modelos TVS compatibles',48.00,NULL,15,5,'assets/imagenes/14_pastillas_freno_tvs.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Frenos'
+AND m.nombre_marca='TVS'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Tapa de motor Lifan','Tapa lateral de motor para reposición y mantenimiento.','Motocicleta / Motokar','Motores Lifan según modelo',85.00,NULL,6,5,'assets/imagenes/15_tapa_motor_lifan.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='LIFAN'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Tanque de combustible','Tanque de combustible de reemplazo para modelos compatibles.','Motocicleta','Verificar puntos de anclaje',145.00,NULL,5,5,'assets/imagenes/16_tanque_combustible_kigkol.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Motor'
+AND m.nombre_marca='KIGKOL'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'CDI Racing','Módulo CDI para sistema de encendido en modelos compatibles.','Motocicleta','Verificar conectores y sistema de encendido',68.00,NULL,13,5,'assets/imagenes/17_cdi_bjr_racing.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Eléctrico'
+AND m.nombre_marca='BJR'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Luz trasera','Luz trasera para señalización y seguridad vial.','Motocicleta / Motokar','Sistema 12V',70.00,NULL,14,5,'assets/imagenes/18_luz_trasera_bjr.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Luces'
+AND m.nombre_marca='BJR'
+AND @sembrar_catalogo_dorada=1;
+
+INSERT INTO producto
+(id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+SELECT c.id_categoria,m.id_marca,'Direccionales LED','Juego de direccionales LED para mayor visibilidad.','Motocicleta / Motokar','Sistema 12V',65.00,NULL,17,5,'assets/imagenes/19_direccionales_led.png'
+FROM categoria c CROSS JOIN marca m
+WHERE c.nombre_categoria='Luces'
+AND m.nombre_marca='GDM'
+AND @sembrar_catalogo_dorada=1;
+
 SET FOREIGN_KEY_CHECKS=1;
