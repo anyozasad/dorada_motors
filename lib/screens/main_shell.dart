@@ -8,6 +8,7 @@ import '../widgets/product_card.dart';
 import '../widgets/ui_motion.dart';
 import 'checkout_screen.dart';
 import 'orders_screen.dart';
+import 'direcciones_screen.dart';
 
 class MainShell extends StatefulWidget {
   final bool isGuest;
@@ -1253,8 +1254,8 @@ class _MainShellState extends State<MainShell> {
           _profileOption(Icons.receipt_long_outlined, 'Mis pedidos', 'Revisa compras, totales y estados', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
           }),
-          _profileOption(Icons.location_on_outlined, 'Direcciones', 'Se registra durante el delivery', () {
-            _message('Puedes registrar la dirección al finalizar una compra con Delivery.');
+          _profileOption(Icons.location_on_outlined, 'Direcciones', 'Administra tus direcciones de entrega', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const DireccionesScreen()));
           }),
           _profileOption(Icons.help_outline_rounded, 'Ayuda y soporte', 'Información de la aplicación', () {
             showAboutDialog(
