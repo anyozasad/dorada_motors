@@ -1177,75 +1177,189 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  int get _descuentoMaximo {
+    var mayor = 0;
+    for (final producto in _productos) {
+      final oferta = producto.precioOferta;
+      if (oferta == null || producto.precio <= 0 || producto.stock <= 0) {
+        continue;
+      }
+      final porcentaje =
+          ((producto.precio - oferta) * 100 / producto.precio).round();
+      if (porcentaje > mayor) mayor = porcentaje;
+    }
+    return mayor;
+  }
+
   Widget _heroPanel() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(21, 22, 18, 20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.navy, Color(0xFF1D3260)]),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: .18), blurRadius: 25, offset: const Offset(0, 12))],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -24,
-            top: -30,
-            child: Container(width: 135, height: 135, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.gold.withValues(alpha: .11))),
-          ),
-          Positioned(
-            right: 16,
-            bottom: -28,
-            child: Container(width: 94, height: 94, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .04))),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: .16), borderRadius: BorderRadius.circular(11)),
-                      child: const Text('CALIDAD • STOCK • CONFIANZA', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.gold, letterSpacing: .4)),
-                    ),
-                    const SizedBox(height: 13),
-                    const Text('Todo para tu moto\nen un solo lugar', style: TextStyle(fontSize: 28, height: 1.08, fontWeight: FontWeight.w900, color: Colors.white)),
-                    const SizedBox(height: 8),
-                    const Text('Repuestos para motocicleta y motokar con stock y compatibilidad.', style: TextStyle(fontSize: 12, height: 1.4, color: Colors.white70)),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        FilledButton(
-                          onPressed: () => setState(() {
-                            _category = 'Todos';
-                            _page = 1;
-                          }),
-                          style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.ink, minimumSize: const Size(0, 45)),
-                          child: const Text('Ver catálogo'),
-                        ),
-                        const SizedBox(width: 9),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: .08), borderRadius: BorderRadius.circular(13)),
-                          child: const Row(children: [Icon(Icons.local_offer_outlined, size: 16, color: AppColors.gold), SizedBox(width: 5), Text('Hasta 25% OFF', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w800))]),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 78,
-                height: 78,
-                decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: .13), shape: BoxShape.circle, border: Border.all(color: AppColors.gold.withValues(alpha: .3))),
-                child: const Icon(Icons.two_wheeler_rounded, size: 43, color: AppColors.gold),
+    final descuento = _descuentoMaximo;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compacto = constraints.maxWidth < 420;
+        return Container(
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.navy, Color(0xFF1D3260)],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.navy.withValues(alpha: .16),
+                blurRadius: 25,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
-        ],
-      ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -30,
+                top: -32,
+                child: Container(
+                  width: 195,
+                  height: 195,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.gold.withValues(alpha: .11),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: compacto ? -70 : 6,
+                bottom: compacto ? -8 : -22,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: compacto ? .16 : .42,
+                    child: Image.asset(
+                      'assets/imagenes/01_kit_transmision_dtiex.png',
+                      width: compacto ? 180 : 205,
+                      height: compacto ? 180 : 205,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.two_wheeler_rounded,
+                        size: 110,
+                        color: AppColors.gold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compacto ? 18 : 23, 23, compacto ? 18 : 24, 22,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: compacto ? double.infinity : 545,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: .16),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 11, vertical: 7,
+                          ),
+                          child: Text(
+                            'CALIDAD • STOCK • CONFIANZA',
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .35,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Todo para tu moto\\nen un solo lugar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compacto ? 26 : 30,
+                          height: 1.12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      const Text(
+                        'Repuestos para motocicleta y motokar con precios, '
+                        'stock y compatibilidad actualizados.',
+                        style: TextStyle(
+                          color: Colors.white70, fontSize: 12, height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 17),
+                      Wrap(
+                        spacing: 9,
+                        runSpacing: 9,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => setState(() {
+                              _search = '';
+                              _category = 'Todos';
+                              _page = 1;
+                            }),
+                            icon: const Icon(Icons.storefront_outlined, size: 17),
+                            label: const Text('Ver catálogo'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.ink,
+                              minimumSize: const Size(0, 46),
+                            ),
+                          ),
+                          if (descuento > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11, vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(13),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.local_offer_outlined,
+                                      size: 16, color: AppColors.gold),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Hasta $descuento% de ahorro',
+                                    style: const TextStyle(
+                                      color: Colors.white, fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_productos.isNotEmpty)
+                            Text(
+                              '${_productos.length} productos disponibles en catálogo',
+                              style: const TextStyle(
+                                color: Colors.white70, fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1254,26 +1368,53 @@ class _MainShellState extends State<MainShell> {
       children: [
         Expanded(
           child: Container(
-            decoration: BoxDecoration(boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: .035), blurRadius: 12, offset: const Offset(0, 5))]),
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.navy.withValues(alpha: .035),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
             child: TextField(
-              onChanged: submitToProducts ? null : (value) => setState(() => _search = value),
-              onSubmitted: submitToProducts
-                  ? (value) => setState(() {
-                        _search = value;
-                        _page = 1;
-                      })
-                  : null,
-              decoration: const InputDecoration(hintText: 'Buscar repuestos, marcas...', prefixIcon: Icon(Icons.search_rounded)),
+              textInputAction: TextInputAction.search,
+              onChanged: (value) => setState(() => _search = value),
+              onSubmitted: (value) => setState(() {
+                _search = value.trim();
+                _page = 1;
+              }),
+              decoration: InputDecoration(
+                hintText: 'Buscar repuestos, marcas...',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: submitToProducts
+                    ? IconButton(
+                        tooltip: 'Buscar en catálogo',
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        onPressed: () => setState(() => _page = 1),
+                      )
+                    : (_search.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'Limpiar búsqueda',
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => setState(() => _search = ''),
+                          )
+                        : null),
+              ),
             ),
           ),
         ),
         const SizedBox(width: 10),
         SizedBox(
-          width: 56,
-          height: 56,
+          width: 54,
+          height: 54,
           child: FilledButton(
             onPressed: _openFilters,
-            style: FilledButton.styleFrom(backgroundColor: AppColors.gold, foregroundColor: AppColors.ink, padding: EdgeInsets.zero),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.gold,
+              foregroundColor: AppColors.ink,
+              padding: EdgeInsets.zero,
+            ),
             child: const Icon(Icons.tune_rounded),
           ),
         ),
@@ -1571,15 +1712,19 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _productGrid(List<Producto> products) {
-    return GridView.builder(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ancho = constraints.maxWidth;
+        final columnas = ancho >= 1080 ? 4 : (ancho >= 680 ? 3 : 2);
+        return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: products.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columnas,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: .60,
+        mainAxisExtent: ancho < 380 ? 340 : (ancho < 680 ? 365 : 385),
       ),
       itemBuilder: (context, index) {
         final product = products[index];
@@ -1594,6 +1739,8 @@ class _MainShellState extends State<MainShell> {
             onFavorite: () => _toggleFavorite(product.id),
             onAddCart: () => _addCart(product.id),
           ),
+        );
+      },
         );
       },
     );
