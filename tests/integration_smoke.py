@@ -135,6 +135,60 @@ def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token
     print("OK: API pagos rechaza CSRF, sobrepagos y cancelados; suma abonos parciales.")
 
 
+def probar_productos_api(navegador, csrf):
+    categorias = api("categorias.php")
+    marcas = api("marcas.php")
+    assert categorias and marcas
+    base = {
+        "id_categoria": int(categorias[0]["id_categoria"]),
+        "id_marca": int(marcas[0]["id_marca"]),
+        "nombre_producto": f"Producto API {uuid4().hex[:8]}",
+        "descripcion": "Verifica transacciones de Kardex",
+        "tipo_vehiculo": "Motocicleta",
+        "compatibilidad": "Modelo de prueba",
+        "precio": 25.0,
+        "precio_oferta": 0,
+        "stock": 4,
+        "stock_minimo": 2,
+        "imagen_url": "",
+    }
+    invalido = admin_api(navegador,"productos.php",method="POST",
+                          csrf=csrf,body={**base,"precio":-9},status=422)
+    assert invalido["estado"] is False
+    oferta_invalida = admin_api(navegador,"productos.php",method="POST",
+                          csrf=csrf,body={**base,"precio_oferta":30},status=422)
+    assert oferta_invalida["estado"] is False
+    referencia_invalida = admin_api(navegador,"productos.php",method="POST",
+                          csrf=csrf,body={**base,"id_marca":999999},status=422)
+    assert referencia_invalida["estado"] is False
+
+    nuevo = admin_api(navegador,"productos.php",method="POST",
+                      csrf=csrf,body=base,status=201)
+    id_producto = int(nuevo["id_producto"])
+    actual = api(f"productos.php?id={id_producto}")
+    assert int(actual["stock"]) == 4, actual
+
+    rechazada = admin_api(navegador,"productos.php",method="PUT",csrf=csrf,
+                           body={**base,"id_producto":id_producto,"stock":-3},
+                           status=422)
+    assert rechazada["estado"] is False
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == 4
+
+    cambiada = admin_api(navegador,"productos.php",method="PUT",csrf=csrf,body={
+        **base, "id_producto":id_producto, "precio":31.50, "stock":7,
+    })
+    assert cambiada["estado"] is True
+    actual = api(f"productos.php?id={id_producto}")
+    assert float(actual["precio"]) == 31.50
+    assert int(actual["stock"]) == 7
+
+    eliminado = admin_api(navegador,"productos.php",method="DELETE",csrf=csrf,
+                         body={"id_producto":id_producto})
+    assert eliminado["estado"] is True
+    assert api(f"productos.php?id={id_producto}",status=404)["estado"] is False
+    print("OK: API productos con stock transaccional, límites, referencias y CRUD.")
+
+
 def probar_revocacion_de_personal(navegador_admin, csrf):
     correo = f"vendedor-{uuid4().hex[:10]}@example.test"
     clave = "ClaveVendedor_2026"
@@ -337,6 +391,12 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     })
     assert "YP-45678123" in creada, "No se muestra la referencia en pagos administrativos"
     probar_revocacion_de_personal(navegador, csrf)
+    probar_productos_api(navegador, csrf)
+    instalar_get = admin_page(navegador, "instalar.php")
+    assert "Verificar / importar base de datos" in instalar_get
+    assert "Acceso administrativo comprobado" in instalar_get
+    instalar_invalid = admin_page(navegador, "instalar.php", form={})
+    assert "token de seguridad es inválido" in instalar_invalid
 
     # Los destinos oficiales son configurados por el administrador y leídos en Flutter.
     formulario_empresa = admin_page(navegador, "dashboard.php", form={
