@@ -1,0 +1,10 @@
+# Los registros de auditoría y la configuración operativa no son recursos públicos.
+# Apache de XAMPP respeta esta regla; el servidor PHP integrado no usa .htaccess.
+Options -Indexes
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>
