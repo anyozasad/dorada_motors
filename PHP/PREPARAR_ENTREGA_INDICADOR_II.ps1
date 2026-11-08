@@ -35,7 +35,9 @@ $Data = Join-Path $Temporal 'PHP\dorada_api\data'
 New-Item -Path $Data -ItemType Directory -Force | Out-Null
 $Htaccess = Join-Path $Php 'dorada_api\data\.htaccess'
 if (Test-Path $Htaccess) { Copy-Item $Htaccess (Join-Path $Data '.htaccess') -Force }
-Compress-Archive -Path (Join-Path $Temporal 'Flutter'),(Join-Path $Temporal 'PHP') -DestinationPath $Zip -CompressionLevel Optimal -Force
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+# .NET incluye tambien .htaccess y otros archivos ocultos que Compress-Archive omite.
+[System.IO.Compression.ZipFile]::CreateFromDirectory($Temporal, $Zip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
 if (!(Test-Path $Zip) -or (Get-Item $Zip).Length -lt 100000) { throw 'ZIP incompleto o ausente.' }
 if ($PaquetesSeparados) {
   Compress-Archive -Path (Join-Path $Temporal 'Flutter') -DestinationPath (Join-Path $Desktop 'DORADA_FLUTTER.zip') -CompressionLevel Optimal -Force
