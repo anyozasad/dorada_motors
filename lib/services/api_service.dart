@@ -93,10 +93,7 @@ class ApiService {
     final response = await http
         .put(
           Uri.parse('$baseUrl/$endpoint'),
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
+          headers: await _headers(enviarJson: true),
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
