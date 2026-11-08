@@ -226,11 +226,21 @@ class _MainShellState extends State<MainShell> {
     await LocalStore.saveCart(_cart);
   }
 
-  int get _cartCount => _cart.values.fold(0, (a, b) => a + b);
+  // Ignora artículos eliminados del catálogo para evitar errores de búsqueda.
+  Map<int, int> get _cartValido {
+    final ids = _productos.map((p) => p.id).toSet();
+    return {
+      for (final entry in _cart.entries)
+        if (ids.contains(entry.key) && entry.value > 0)
+          entry.key: entry.value,
+    };
+  }
+
+  int get _cartCount => _cartValido.values.fold(0, (a, b) => a + b);
 
   double get _cartTotal {
     double total = 0;
-    _cart.forEach((id, qty) => total += _productById(id).precioFinal * qty);
+    _cartValido.forEach((id, qty) => total += _productById(id).precioFinal * qty);
     return total;
   }
 
@@ -491,13 +501,13 @@ class _MainShellState extends State<MainShell> {
                       ],
                     ),
                   ),
-                  if (_cart.isEmpty)
+                  if (_cartValido.isEmpty)
                     const Expanded(child: _CartEmpty())
                   else
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
-                        children: _cart.entries.map((entry) {
+                        children: _cartValido.entries.map((entry) {
                           final p = _productById(entry.key);
                           return Container(
                             margin: const EdgeInsets.only(bottom: 11),
@@ -547,7 +557,7 @@ class _MainShellState extends State<MainShell> {
                         }).toList(),
                       ),
                     ),
-                  if (_cart.isNotEmpty)
+                  if (_cartValido.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
                       decoration: const BoxDecoration(
@@ -576,7 +586,7 @@ class _MainShellState extends State<MainShell> {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => CheckoutScreen(
-                                      cart: Map<int, int>.from(_cart),
+                                      cart: Map<int, int>.from(_cartValido),
                                       products: _productos,
                                       onCompleted: () => setState(() => _cart.clear()),
                                     ),
