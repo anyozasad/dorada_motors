@@ -116,7 +116,8 @@ $tablasPrincipales = [
     "sesion_cliente",
     "carrito",
     "detalle_carrito",
-    "favorito"
+    "favorito",
+    "solicitud_soporte"
 ];
 
 $faltanTablas = false;
