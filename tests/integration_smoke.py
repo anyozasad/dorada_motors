@@ -477,6 +477,10 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     encontrados = [p for p in productos if p["nombre_producto"] == nombre]
     assert len(encontrados) == 1, encontrados
     id_nuevo = int(encontrados[0]["id_producto"])
+    kardex_inicial = nuevo.split('id="tablaKardex"',1)[1].split("</table>",1)[0]
+    assert re.search(rf"{re.escape(nombre)}.*?Stock inicial desde dashboard", kardex_inicial, re.S), (
+        "El stock inicial del producto no figura como entrada en el Kardex"
+    )
 
     actualizado = admin_page(
         navegador, "dashboard.php",
@@ -488,6 +492,10 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     registro = api(f"productos.php?id={id_nuevo}")
     assert float(registro["precio"]) == 28.0, registro
     assert int(registro["stock"]) == 12, registro
+    kardex_editado = actualizado.split('id="tablaKardex"',1)[1].split("</table>",1)[0]
+    assert re.search(rf"{re.escape(nombre)}.*?Ajuste desde edición de producto", kardex_editado, re.S), (
+        "Editar stock no registró movimiento de Kardex"
+    )
 
     borrado = admin_page(
         navegador, "dashboard.php",
@@ -554,6 +562,14 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     nuevos_pedidos = api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)
     actual = next(p for p in nuevos_pedidos if int(p["id_pedido"]) == id_otro_pedido)
     assert actual["estado_pedido"] == "Pagado", actual
+    regresion = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_estado_pedido": "1",
+        "id_pedido": str(id_otro_pedido), "estado_pedido": "Pendiente",
+    })
+    assert "Transición no permitida" in regresion
+    despues = api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)
+    assert next(p for p in despues if int(p["id_pedido"]) == id_otro_pedido)["estado_pedido"] == "Pagado"
+
     cancelacion_admin_pagada = admin_page(navegador, "dashboard.php", form={
         "csrf_token": csrf, "actualizar_estado_pedido": "1",
         "id_pedido": str(id_otro_pedido), "estado_pedido": "Cancelado",
