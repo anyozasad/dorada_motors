@@ -1706,8 +1706,65 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
           const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilterChip(
+                avatar: Icon(
+                  Icons.inventory_2_outlined,
+                  size: 17,
+                  color: _soloDisponibles ? AppColors.goldDark : AppColors.muted,
+                ),
+                label: const Text('Solo disponibles'),
+                selected: _soloDisponibles,
+                onSelected: (valor) => setState(() => _soloDisponibles = valor),
+              ),
+              DropdownButton<String>(
+                value: _ordenCatalogo,
+                borderRadius: BorderRadius.circular(16),
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.sort_rounded, size: 18),
+                items: const [
+                  DropdownMenuItem(value: 'Relevancia', child: Text('Orden: Relevancia')),
+                  DropdownMenuItem(value: 'Menor precio', child: Text('Menor precio')),
+                  DropdownMenuItem(value: 'Mayor precio', child: Text('Mayor precio')),
+                  DropdownMenuItem(value: 'Nombre A-Z', child: Text('Nombre A-Z')),
+                ],
+                onChanged: (valor) {
+                  if (valor != null) setState(() => _ordenCatalogo = valor);
+                },
+              ),
+              if (_search.isNotEmpty ||
+                  _category != 'Todos' ||
+                  _brand != 'Todas' ||
+                  _vehicle != 'Todos' ||
+                  _soloDisponibles ||
+                  _ordenCatalogo != 'Relevancia')
+                TextButton.icon(
+                  onPressed: _limpiarBusquedaYFiltros,
+                  icon: const Icon(Icons.filter_alt_off_outlined, size: 17),
+                  label: const Text('Limpiar filtros'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
           if (products.isEmpty)
-            const _EmptyState(icon: Icons.search_off_rounded, title: 'No encontramos productos', text: 'Prueba otra búsqueda o limpia los filtros aplicados.')
+            Column(
+              children: [
+                const _EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No encontramos productos',
+                  text: 'Prueba otra búsqueda, revisa la compatibilidad o limpia los filtros.',
+                ),
+                TextButton.icon(
+                  onPressed: _limpiarBusquedaYFiltros,
+                  icon: const Icon(Icons.restart_alt_rounded),
+                  label: const Text('Mostrar todo el catálogo'),
+                ),
+              ],
+            )
           else
             _productGrid(products),
         ],
@@ -1882,7 +1939,15 @@ class _MainShellState extends State<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final ancho = constraints.maxWidth;
-        final columnas = ancho >= 1080 ? 4 : (ancho >= 680 ? 3 : 2);
+        // En teléfonos estrechos, dos columnas recortaban nombres y precios.
+        // Se conserva la tarjeta original y se adapta únicamente su distribución.
+        final columnas = ancho >= 1180
+            ? 4
+            : ancho >= 770
+                ? 3
+                : ancho >= 390
+                    ? 2
+                    : 1;
         return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -1891,7 +1956,11 @@ class _MainShellState extends State<MainShell> {
         crossAxisCount: columnas,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        mainAxisExtent: ancho < 380 ? 340 : (ancho < 680 ? 365 : 385),
+        mainAxisExtent: columnas == 1
+            ? 390
+            : columnas == 2
+                ? 360
+                : 385,
       ),
       itemBuilder: (context, index) {
         final product = products[index];
