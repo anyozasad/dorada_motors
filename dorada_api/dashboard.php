@@ -824,6 +824,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 $estadoAnterior = (string)$pedidoActual["estado_pedido"];
 
+                // Estados de negocio: impedir retroceder pedidos cobrados,
+                // completar ventas enviadas de forma incorrecta o saltar a entrega.
+                $transiciones = [
+                    "Pendiente" => ["Pendiente","Procesando","Pagado","Cancelado"],
+                    "Procesando" => ["Procesando","Pagado","Enviado","Cancelado"],
+                    "Pagado" => ["Pagado","Enviado","Completado"],
+                    "Enviado" => ["Enviado","Completado"],
+                    "Completado" => ["Completado"],
+                    "Cancelado" => ["Cancelado","Pendiente","Procesando"]
+                ];
+                if (!in_array($estado, $transiciones[$estadoAnterior] ?? [], true)) {
+                    throw new RuntimeException(
+                        "Transición no permitida: ".$estadoAnterior." → ".$estado
+                    );
+                }
+
                 if (in_array($estado, ["Pagado","Completado"], true)) {
                     $stmt = $conexion->prepare("
                         SELECT
