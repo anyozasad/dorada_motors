@@ -224,6 +224,58 @@ class ApiService {
     throw Exception('Respuesta inválida de $endpoint');
   }
 
+  static Future<Map<String, dynamic>> obtenerCuenta() async {
+    final data = await _getJson('cuenta.php');
+    if (data is! Map) throw Exception('Respuesta inválida del perfil');
+    return Map<String, dynamic>.from(data);
+  }
+
+  static Future<Map<String, dynamic>> actualizarCuenta({
+    required String nombres,
+    required String apellidos,
+    required String correo,
+    required String telefono,
+  }) async {
+    final data = await _putJson('cuenta.php', {
+      'accion': 'perfil',
+      'nombres': nombres.trim(),
+      'apellidos': apellidos.trim(),
+      'correo': correo.trim().toLowerCase(),
+      'telefono': telefono.trim(),
+    });
+    if (data is! Map) throw Exception('Respuesta inválida al guardar el perfil');
+    return Map<String, dynamic>.from(data);
+  }
+
+  static Future<void> cambiarClave({
+    required String actual,
+    required String nueva,
+  }) async {
+    await _putJson('cuenta.php', {
+      'accion': 'clave',
+      'contrasena_actual': actual,
+      'contrasena_nueva': nueva,
+    });
+  }
+
+  static Future<List<dynamic>> obtenerSolicitudesSoporte() async {
+    final data = await _getJson('soporte.php');
+    if (data is! Map || data['solicitudes'] is! List) {
+      throw Exception('Respuesta inválida de soporte');
+    }
+    return data['solicitudes'] as List<dynamic>;
+  }
+
+  static Future<void> registrarSolicitudSoporte({
+    required String asunto,
+    required String mensaje,
+  }) async {
+    await _postJson('soporte.php', {
+      'asunto': asunto.trim(),
+      'mensaje': mensaje.trim(),
+    });
+  }
+
   static Future<List<dynamic>> obtenerProductos() =>
       _getList('productos.php');
 
