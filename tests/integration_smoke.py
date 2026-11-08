@@ -218,6 +218,39 @@ def probar_revocacion_de_personal(navegador_admin, csrf):
     })
     assert "Dashboard" in acceso or "Panel" in acceso
     assert isinstance(admin_api(navegador_vendedor, "pagos.php"), list)
+    form_vendedor=admin_page(navegador_vendedor, "dashboard.php")
+    csrf_vendedor=re.search(r'name="csrf_token" value="([a-f0-9]{64})"',form_vendedor)
+    assert csrf_vendedor
+    token_vendedor=csrf_vendedor.group(1)
+
+    intento_bloqueo=admin_page(navegador_vendedor,"dashboard.php",form={
+        "csrf_token":token_vendedor,"actualizar_estado_usuario":"1",
+        "id_usuario":str(id_personal),"estado_usuario":"Bloqueado",
+    })
+    assert "Solo se puede cambiar el estado de cuentas de clientes" in intento_bloqueo
+    intento_cambio=admin_page(navegador_vendedor,"dashboard.php",form={
+        "csrf_token":token_vendedor,"actualizar_usuario":"1",
+        "id_usuario":str(id_personal),"nombres":"Ataque","apellidos":"Prueba",
+        "correo":correo,"telefono":"977000111",
+    })
+    assert "cuenta administrativa protegida" in intento_cambio
+    intento_direccion=admin_page(navegador_vendedor,"dashboard.php",form={
+        "csrf_token":token_vendedor,"registrar_direccion":"1",
+        "id_usuario_direccion":str(id_personal),"departamento":"Ucayali",
+        "provincia":"Coronel Portillo","distrito":"Calleria",
+        "direccion_detalle":"Jr. No cliente","referencia":"",
+    })
+    assert "dirección debe pertenecer a un cliente" in intento_direccion
+    id_producto_valido=int(api("productos.php")[0]["id_producto"])
+    intento_pedido=admin_page(navegador_vendedor,"dashboard.php",form={
+        "csrf_token":token_vendedor,"registrar_pedido_manual":"1",
+        "id_usuario_pedido":str(id_personal),"id_producto_pedido[]":[id_producto_valido],
+        "cantidad_pedido[]":[1],"tipo_entrega_pedido":"Recojo en tienda",
+        "metodo_pago_pedido":"Efectivo",
+    })
+    assert "Cliente no disponible" in intento_pedido
+    assert isinstance(admin_api(navegador_vendedor, "pagos.php"), list)
+
     try:
         admin_page(navegador_vendedor, "exportar_csv.php?tipo=productos")
         raise AssertionError("Vendedor pudo exportar productos fuera de su permiso")
