@@ -9,6 +9,10 @@ if (rolActual() !== "Administrador") {
     exit("Acceso denegado");
 }
 
+// Un respaldo incluye datos personales: impedir almacenamiento en caché por proxies/navegadores.
+header("Cache-Control: private, no-store, no-cache, must-revalidate");
+header("Pragma: no-cache");
+header("X-Content-Type-Options: nosniff");
 registrarBitacora($conexion, "sistema", "Descargar respaldo", "Se generó un respaldo SQL de dorada_motors.");
 
 $archivo = "dorada_motors_backup_" . date("Ymd_His") . ".sql";
