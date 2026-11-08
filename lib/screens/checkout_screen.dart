@@ -35,7 +35,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     (_) => Random.secure().nextInt(1 << 30).toRadixString(16).padLeft(8, '0'),
   ).join();
   String _delivery = 'Recojo en tienda';
-  String _payment = 'Yape';
+  String _payment = 'Efectivo';
   bool _saving = false;
   bool _costoDeliveryCargado = false;
   double _costoDeliveryServidor = 0;
@@ -130,6 +130,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _confirm() async {
     if (_saving) return;
+    if (_payment != 'Efectivo' && _destinoPago.isEmpty) {
+      _message('Este medio de pago aún no está configurado por la empresa. '
+          'Elige Efectivo o consulta con el administrador.');
+      return;
+    }
     if (_delivery == 'Delivery' && !_costoDeliveryCargado) {
       _message('No se pudo consultar el costo de delivery. Pulsa Reintentar.');
       return;
@@ -482,14 +487,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       runSpacing: 9,
                       children: ['Yape', 'Plin', 'Efectivo', 'Transferencia'].map((method) {
                         final selected = _payment == method;
-                        return ChoiceChip(
-                          avatar: Icon(_paymentIcon(method), size: 18, color: selected ? AppColors.navy : AppColors.muted),
-                          label: Text(method),
-                          selected: selected,
-                          onSelected: (_) => setState(() => _payment = method),
+                        final habilitado = method == 'Efectivo' ||
+                            (method == 'Yape' && _numeroYape.isNotEmpty) ||
+                            (method == 'Plin' && _numeroPlin.isNotEmpty) ||
+                            (method == 'Transferencia' && _cuentaTransferencia.isNotEmpty);
+                        return Tooltip(
+                          message: habilitado
+                              ? 'Seleccionar $method'
+                              : 'La empresa aún no configuró este medio de pago',
+                          child: ChoiceChip(
+                            avatar: Icon(_paymentIcon(method), size: 18,
+                                color: selected ? AppColors.navy : AppColors.muted),
+                            label: Text(method),
+                            selected: selected,
+                            onSelected: habilitado
+                                ? (_) => setState(() => _payment = method)
+                                : null,
+                          ),
                         );
                       }).toList(),
                     ),
+                    if (!_costoDeliveryCargado) ...[
+                      const SizedBox(height: 9),
+                      const Text(
+                        'Consultando los medios de pago habilitados en PHP...',
+                        style: TextStyle(color: AppColors.muted, fontSize: 11),
+                      ),
+                    ],
                     if (_payment != 'Efectivo') ...[
                       const SizedBox(height: 12),
                       Text(
