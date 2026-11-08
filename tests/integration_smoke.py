@@ -770,6 +770,11 @@ def probar_cuenta_soporte(id_usuario, token, otro_token):
 
 def crear_cliente(nombre):
     correo = f"ci-{uuid4().hex[:12]}@example.test"
+    corta = api("usuarios.php",method="POST",status=200,body={
+        "nombres":nombre,"apellidos":"Pruebas","correo":correo,
+        "contrasena":"123456","telefono":"987654321",
+    })
+    assert corta["estado"] is False and "8" in corta["mensaje"], corta
     respuesta = api("usuarios.php", method="POST", status=200, body={
         "nombres": nombre, "apellidos": "Pruebas",
         "correo": correo, "contrasena": "DemoSeguro_2026",
