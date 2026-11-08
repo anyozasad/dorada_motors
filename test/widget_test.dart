@@ -21,6 +21,8 @@ void main() {
     await tester.pumpWidget(const DoradaMotorsApp());
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Crear cuenta'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear cuenta'));
     await tester.pumpAndSettle();
 
