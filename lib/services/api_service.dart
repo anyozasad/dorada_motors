@@ -235,6 +235,46 @@ class ApiService {
     throw Exception('No se pudo registrar la dirección');
   }
 
+  static Future<List<dynamic>> obtenerDireccionesUsuario(int idUsuario) =>
+      _getList('direcciones.php?id_usuario=$idUsuario');
+
+  static Future<Map<String, dynamic>> actualizarDireccion({
+    required int idUsuario,
+    required int idDireccion,
+    required String direccion,
+    String referencia = '',
+  }) async {
+    final data = await _putJson('direcciones.php', {
+      'id_usuario': idUsuario,
+      'id_direccion': idDireccion,
+      'departamento': 'Ucayali',
+      'provincia': 'Coronel Portillo',
+      'distrito': 'Callería',
+      'direccion_detalle': direccion.trim(),
+      'referencia': referencia.trim(),
+    });
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  static Future<void> eliminarDireccion(int idDireccion) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/direcciones.php?id=$idDireccion'),
+      headers: await _headers(),
+    ).timeout(const Duration(seconds: 10));
+
+    Map<String, dynamic> data;
+    try {
+      data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    } catch (_) {
+      throw Exception('Respuesta inválida al eliminar dirección');
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300 ||
+        data['estado'] == false) {
+      throw Exception(data['mensaje']?.toString() ?? 'No se pudo eliminar la dirección');
+    }
+  }
+
   static Future<Map<String, dynamic>> registrarPedido({
     required int idUsuario,
     required String tipoEntrega,
