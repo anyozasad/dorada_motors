@@ -65,12 +65,14 @@ CREATE TABLE IF NOT EXISTS producto (
 CREATE TABLE IF NOT EXISTS pedido (
   id_pedido INT AUTO_INCREMENT PRIMARY KEY,
   id_usuario INT NOT NULL,
+  clave_operacion VARCHAR(64) NULL DEFAULT NULL,
   fecha_pedido DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado_pedido VARCHAR(30) NOT NULL DEFAULT 'Pendiente',
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
   id_direccion INT NULL,
   tipo_entrega VARCHAR(30) NOT NULL DEFAULT 'Recojo en tienda',
   INDEX idx_pedido_usuario (id_usuario),
+  UNIQUE KEY uq_pedido_cliente_operacion (id_usuario,clave_operacion),
   INDEX idx_pedido_direccion (id_direccion),
   INDEX idx_pedido_fecha (fecha_pedido),
   CONSTRAINT fk_pedido_usuario FOREIGN KEY (id_usuario)
