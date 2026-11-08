@@ -64,6 +64,15 @@ if ($metodo === "POST" || $metodo === "PUT") {
         responderDireccion(["estado"=>false,"mensaje"=>"Falta id_direccion"], 400);
     }
 
+    $stmt = $conexion->prepare(
+        "SELECT id_direccion FROM direccion WHERE id_direccion=? AND id_usuario=? LIMIT 1"
+    );
+    $stmt->bind_param("ii",$idDireccion,$idClienteSesion);
+    $stmt->execute();
+    if (!$stmt->get_result()->fetch_assoc()) {
+        responderDireccion(["estado"=>false,"mensaje"=>"Dirección no encontrada en tu cuenta"],404);
+    }
+
     $stmt = $conexion->prepare("
         UPDATE direccion
         SET id_usuario=?,departamento=?,provincia=?,distrito=?,direccion_detalle=?,referencia=?
@@ -81,6 +90,17 @@ if ($metodo === "DELETE") {
 
     if ($idDireccion <= 0) {
         responderDireccion(["estado"=>false,"mensaje"=>"Falta id_direccion"], 400);
+    }
+
+    // Comprobar pertenencia antes de consultar pedidos asociados:
+    // no divulgar datos de direcciones de otros clientes.
+    $stmt = $conexion->prepare(
+        "SELECT id_direccion FROM direccion WHERE id_direccion=? AND id_usuario=? LIMIT 1"
+    );
+    $stmt->bind_param("ii",$idDireccion,$idClienteSesion);
+    $stmt->execute();
+    if (!$stmt->get_result()->fetch_assoc()) {
+        responderDireccion(["estado"=>false,"mensaje"=>"Dirección no encontrada en tu cuenta"],404);
     }
 
     $stmt = $conexion->prepare("SELECT COUNT(*) AS total FROM pedido WHERE id_direccion=?");
