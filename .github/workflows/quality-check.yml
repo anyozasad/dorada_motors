@@ -116,6 +116,9 @@ jobs:
             if (($raices -join ',') -ne 'Flutter,PHP') {
               throw "El ZIP debe tener solo Flutter y PHP, contiene: $($raices -join ', ')"
             }
+            if (!($archivo.Entries | Where-Object { $_.FullName -eq 'PHP/dorada_api/data/.htaccess' })) {
+              throw "Falta .htaccess para proteger los datos internos de PHP."
+            }
             if ($archivo.Entries.Count -lt 100) {
               throw "El ZIP no contiene todos los archivos del proyecto."
             }
