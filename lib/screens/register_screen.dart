@@ -50,6 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         userId: id,
         name: nombreCompleto,
         email: _emailController.text,
+        token: response['token']?.toString() ?? '',
       );
 
       if (!mounted) return;
