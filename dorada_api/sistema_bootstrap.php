@@ -65,6 +65,13 @@ if ($indicePedido && $indicePedido->num_rows === 0) {
     );
 }
 
+if (!columnaExiste($conexion, "pago", "referencia_cliente")) {
+    $conexion->query("ALTER TABLE pago ADD COLUMN referencia_cliente VARCHAR(100) NULL DEFAULT NULL");
+}
+if (!columnaExiste($conexion, "pago", "fecha_referencia")) {
+    $conexion->query("ALTER TABLE pago ADD COLUMN fecha_referencia DATETIME NULL");
+}
+
 if (!columnaExiste($conexion, "movimiento_stock", "stock_anterior")) {
     $conexion->query("ALTER TABLE movimiento_stock ADD COLUMN stock_anterior INT NULL");
 }
