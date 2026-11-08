@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:dorada_motors/main.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dorada_motors/models/producto.dart';
+import 'package:dorada_motors/theme/app_theme.dart';
+import 'package:dorada_motors/widgets/product_card.dart';
 
 void main() {
   testWidgets('Muestra la pantalla de acceso de Dorada Motors', (tester) async {
@@ -52,5 +55,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Usa una URL válida terminada en /dorada_api.'), findsOneWidget);
+  });
+
+  testWidgets('Las tarjetas de repuestos caben en un celular estrecho',
+      (tester) async {
+    const producto = Producto(
+      id: 101,
+      nombre: 'Kit de transmisión reforzado para motocicleta y motokar',
+      descripcion: 'Repuesto original',
+      marca: 'REPUESTOS DORADA MOTORS',
+      categoria: 'Transmisión',
+      tipoVehiculo: 'Motocicleta y motokar',
+      compatibilidad: '125cc, 150cc y 200cc',
+      precio: 150,
+      precioOferta: 125,
+      stock: 6,
+      imagen: 'assets/imagenes/01_kit_transmision_dtiex.png',
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 146,
+            height: 340,
+            child: ProductCard(
+              product: producto,
+              favorite: false,
+              onTap: () {},
+              onFavorite: () {},
+              onAddCart: () {},
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Kit de transmisión'), findsOneWidget);
+    expect(find.text('S/ 125.00'), findsOneWidget);
   });
 }
