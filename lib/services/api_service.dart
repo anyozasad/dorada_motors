@@ -441,6 +441,12 @@ class ApiService {
     });
   }
 
+  static Future<Map<String, dynamic>> obtenerComprobanteCliente(int idPedido) async {
+    final respuesta = await _getJson('cliente_comprobante.php?id_pedido=$idPedido');
+    if (respuesta is! Map) throw Exception('Respuesta inválida del comprobante');
+    return Map<String, dynamic>.from(respuesta);
+  }
+
   static Future<Map<String, dynamic>> cancelarPedidoCliente(int idPedido) async {
     final respuesta = await _postJson('cliente_cancelar_pedido.php', {
       'id_pedido': idPedido,
