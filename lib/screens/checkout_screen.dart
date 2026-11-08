@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../models/pedido.dart';
@@ -25,6 +27,12 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  // Misma clave en todos los reintentos de este checkout.
+  // La API la usa para impedir dos pedidos por una respuesta de red perdida.
+  final String _claveOperacion = List.generate(
+    5,
+    (_) => Random.secure().nextInt(1 << 30).toRadixString(16).padLeft(8, '0'),
+  ).join();
   String _delivery = 'Recojo en tienda';
   String _payment = 'Yape';
   bool _saving = false;
@@ -165,6 +173,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: itemsApi,
         idDireccion: idDireccion,
         costoEntrega: _deliveryCost,
+        claveOperacion: _claveOperacion,
       );
 
       final idPedido =
