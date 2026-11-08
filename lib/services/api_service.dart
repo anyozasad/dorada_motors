@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'local_store.dart';
+
 class ApiService {
   static String get baseUrl {
     const configurada = String.fromEnvironment('API_BASE_URL');
@@ -19,10 +21,19 @@ class ApiService {
     return 'http://10.0.2.2/dorada_api';
   }
 
+  static Future<Map<String, String>> _headers({bool enviarJson = false}) async {
+    final token = await LocalStore.getToken();
+    return {
+      'Accept': 'application/json',
+      if (enviarJson) 'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   static Future<dynamic> _getJson(String endpoint) async {
     final response = await http.get(
       Uri.parse('$baseUrl/$endpoint'),
-      headers: const {'Accept': 'application/json'},
+      headers: await _headers(),
     ).timeout(const Duration(seconds: 8));
 
     if (response.statusCode != 200) {
@@ -47,10 +58,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$baseUrl/$endpoint'),
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
+          headers: await _headers(enviarJson: true),
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
@@ -114,6 +122,19 @@ class ApiService {
     }
 
     return decoded;
+  }
+
+  static Future<void> cerrarSesion() async {
+    final token = await LocalStore.getToken();
+    if (token == null) return;
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/cliente_logout.php'),
+        headers: await _headers(enviarJson: true),
+      ).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // La sesión local siempre puede cerrarse sin conexión.
+    }
   }
 
   static Future<List<dynamic>> _getList(String endpoint) async {
