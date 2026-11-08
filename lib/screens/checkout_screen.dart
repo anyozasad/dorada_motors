@@ -30,11 +30,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _saving = false;
   bool _costoDeliveryCargado = false;
   double _costoDeliveryServidor = 0;
+  List<Map<String, dynamic>> _direccionesGuardadas = [];
+  int _idDireccionSeleccionada = 0;
+  String? _errorDirecciones;
 
   @override
   void initState() {
     super.initState();
     _cargarCostoDelivery();
+    _cargarDirecciones();
+  }
+
+  Future<void> _cargarDirecciones() async {
+    try {
+      final sesion = await LocalStore.getSession();
+      final idUsuario = int.tryParse(sesion?['id'] ?? '') ?? 0;
+      if (idUsuario <= 0) return;
+      final data = await ApiService.obtenerDireccionesUsuario(idUsuario);
+      if (!mounted) return;
+      setState(() {
+        _direccionesGuardadas = data
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+        _errorDirecciones = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorDirecciones = 'No se pudieron cargar las direcciones.');
+    }
+  }
+
+  String get _direccionParaPedido {
+    if (_idDireccionSeleccionada <= 0) return _addressController.text.trim();
+    for (final row in _direccionesGuardadas) {
+      if ((int.tryParse(row['id_direccion']?.toString() ?? '') ?? 0) ==
+          _idDireccionSeleccionada) {
+        return row['direccion_detalle']?.toString() ?? '';
+      }
+    }
+    return _addressController.text.trim();
   }
 
   Future<void> _cargarCostoDelivery() async {
@@ -80,7 +115,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _message('Ingresa un teléfono válido.');
       return;
     }
-    if (_delivery == 'Delivery' && _addressController.text.trim().length < 5) {
+    if (_delivery == 'Delivery' &&
+        _idDireccionSeleccionada <= 0 && _addressController.text.trim().length < 5) {
       _message('Ingresa la dirección de entrega.');
       return;
     }
@@ -103,10 +139,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       int? idDireccion;
       if (_delivery == 'Delivery') {
-        idDireccion = await ApiService.registrarDireccion(
-          idUsuario: idUsuario,
-          direccion: _addressController.text.trim(),
-        );
+        if (_idDireccionSeleccionada > 0) {
+          idDireccion = _idDireccionSeleccionada;
+        } else {
+          idDireccion = await ApiService.registrarDireccion(
+            idUsuario: idUsuario,
+            direccion: _addressController.text.trim(),
+          );
+        }
       }
 
       final itemsApi = widget.cart.entries
@@ -151,7 +191,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         metodoPago: _payment,
         tipoEntrega: _delivery,
         direccion: _delivery == 'Delivery'
-            ? _addressController.text.trim()
+            ? _direccionParaPedido
             : 'Recojo en tienda',
         telefono: _phoneController.text.trim(),
         total: totalServidor,
@@ -341,15 +381,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           label: const Text('Reintentar costo de delivery'),
                         ),
                       const SizedBox(height: 14),
-                      TextField(
-                        controller: _addressController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Dirección de entrega',
-                          hintText: 'Jr., avenida, referencia...',
-                          prefixIcon: Icon(Icons.location_on_outlined),
+                      if (_errorDirecciones != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: AppColors.muted),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(_errorDirecciones!,
+                                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                            ),
+                            TextButton(onPressed: _cargarDirecciones, child: const Text('Reintentar')),
+                          ],
                         ),
-                      ),
+                      if (_direccionesGuardadas.isNotEmpty) ...[
+                        DropdownButtonFormField<int>(
+                          initialValue: _idDireccionSeleccionada,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Usar dirección guardada',
+                            prefixIcon: Icon(Icons.place_outlined),
+                          ),
+                          items: [
+                            const DropdownMenuItem<int>(
+                              value: 0,
+                              child: Text('Agregar una nueva dirección'),
+                            ),
+                            ..._direccionesGuardadas.map((row) {
+                              final id = int.tryParse(row['id_direccion']?.toString() ?? '') ?? 0;
+                              return DropdownMenuItem<int>(
+                                value: id,
+                                child: Text(
+                                  row['direccion_detalle']?.toString() ?? 'Dirección',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).where((item) => item.value != 0),
+                          ],
+                          onChanged: (value) => setState(
+                            () => _idDireccionSeleccionada = value ?? 0,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (_idDireccionSeleccionada == 0)
+                        TextField(
+                          controller: _addressController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Dirección de entrega',
+                            hintText: 'Jr., avenida, referencia...',
+                            prefixIcon: Icon(Icons.location_on_outlined),
+                          ),
+                        ),
                     ],
                   ],
                 ),
