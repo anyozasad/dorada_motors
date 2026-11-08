@@ -57,7 +57,7 @@ def admin_page(opener, path, form=None):
         return response.read().decode("utf-8")
 
 
-def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original):
+def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original, otro_id, otro_token):
     navegador = urllib.request.build_opener(
         urllib.request.HTTPCookieProcessor(CookieJar())
     )
@@ -145,6 +145,40 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         int(p["id_pedido"]) == id_pedido and p["estado_pago"] == "Rechazado"
         for p in pagos
     ), pagos
+    # Confirmación de pago y emisión de comprobante imprimible.
+    otro_pedido = api("pedidos.php", method="POST", token=otro_token, status=201, body={
+        "id_usuario": otro_id, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_producto, "cantidad": 1}],
+    })
+    id_otro_pedido = int(otro_pedido["id_pedido"])
+    pagos = json.loads(admin_page(navegador, "pagos.php"))
+    pago_pendiente = next(x for x in pagos if int(x["id_pedido"]) == id_otro_pedido)
+    assert pago_pendiente["estado_pago"] == "Pendiente", pago_pendiente
+
+    confirmado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_estado_pago": "1",
+        "id_pago": str(pago_pendiente["id_pago"]), "estado_pago": "Pagado",
+    })
+    assert "Estado del pago actualizado" in confirmado, confirmado[:350]
+    nuevos_pedidos = api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)
+    actual = next(p for p in nuevos_pedidos if int(p["id_pedido"]) == id_otro_pedido)
+    assert actual["estado_pedido"] == "Pagado", actual
+
+    comprobante = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "registrar_comprobante": "1",
+        "id_pedido_comprobante": str(id_otro_pedido),
+        "tipo_comprobante": "Boleta", "numero_comprobante": "",
+    })
+    assert "Comprobante B001-" in comprobante, (
+        "No se emitió la boleta de demostración"
+    )
+    pagina_dashboard = admin_page(navegador, "dashboard.php")
+    enlaces = re.findall(r'comprobante_print.php\\?id=(\\d+)', pagina_dashboard)
+    assert enlaces, "No se encontró enlace de impresión de comprobante"
+    impresion = admin_page(navegador, f"comprobante_print.php?id={enlaces[0]}")
+    assert "BOLETA" in impresion and "S/ " in impresion
+    print("OK: confirmar pago, actualizar estado y emitir boleta imprimible.")
     print("OK: dashboard PHP, sesión admin, CSRF, CRUD producto,")
     print("    métricas, cancelación de pedido, reversión stock y pago.")
 
@@ -300,6 +334,7 @@ def main():
     # Verificar las operaciones reales del dashboard sobre ese mismo pedido.
     probar_dashboard_admin(
         id_pedido, id_usuario, token, id_producto, stock_anterior,
+        otro_id, otro_token,
     )
 
     # El cierre de sesión revoca el token y prohíbe futuras consultas.
