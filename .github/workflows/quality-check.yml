@@ -109,9 +109,23 @@ jobs:
           if (!(Test-Path $archivoZip)) { throw "No se creó el ZIP completo de Dorada Motors" }
           $tamano = (Get-Item $archivoZip).Length
           if ($tamano -lt 100000) { throw "El ZIP de entrega está vacío o incompleto: $tamano bytes" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archivo = [System.IO.Compression.ZipFile]::OpenRead($archivoZip)
+          try {
+            $raices = @($archivo.Entries | ForEach-Object { ($_.FullName -replace '\\','/').Split('/')[0] } | Where-Object { $_ } | Sort-Object -Unique)
+            if (($raices -join ',') -ne 'Flutter,PHP') {
+              throw "El ZIP debe tener solo Flutter y PHP, contiene: $($raices -join ', ')"
+            }
+            if ($archivo.Entries.Count -lt 100) {
+              throw "El ZIP no contiene todos los archivos del proyecto."
+            }
+            Write-Host "Contenido verificado: solo Flutter y PHP; $($archivo.Entries.Count) entradas"
+          } finally {
+            $archivo.Dispose()
+          }
           Copy-Item $archivoZip (Join-Path $env:GITHUB_WORKSPACE 'INDICADOR_IV_DORADA_MOTORS.zip') -Force
           Write-Host "ZIP de entrega verificado: $tamano bytes"
-      - name: Publicar ZIP completo y paquetes separados
+      - name: Publicar ZIP completo de dos carpetas
         uses: actions/upload-artifact@v4
         with:
           name: Dorada-Motors-Entrega-Completa
