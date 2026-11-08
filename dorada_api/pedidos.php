@@ -2,6 +2,7 @@
 include("conexion.php");
 require_once "sistema_bootstrap.php";
 require_once "empresa_config.php";
+require_once __DIR__ . "/cliente_auth.php";
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -21,6 +22,7 @@ if ($metodo === "POST") {
     }
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $idDireccion = !empty($datos["id_direccion"]) ? (int)$datos["id_direccion"] : null;
     $tipoEntrega = trim((string)($datos["tipo_entrega"] ?? "Recojo en tienda"));
     $items = $datos["items"] ?? [];
@@ -232,6 +234,9 @@ if ($metodo !== "GET") {
 }
 
 $idUsuarioFiltro = (int)($_GET["id_usuario"] ?? 0);
+$idAutenticado = requerirClienteApi($conexion);
+if ($idUsuarioFiltro <= 0) $idUsuarioFiltro = $idAutenticado;
+requerirClienteApi($conexion, $idUsuarioFiltro);
 
 if ($idUsuarioFiltro <= 0) {
     echo json_encode([], JSON_UNESCAPED_UNICODE);
