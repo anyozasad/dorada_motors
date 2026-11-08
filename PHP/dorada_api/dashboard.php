@@ -2626,6 +2626,7 @@ select:focus-visible,textarea:focus-visible{
  <div class="top-title" id="topTitle">Dashboard</div>
  <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar en la sección actual..."><kbd>Ctrl K</kbd></div>
  <div class="top-actions">
+  <button type="button" class="icon-btn" id="refreshAllBtn" title="Sincronizar todos los módulos desde MySQL" aria-label="Sincronizar registros desde MySQL">↻</button>
   <div class="notify-wrap">
    <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes+$totalSoportePendiente)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes+$totalSoportePendiente ?></span></button>
    <div class="notify-menu" id="notifyMenu">
@@ -3470,6 +3471,14 @@ menuBtn?.addEventListener('click',()=>{
  overlay?.classList.toggle('show');
 });
 overlay?.addEventListener('click',cerrarMenu);
+
+// Refresca tablas, formularios, alertas y métricas desde MySQL.
+ // El hash del navegador se conserva, por eso el administrador vuelve al módulo actual.
+document.getElementById('refreshAllBtn')?.addEventListener('click',()=>{
+  const btn=document.getElementById('refreshAllBtn');
+  if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); }
+  window.location.reload();
+});
 
 const notiBtn=document.getElementById('notiBtn');
 const notifyMenu=document.getElementById('notifyMenu');
