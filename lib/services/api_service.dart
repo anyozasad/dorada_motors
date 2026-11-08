@@ -291,6 +291,12 @@ class ApiService {
   static Future<List<dynamic>> obtenerPedidos() =>
       _getList('pedidos.php');
 
+  static Future<void> solicitarRecuperacion(String correo) async {
+    await _postJson('recuperacion.php', {
+      'correo': correo.trim().toLowerCase(),
+    });
+  }
+
   static Future<Map<String, dynamic>> iniciarSesion({
     required String correo,
     required String contrasena,
