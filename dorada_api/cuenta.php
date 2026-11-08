@@ -41,7 +41,7 @@ if ($accion === "perfil") {
     $correo = strtolower(trim((string)($datos["correo"] ?? "")));
     $telefono = trim((string)($datos["telefono"] ?? ""));
 
-    if ($nombres === "" || mb_strlen($nombres) > 120 || mb_strlen($apellidos) > 120) {
+    if ($nombres === "" || strlen($nombres) > 120 || strlen($apellidos) > 120) {
         responderCuenta(["estado"=>false, "mensaje"=>"Ingresa nombres válidos"], 422);
     }
     if (!filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($correo) > 160) {
