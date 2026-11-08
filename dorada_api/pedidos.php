@@ -338,7 +338,10 @@ $stmt = $conexion->prepare("
         END AS estado_pago,
         (
             SELECT pg.referencia_cliente
-            FROM pago pg WHERE pg.id_pedido=p.id_pedido
+            FROM pago pg
+            WHERE pg.id_pedido=p.id_pedido
+              AND pg.referencia_cliente IS NOT NULL
+              AND pg.referencia_cliente<>''
             ORDER BY pg.id_pago DESC LIMIT 1
         ) AS referencia_pago
     FROM pedido p
