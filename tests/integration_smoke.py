@@ -174,7 +174,7 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "No se emitió la boleta de demostración"
     )
     pagina_dashboard = admin_page(navegador, "dashboard.php")
-    enlaces = re.findall(r'comprobante_print.php\\?id=(\\d+)', pagina_dashboard)
+    enlaces = re.findall(r'comprobante_print\.php\?id=(\d+)', pagina_dashboard)
     assert enlaces, "No se encontró enlace de impresión de comprobante"
     impresion = admin_page(navegador, f"comprobante_print.php?id={enlaces[0]}")
     assert "BOLETA" in impresion and "S/ " in impresion
