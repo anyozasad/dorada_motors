@@ -1053,6 +1053,18 @@ def main():
         token=token, status=409,
     )
     assert vinculada["estado"] is False, vinculada
+    assert api(f"direcciones.php?id={id_direccion}",
+               method="DELETE", token=otro_token, status=404)["estado"] is False
+    assert api("direcciones.php", method="PUT", token=otro_token, status=403, body={
+        "id_usuario": id_usuario,
+        "id_direccion": id_direccion,
+        "direccion_detalle": "Manipulación externa",
+    })["estado"] is False
+    assert api("direcciones.php", method="PUT", token=otro_token, status=404, body={
+        "id_usuario": otro_id,
+        "id_direccion": id_direccion,
+        "direccion_detalle": "Manipulación externa",
+    })["estado"] is False
 
     nueva = api("direcciones.php", method="POST", token=token, status=201, body={
         "id_usuario": id_usuario, "departamento": "Ucayali",
