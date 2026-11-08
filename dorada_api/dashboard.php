@@ -816,6 +816,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $lineasPedido = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
                 if ($estado === "Cancelado" && $estadoAnterior !== "Cancelado") {
+                    if (in_array($estadoAnterior, ["Enviado","Completado"], true)) {
+                        throw new RuntimeException("Un pedido enviado o completado necesita un proceso de devolución antes de cancelarse");
+                    }
+                    $stmt = $conexion->prepare(
+                        "SELECT COUNT(*) AS total FROM pago
+                         WHERE id_pedido=? AND estado_pago='Pagado'"
+                    );
+                    $stmt->bind_param("i", $idPedido);
+                    $stmt->execute();
+                    $pagosConfirmados = (int)$stmt->get_result()->fetch_assoc()["total"];
+                    if ($pagosConfirmados > 0) {
+                        throw new RuntimeException("No se puede cancelar un pedido con dinero recibido sin gestionar el reembolso");
+                    }
+
                     foreach ($lineasPedido as $linea) {
                         $idProductoPedido = (int)$linea["id_producto"];
                         $cantidadPedido = (int)$linea["cantidad"];
@@ -874,6 +888,45 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             VALUES (?,?,?,?,NOW(),?,?)
                         ");
                         $stmt->bind_param("isisii",$idProductoPedido,$tipoMovimiento,$cantidadPedido,$motivoMovimiento,$stockAnterior,$stockNuevo);
+                        $stmt->execute();
+                    }
+                }
+
+                if ($estadoAnterior === "Cancelado" && $estado !== "Cancelado") {
+                    // El pago original queda rechazado como historial del cierre anterior.
+                    // Se abre un nuevo pago pendiente solo si no existe uno actual.
+                    $stmt = $conexion->prepare(
+                        "SELECT COUNT(*) AS total FROM pago
+                         WHERE id_pedido=? AND estado_pago='Pendiente'"
+                    );
+                    $stmt->bind_param("i", $idPedido);
+                    $stmt->execute();
+                    $pendientes = (int)$stmt->get_result()->fetch_assoc()["total"];
+                    if ($pendientes === 0) {
+                        $stmt = $conexion->prepare(
+                            "SELECT metodo_pago FROM pago
+                             WHERE id_pedido=? ORDER BY id_pago DESC LIMIT 1"
+                        );
+                        $stmt->bind_param("i", $idPedido);
+                        $stmt->execute();
+                        $metodoPagoReactivado = (string)(
+                            $stmt->get_result()->fetch_assoc()["metodo_pago"] ?? "Efectivo"
+                        );
+
+                        $stmt = $conexion->prepare(
+                            "SELECT total FROM pedido WHERE id_pedido=?"
+                        );
+                        $stmt->bind_param("i", $idPedido);
+                        $stmt->execute();
+                        $saldoReactivado = (float)$stmt->get_result()->fetch_assoc()["total"];
+
+                        $stmt = $conexion->prepare(
+                            "INSERT INTO pago (id_pedido,metodo_pago,monto,fecha_pago,estado_pago)
+                             VALUES (?,?,?,NOW(),'Pendiente')"
+                        );
+                        $stmt->bind_param(
+                            "isd", $idPedido, $metodoPagoReactivado, $saldoReactivado
+                        );
                         $stmt->execute();
                     }
                 }
