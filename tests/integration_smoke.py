@@ -218,6 +218,14 @@ def probar_revocacion_de_personal(navegador_admin, csrf):
     })
     assert "Dashboard" in acceso or "Panel" in acceso
     assert isinstance(admin_api(navegador_vendedor, "pagos.php"), list)
+    try:
+        admin_page(navegador_vendedor, "exportar_csv.php?tipo=productos")
+        raise AssertionError("Vendedor pudo exportar productos fuera de su permiso")
+    except urllib.error.HTTPError as error:
+        assert error.code == 403, error.code
+    assert "Pedido;Fecha;Cliente" in admin_page(
+        navegador_vendedor, "exportar_csv.php?tipo=pedidos"
+    )
 
     cambiar = admin_page(navegador_admin, "dashboard.php", form={
         "csrf_token": csrf, "actualizar_usuario_admin": "1",
@@ -368,6 +376,21 @@ def probar_administracion_integral(navegador, csrf, id_producto):
     )
     assert "Reportes y análisis" in pagina
     assert "TICKET PROMEDIO" in pagina
+    for tipo, cabecera in [
+        ("productos", "ID;Producto;Categoria;Marca"),
+        ("clientes", "ID;Nombres;Apellidos;Correo"),
+        ("pagos", "Pago;Pedido;Fecha;Metodo"),
+        ("pedidos", "Pedido;Fecha;Cliente;Correo"),
+        ("compras", "Compra;Fecha;Proveedor;Total"),
+        ("kardex", "Movimiento;Fecha;Producto;Tipo"),
+        ("ventas", "Fecha;Pedidos;Ventas"),
+    ]:
+        fechas = "&desde=2020-01-01&hasta=2030-12-31" if tipo == "ventas" else ""
+        archivo = admin_page(navegador, f"exportar_csv.php?tipo={tipo}{fechas}")
+        assert cabecera in archivo, (tipo, archivo[:180])
+    archivo_pedidos = admin_page(navegador, "exportar_csv.php?tipo=pedidos")
+    assert ";Fecha;Cliente;" in archivo_pedidos
+    print("OK: siete exportaciones CSV completas, seguras y filtrables desde MySQL.")
     print("OK: categorías, marcas, proveedores, stock, Kardex,")
     print("    compras con varios productos, anulación, reactivación y reportes.")
 
