@@ -195,9 +195,14 @@ class ApiService {
     }
   }
 
-  static Future<double> obtenerCostoDelivery() async {
+  static Future<Map<String, dynamic>> obtenerConfiguracionPublica() async {
     final data = await _getJson('config_publica.php');
-    if (data is! Map) throw Exception('No se pudo consultar el costo de entrega');
+    if (data is! Map) throw Exception('No se pudo consultar la configuración de la empresa');
+    return Map<String, dynamic>.from(data);
+  }
+
+  static Future<double> obtenerCostoDelivery() async {
+    final data = await obtenerConfiguracionPublica();
     return double.tryParse(data['costo_delivery']?.toString() ?? '') ?? 0;
   }
 
