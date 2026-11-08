@@ -9,8 +9,8 @@ void main() {
     await tester.pumpWidget(const DoradaMotorsApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('DORADA MOTORS'), findsOneWidget);
-    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Bienvenido'), findsOneWidget);
+    expect(find.text('INICIAR SESIÓN'), findsOneWidget);
     expect(find.text('Crear cuenta'), findsOneWidget);
     expect(find.text('Continuar como invitado'), findsOneWidget);
   });
