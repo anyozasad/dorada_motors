@@ -16,6 +16,9 @@ function empresaConfigDefault(): array {
         "moneda" => "S/",
         "igv" => 18,
         "costo_delivery" => 0,
+        "numero_yape" => "",
+        "numero_plin" => "",
+        "cuenta_transferencia" => "",
         "logo" => "logo_adn_imports.png",
     ];
 }
@@ -48,6 +51,9 @@ function guardarConfigEmpresa(array $input): array {
         "moneda" => trim((string)($input["moneda"] ?? $actual["moneda"])),
         "igv" => (float)($input["igv"] ?? $actual["igv"]),
         "costo_delivery" => max(0, (float)($input["costo_delivery"] ?? $actual["costo_delivery"])),
+        "numero_yape" => preg_replace('/[^0-9+]/', '', (string)($input["numero_yape"] ?? $actual["numero_yape"])),
+        "numero_plin" => preg_replace('/[^0-9+]/', '', (string)($input["numero_plin"] ?? $actual["numero_plin"])),
+        "cuenta_transferencia" => trim((string)($input["cuenta_transferencia"] ?? $actual["cuenta_transferencia"])),
         "logo" => $actual["logo"],
     ];
 
@@ -57,6 +63,15 @@ function guardarConfigEmpresa(array $input): array {
 
     if ($nuevo["correo"] !== "" && !filter_var($nuevo["correo"], FILTER_VALIDATE_EMAIL)) {
         throw new RuntimeException("El correo de la empresa no es válido.");
+    }
+
+    foreach (["numero_yape", "numero_plin"] as $campoPago) {
+        if ($nuevo[$campoPago] !== "" && !preg_match('/^\\+?[0-9]{9,15}$/', $nuevo[$campoPago])) {
+            throw new RuntimeException("El número de pago digital debe tener de 9 a 15 dígitos.");
+        }
+    }
+    if (strlen($nuevo["cuenta_transferencia"]) > 120) {
+        throw new RuntimeException("La cuenta de transferencia supera 120 caracteres.");
     }
 
     if ($nuevo["igv"] < 0 || $nuevo["igv"] > 100) {
