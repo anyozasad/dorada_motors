@@ -404,8 +404,10 @@ class ApiService {
     required List<Map<String, dynamic>> items,
     int? idDireccion,
     double costoEntrega = 0,
+    String? claveOperacion,
   }) async {
     final decoded = await _postJson('pedidos.php', {
+      if (claveOperacion != null) 'clave_operacion': claveOperacion,
       'id_usuario': idUsuario,
       'id_direccion': idDireccion,
       'tipo_entrega': tipoEntrega,
