@@ -12,6 +12,31 @@ function responderPedido(array $data, int $status = 200): void {
     exit;
 }
 
+function pedidoRegistradoPorClave(mysqli $conexion, int $idUsuario, ?string $clave): ?array {
+    if ($clave === null) return null;
+    $stmt = $conexion->prepare(
+        "SELECT p.id_pedido,p.total,
+                COALESCE(SUM(dp.subtotal),0) AS subtotal
+         FROM pedido p
+         LEFT JOIN detalle_pedido dp ON dp.id_pedido=p.id_pedido
+         WHERE p.id_usuario=? AND p.clave_operacion=?
+         GROUP BY p.id_pedido,p.total LIMIT 1"
+    );
+    $stmt->bind_param("is", $idUsuario, $clave);
+    $stmt->execute();
+    $fila = $stmt->get_result()->fetch_assoc();
+    if (!$fila) return null;
+    return [
+        "estado" => true,
+        "mensaje" => "Pedido registrado anteriormente; no se repitió la compra",
+        "id_pedido" => (int)$fila["id_pedido"],
+        "subtotal_productos" => round((float)$fila["subtotal"],2),
+        "costo_entrega" => round((float)$fila["total"] - (float)$fila["subtotal"],2),
+        "total" => (float)$fila["total"],
+        "reutilizado" => true
+    ];
+}
+
 $metodo = $_SERVER["REQUEST_METHOD"];
 
 if ($metodo === "POST") {
@@ -23,6 +48,15 @@ if ($metodo === "POST") {
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
     requerirClienteApi($conexion, $idUsuario);
+    $claveOperacion = isset($datos["clave_operacion"])
+        ? trim((string)$datos["clave_operacion"]) : null;
+    if ($claveOperacion === "") $claveOperacion = null;
+    if ($claveOperacion !== null && !preg_match('/^[a-zA-Z0-9_-]{16,64}$/', $claveOperacion)) {
+        responderPedido(["estado"=>false,"mensaje"=>"Identificador de compra inválido"],422);
+    }
+    $pedidoAnterior = pedidoRegistradoPorClave($conexion,$idUsuario,$claveOperacion);
+    if ($pedidoAnterior !== null) responderPedido($pedidoAnterior);
+
     $idDireccion = !empty($datos["id_direccion"]) ? (int)$datos["id_direccion"] : null;
     $tipoEntrega = trim((string)($datos["tipo_entrega"] ?? "Recojo en tienda"));
     $items = $datos["items"] ?? [];
@@ -149,17 +183,17 @@ if ($metodo === "POST") {
         if ($idDireccion !== null) {
             $stmt = $conexion->prepare("
                 INSERT INTO pedido
-                (id_usuario,fecha_pedido,estado_pedido,total,id_direccion,tipo_entrega)
-                VALUES (?,NOW(),?,?,?,?)
+                (id_usuario,clave_operacion,fecha_pedido,estado_pedido,total,id_direccion,tipo_entrega)
+                VALUES (?,?,NOW(),?,?,?,?)
             ");
-            $stmt->bind_param("isdis",$idUsuario,$estadoPedido,$total,$idDireccion,$tipoEntrega);
+            $stmt->bind_param("issdis",$idUsuario,$claveOperacion,$estadoPedido,$total,$idDireccion,$tipoEntrega);
         } else {
             $stmt = $conexion->prepare("
                 INSERT INTO pedido
-                (id_usuario,fecha_pedido,estado_pedido,total,tipo_entrega)
-                VALUES (?,NOW(),?,?,?)
+                (id_usuario,clave_operacion,fecha_pedido,estado_pedido,total,tipo_entrega)
+                VALUES (?,?,NOW(),?,?,?)
             ");
-            $stmt->bind_param("isds",$idUsuario,$estadoPedido,$total,$tipoEntrega);
+            $stmt->bind_param("issds",$idUsuario,$claveOperacion,$estadoPedido,$total,$tipoEntrega);
         }
 
         $stmt->execute();
@@ -235,7 +269,13 @@ if ($metodo === "POST") {
         ], 201);
     } catch (Throwable $e) {
         $conexion->rollback();
-        responderPedido(["estado"=>false,"mensaje"=>$e->getMessage()], 400);
+        // Si la primera solicitud se guardó pero Chrome no recibió respuesta,
+        // la repetición devuelve el mismo pedido, sin cobrar ni restar stock 2 veces.
+        $pedidoAnterior = pedidoRegistradoPorClave($conexion,$idUsuario,$claveOperacion);
+        if ($pedidoAnterior !== null) responderPedido($pedidoAnterior);
+        error_log("Crear pedido: " . $e->getMessage());
+        responderPedido(["estado"=>false,"mensaje"=>$e instanceof RuntimeException
+            ? $e->getMessage() : "No se pudo guardar el pedido"],400);
     }
 }
 
