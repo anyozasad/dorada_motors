@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 class RevealOnMount extends StatefulWidget {
@@ -20,16 +22,27 @@ class RevealOnMount extends StatefulWidget {
 
 class _RevealOnMountState extends State<RevealOnMount> {
   bool _visible = false;
+  Timer? _revealTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (widget.delay > Duration.zero) {
-        await Future<void>.delayed(widget.delay);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.delay == Duration.zero) {
+        setState(() => _visible = true);
+      } else {
+        _revealTimer = Timer(widget.delay, () {
+          if (mounted) setState(() => _visible = true);
+        });
       }
-      if (mounted) setState(() => _visible = true);
     });
+  }
+
+  @override
+  void dispose() {
+    _revealTimer?.cancel();
+    super.dispose();
   }
 
   @override
