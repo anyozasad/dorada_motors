@@ -291,6 +291,19 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     registro_pedido = next(p for p in historial if int(p["id_pedido"]) == id_pedido)
     assert registro_pedido["estado_pedido"] == "Cancelado", registro_pedido
 
+    reactivado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_estado_pedido": "1",
+        "id_pedido": str(id_pedido), "estado_pedido": "Procesando",
+    })
+    assert "Estado del pedido actualizado" in reactivado
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_original - 2
+    cancelado_otra_vez = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_estado_pedido": "1",
+        "id_pedido": str(id_pedido), "estado_pedido": "Cancelado",
+    })
+    assert "Estado del pedido actualizado" in cancelado_otra_vez
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_original
+
     pagos = json.loads(admin_page(navegador, "pagos.php"))
     assert any(
         int(p["id_pedido"]) == id_pedido and p["estado_pago"] == "Rechazado"
