@@ -116,3 +116,6 @@ Write-Host "ZIP final: $ZipFinal" -ForegroundColor Green
 Write-Host 'El ZIP completo incluye Flutter y el dashboard PHP con carrito, favoritos y soporte.' -ForegroundColor Cyan
 Write-Host 'No se exportaron usuarios, contraseñas ni pedidos reales de MySQL.' -ForegroundColor Cyan
 Get-ChildItem $Entrega | Select-Object Name,Length | Format-Table -AutoSize
+# robocopy devuelve valores positivos (0-7) incluso si tuvo éxito.
+# Evitar que su código heredado marque como fallida la entrega ya verificada.
+exit 0
