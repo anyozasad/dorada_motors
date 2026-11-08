@@ -28,7 +28,8 @@ function sincronizarEstadoFinancieroPedido(mysqli $conexion, int $idPedido): voi
     if (!$fila) return;
 
     $estadoActual = (string)$fila["estado_pedido"];
-    if (in_array($estadoActual, ["Cancelado","Completado"], true)) return;
+    // El cobro no debe hacer retroceder un pedido que ya fue enviado.
+    if (in_array($estadoActual, ["Cancelado","Completado","Enviado"], true)) return;
 
     $total = (float)$fila["total"];
     $pagado = (float)$fila["pagado"];
