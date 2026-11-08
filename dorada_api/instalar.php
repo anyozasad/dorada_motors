@@ -1,4 +1,12 @@
 <?php
+// Instalación manual protegida: nunca importar SQL al abrir una URL pública.
+require_once __DIR__ . "/conexion.php";
+require_once __DIR__ . "/auth_admin.php";
+requerirAdmin();
+if (rolActual() !== "Administrador") {
+    http_response_code(403);
+    exit("Solo el Administrador puede ejecutar el instalador");
+}
 header("Content-Type: text/html; charset=UTF-8");
 
 $host = getenv("DB_HOST") ?: "localhost";
@@ -9,6 +17,10 @@ $port = (int)(getenv("DB_PORT") ?: 3306);
 $ok = false;
 $error = "";
 
+if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
+ if (!csrfValido($_POST["csrf_token"] ?? null)) {
+    $error = "El formulario venció o el token de seguridad es inválido.";
+ } else {
 try {
     $db = new mysqli($host,$user,$pass,"",$port);
 
@@ -39,7 +51,10 @@ try {
 
     $ok = true;
 } catch (Throwable $e) {
-    $error = $e->getMessage();
+    error_log("Importación manual de base de datos: ".$e->getMessage());
+    $error = "No se completó la importación. Revisa Apache, MySQL y los registros del servidor.";
+}
+ }
 }
 ?>
 <!DOCTYPE html>
@@ -69,10 +84,17 @@ try {
    <li>✓ Comprobantes</li>
   </ul>
   <a class="btn" href="dashboard.php">Abrir Dashboard</a>
- <?php else: ?>
+ <?php elseif($error !== ""): ?>
   <div class="msg error"><strong>No se pudo preparar la base.</strong><br><?= htmlspecialchars($error,ENT_QUOTES,"UTF-8") ?></div>
-  <p class="small">Verifica que MySQL esté encendido en XAMPP y que el usuario local sea root sin contraseña, o configura las variables DB_USER y DB_PASS.</p>
+  <p class="small">Comprueba MySQL y la configuración de acceso a la base.</p>
+ <?php else: ?>
+  <div class="msg ok"><strong>Acceso administrativo comprobado.</strong><br>La estructura del proyecto se prepara automáticamente cuando se necesita. La importación manual requiere tu confirmación.</div>
  <?php endif; ?>
+ <form method="POST" onsubmit="return confirm('¿Comprobar o importar el esquema SQL de Dorada Motors?');" style="margin-top:16px">
+  <?= csrfInput() ?>
+  <button class="btn" type="submit" style="border:0;cursor:pointer">Verificar / importar base de datos</button>
+ </form>
+ <p class="small">Esta acción requiere un Administrador activo; no se ejecuta solo por abrir el enlace.</p>
 </div>
 </body>
 </html>
