@@ -307,6 +307,12 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "id_pedido": str(id_pedido), "estado_pedido": "Procesando",
     })
     assert "Estado del pedido actualizado" in reactivado
+    pagos_reactivados = json.loads(admin_page(navegador, "pagos.php"))
+    pago_nuevo = [
+        p for p in pagos_reactivados
+        if int(p["id_pedido"]) == id_pedido and p["estado_pago"] == "Pendiente"
+    ]
+    assert len(pago_nuevo) == 1, pagos_reactivados
     assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_original - 2
     cancelado_otra_vez = admin_page(navegador, "dashboard.php", form={
         "csrf_token": csrf, "actualizar_estado_pedido": "1",
@@ -339,6 +345,12 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     nuevos_pedidos = api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)
     actual = next(p for p in nuevos_pedidos if int(p["id_pedido"]) == id_otro_pedido)
     assert actual["estado_pedido"] == "Pagado", actual
+    cancelacion_admin_pagada = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_estado_pedido": "1",
+        "id_pedido": str(id_otro_pedido), "estado_pedido": "Cancelado",
+    })
+    assert "gestionar el reembolso" in cancelacion_admin_pagada
+    assert api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)[0]["estado_pedido"] == "Pagado"
     cancelacion_pagada = api("cliente_cancelar_pedido.php", method="POST",
                             token=otro_token, status=409,
                             body={"id_pedido": id_otro_pedido})
