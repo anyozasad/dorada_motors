@@ -2,7 +2,7 @@
 
 Este documento permite al profesor evaluar **los 150 requisitos del panel PHP uno por uno**. La lista del proyecto indica implementación en código, pero **una etiqueta «implementado» no es una prueba funcional**. Las casillas se dejan sin marcar para registrar la demostración presencial.
 
-**Pruebas automatizadas:** `.github/workflows/quality-check.yml` ejecuta PHP sintáctico, Flutter y operaciones reales contra MySQL temporal en `tests/integration_smoke.py`. La etiqueta *Prueba automatizada parcial* significa que se verificó parte del flujo; no certifica todas las variantes ni los 150 ítems por separado.
+**Pruebas automatizadas:** `.github/workflows/quality-check.yml` ejecuta PHP sintáctico, Flutter y operaciones reales contra MySQL temporal en `PHP/tests/integration_smoke.py`. La etiqueta *Prueba automatizada parcial* significa que se verificó parte del flujo; no certifica todas las variantes ni los 150 ítems por separado.
 
 **Antes de marcar:** Iniciar Apache/MySQL (XAMPP) y Flutter, crear un dato desde el formulario, confirmar su registro en phpMyAdmin y comprobar las consecuencias en el otro sistema. Mantener capturas con fecha y sin contraseñas.
 

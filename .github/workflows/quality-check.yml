@@ -100,9 +100,9 @@ jobs:
         shell: pwsh
         run: |
           $archivos = @(
-            'PHP/INICIAR_DEMO.ps1',
-            'PHP/VERIFICAR_SISTEMA.ps1',
-            'PHP/PREPARAR_ENTREGA_INDICADOR_IV.ps1'
+            'PHP/tests/scripts/INICIAR_DEMO.ps1',
+            'PHP/tests/scripts/VERIFICAR_SISTEMA.ps1',
+            'PHP/tests/scripts/PREPARAR_ENTREGA_INDICADOR_IV.ps1'
           )
           foreach ($archivo in $archivos) {
             $tokens = $null
@@ -120,7 +120,7 @@ jobs:
       - name: Crear ZIP completo de entrega para el profesor
         shell: pwsh
         run: |
-          & .\PHP\PREPARAR_ENTREGA_INDICADOR_IV.ps1
+          & .\PHP\tests\scripts\PREPARAR_ENTREGA_INDICADOR_IV.ps1
           $archivoZip = Join-Path ([Environment]::GetFolderPath('Desktop')) 'INDICADOR_IV_DORADA_MOTORS.zip'
           if (!(Test-Path $archivoZip)) { throw "No se creó el ZIP completo de Dorada Motors" }
           $tamano = (Get-Item $archivoZip).Length
@@ -137,6 +137,9 @@ jobs:
             }
             if (!($archivo.Entries | Where-Object { $_.FullName -eq 'PHP/dorada_api/.htaccess' })) {
               throw "Falta la proteccion del esquema SQL en la raiz de la API."
+            }
+            foreach ($ruta in @('PHP/tests/scripts/INICIAR_DEMO.ps1', 'PHP/tests/scripts/VERIFICAR_SISTEMA.ps1', 'PHP/tests/scripts/PREPARAR_ENTREGA_INDICADOR_IV.ps1', 'PHP/tests/documentacion/MATRIZ_VALIDACION_FUNCIONAL_150.md')) {
+              if (!($archivo.Entries | Where-Object { $_.FullName -eq $ruta })) { throw "Falta archivo de entrega: $ruta" }
             }
             if ($archivo.Entries.Count -lt 100) {
               throw "El ZIP no contiene todos los archivos del proyecto."

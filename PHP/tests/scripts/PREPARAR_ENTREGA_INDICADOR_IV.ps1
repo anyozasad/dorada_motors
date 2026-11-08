@@ -1,6 +1,6 @@
 # Indicador IV - UNICO empaquetador. Crea solo Flutter/ y PHP/ en el ZIP.
 $ErrorActionPreference = 'Stop'
-$Repo = Split-Path -Parent $PSScriptRoot
+$Repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 $Flutter = Join-Path $Repo 'Flutter'
 $Php = Join-Path $Repo 'PHP'
 if (!(Test-Path (Join-Path $Flutter 'pubspec.yaml')) -or
@@ -64,7 +64,7 @@ try {
     throw ('El ZIP debe contener únicamente Flutter y PHP: ' + ($Raices -join ', '))
   }
   foreach ($ruta in @('Flutter/pubspec.yaml','PHP/dorada_api/dashboard.php','PHP/dorada_api/.htaccess',
-    'PHP/dorada_api/data/.htaccess','PHP/INICIAR_DEMO.ps1','PHP/VERIFICAR_SISTEMA.ps1')) {
+    'PHP/dorada_api/data/.htaccess','PHP/tests/scripts/INICIAR_DEMO.ps1','PHP/tests/scripts/VERIFICAR_SISTEMA.ps1')) {
     if (!$Comprobacion.GetEntry($ruta)) { throw "Falta en el ZIP: $ruta" }
   }
 } finally {

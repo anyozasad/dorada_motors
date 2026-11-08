@@ -1,7 +1,7 @@
 # Dorada Motors - inicio de demostración Flutter + PHP + MySQL (Windows)
-# Ejecutar desde PowerShell: powershell -ExecutionPolicy Bypass -File .\INICIAR_DEMO.ps1
+# Ejecutar desde la raiz: powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\INICIAR_DEMO.ps1
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $flutterRoot = Join-Path (Split-Path -Parent $root) "Flutter"
 Set-Location $flutterRoot
 

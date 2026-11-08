@@ -2,7 +2,7 @@
 # Requiere XAMPP encendido. Ejecutar desde la carpeta del proyecto.
 # Las pruebas de MySQL de PRUEBA_INTEGRACION.php revierten sus registros.
 $ErrorActionPreference = 'Continue'
-$Proyecto = $PSScriptRoot
+$Proyecto = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $Flutter = Join-Path (Split-Path -Parent $Proyecto) 'Flutter'
 $Backend = Join-Path $Proyecto 'dorada_api'
 $BaseUrl = 'http://localhost/dorada_api'

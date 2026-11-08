@@ -45,16 +45,16 @@ Los pipelines **del commit que se entrega** deben revisarse nuevamente en la pes
 
 ## 5. Protocolo de aceptación presencial (XAMPP)
 1. Actualizar la carpeta `dorada_motors` sin perder el respaldo local; comprobar las dos carpetas `Flutter/` y `PHP/`.
-2. Iniciar Apache y MySQL; ejecutar `powershell -ExecutionPolicy Bypass -File .\PHP\INICIAR_DEMO.ps1`.
+2. Iniciar Apache y MySQL; ejecutar `powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\INICIAR_DEMO.ps1`.
 3. Crear administrador, entrar al dashboard y dar de alta un producto; comprobar en phpMyAdmin.
 4. Registrar un cliente desde Flutter; buscar el producto, agregarlo al carrito y crear un pedido.
 5. Verificar el mismo pedido en PHP, comprobar la reducción de stock/Kardex y registrar abonos parciales; confirmar cambios de saldo sin duplicación.
 6. Emitir comprobante de demostración, consultar desde Flutter y confirmar que la cuenta ajena no puede leerlo.
 7. Cancelar otro pedido pendiente; confirmar que el stock vuelve exactamente una vez.
-8. Exportar CSV, revisar alertas y ejecutar `powershell -ExecutionPolicy Bypass -File .\PHP\VERIFICAR_SISTEMA.ps1`.
-9. Completar **`PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md`** con evidencia de cada punto del profesor; no marcar los pendientes como aprobados por la mera presencia de código.
+8. Exportar CSV, revisar alertas y ejecutar `powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\VERIFICAR_SISTEMA.ps1`.
+9. Completar **`PHP/tests/documentacion/MATRIZ_VALIDACION_FUNCIONAL_150.md`** con evidencia de cada punto del profesor; no marcar los pendientes como aprobados por la mera presencia de código.
 
 ## 6. Archivo de entrega
-En la raíz del repositorio, ejecutar `powershell -ExecutionPolicy Bypass -File .\PHP\PREPARAR_ENTREGA_INDICADOR_IV.ps1`. El ZIP del Escritorio contiene dos carpetas principales y no incluye base de datos privada real.
+En la raíz del repositorio, ejecutar `powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\PREPARAR_ENTREGA_INDICADOR_IV.ps1`. El ZIP del Escritorio contiene dos carpetas principales y no incluye base de datos privada real.
 
 **Criterio de cierre para la tarea:** demostrar los flujos principales con MySQL, adjuntar las capturas de Actions, presentar ZIP ejecutable y reconocer los límites demostrativos. El criterio para comercialización es distinto y requiere trabajo adicional.

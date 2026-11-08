@@ -8,14 +8,14 @@ Proyecto de compra y administración de repuestos de motocicletas y motokar. **D
 La carpeta técnica `.github/` conserva las pruebas automáticas de GitHub. No es otro proyecto. No elimines las subcarpetas de Flutter: son necesarias para compilar.
 
 ## Archivos del proyecto
-En `PHP/` únicamente están `dorada_api/` (dashboard y API), `tests/` (código de validación), los tres scripts operativos y dos documentos del Indicador IV. Se retiraron las guías y empaquetadores de indicadores anteriores. El historial de Git conserva los archivos retirados si hiciera falta recuperarlos.
+En `PHP/` solo verás **dos carpetas**: `dorada_api/` (dashboard PHP, API y MySQL) y `tests/` (pruebas, scripts y documentos del Indicador IV). Los scripts se conservan en `PHP/tests/scripts/` porque se necesitan para iniciar, verificar y entregar el proyecto.
 
 ## Iniciar desde PowerShell
 Enciende **Apache** y **MySQL** en XAMPP. Desde la raíz del repositorio:
 
 ```powershell
 git pull origin main
-powershell -ExecutionPolicy Bypass -File .\PHP\INICIAR_DEMO.ps1
+powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\INICIAR_DEMO.ps1
 ```
 
 El script copia **PHP/dorada_api** a **C:\xampp\htdocs\dorada_api** e inicia Flutter desde la carpeta correcta.
@@ -30,7 +30,7 @@ Para iniciar Flutter por separado: `cd Flutter`, luego `flutter pub get` y `flut
 Desde la raíz:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\PHP\PREPARAR_ENTREGA_INDICADOR_IV.ps1
+powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\PREPARAR_ENTREGA_INDICADOR_IV.ps1
 ```
 
 Genera `INDICADOR_IV_DORADA_MOTORS.zip` en el Escritorio, con **solo Flutter y PHP**, sin ZIP anidados ni datos privados de clientes.
@@ -38,9 +38,9 @@ Genera `INDICADOR_IV_DORADA_MOTORS.zip` en el Escritorio, con **solo Flutter y P
 Para verificar funciones:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\PHP\VERIFICAR_SISTEMA.ps1
+powershell -ExecutionPolicy Bypass -File .\PHP\tests\scripts\VERIFICAR_SISTEMA.ps1
 ```
 
-La matriz de requisitos está en [PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md](PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md), y las pruebas técnicas en [PHP/tests/](PHP/tests/). Revisa resultados de Flutter, PHP/MySQL y navegador en [Actions](https://github.com/anyozasad/dorada_motors/actions).
+La matriz de requisitos está en [MATRIZ_VALIDACION_FUNCIONAL_150.md](PHP/tests/documentacion/MATRIZ_VALIDACION_FUNCIONAL_150.md), y las pruebas técnicas en [PHP/tests/](PHP/tests/). Revisa resultados de Flutter, PHP/MySQL y navegador en [Actions](https://github.com/anyozasad/dorada_motors/actions).
 
 Nota: los comprobantes son de demostración y los pagos digitales se confirman manualmente, no por una pasarela bancaria.
