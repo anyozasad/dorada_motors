@@ -46,7 +46,19 @@ class _AppRootState extends State<AppRoot> {
 
   Future<void> _loadSession() async {
     ApiService.configurarServidor(await LocalStore.getApiBaseUrl());
-    final session = await LocalStore.getSession();
+    var session = await LocalStore.getSession();
+    if (session != null) {
+      // No confundir un token guardado con una sesión vigente en MySQL.
+      // Solo borrar el acceso si el servidor respondió 401/403; con Apache
+      // apagado se conserva la sesión y las pantallas muestran el error de red.
+      final vigente = await ApiService.verificarSesion();
+      if (vigente == false) {
+        await LocalStore.logout();
+        await LocalStore.clearCart();
+        await LocalStore.saveFavorites(<int>{});
+        session = null;
+      }
+    }
     if (!mounted) return;
     setState(() {
       _session = session;
