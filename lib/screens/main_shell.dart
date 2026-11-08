@@ -165,7 +165,7 @@ class _MainShellState extends State<MainShell> {
       return Image.network(
         ruta,
         fit: fit,
-        errorBuilder: (_, __, ___) => const Center(
+        errorBuilder: (_, _, _) => const Center(
           child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
         ),
       );
@@ -174,7 +174,7 @@ class _MainShellState extends State<MainShell> {
     return Image.asset(
       ruta,
       fit: fit,
-      errorBuilder: (_, __, ___) => const Center(
+      errorBuilder: (_, _, _) => const Center(
         child: Icon(Icons.image_not_supported_outlined, size: 44, color: Colors.black26),
       ),
     );
@@ -808,7 +808,7 @@ class _MainShellState extends State<MainShell> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _categorias.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
                 final item = _categorias[index];
                 return InkWell(
