@@ -89,29 +89,87 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _forgotPassword() {
-    showDialog<void>(
+  Future<void> _forgotPassword() async {
+    final controller = TextEditingController(text: _emailController.text.trim());
+    final formKey = GlobalKey<FormState>();
+    final correo = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         icon: const Icon(
           Icons.lock_reset_rounded,
           color: AppColors.goldDark,
           size: 42,
         ),
         title: const Text('Recuperar contraseña'),
-        content: const Text(
-          'Para proteger tu cuenta, la recuperación debe validarse con el correo registrado. Contacta al administrador de Dorada Motors para restablecer el acceso.',
-          textAlign: TextAlign.center,
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Ingresa el correo registrado. El administrador recibirá una solicitud y deberá verificar tu identidad antes de restablecer la contraseña.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Correo electrónico',
+                  prefixIcon: Icon(Icons.mail_outline),
+                ),
+                validator: (valor) {
+                  final dato = valor?.trim() ?? '';
+                  return dato.contains('@') && dato.contains('.')
+                      ? null : 'Ingresa un correo válido';
+                },
+              ),
+            ],
+          ),
         ),
-        actionsAlignment: MainAxisAlignment.center,
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Entendido'),
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(dialogContext, controller.text.trim());
+              }
+            },
+            child: const Text('Enviar solicitud'),
           ),
         ],
       ),
     );
+    controller.dispose();
+    if (!mounted || correo == null) return;
+
+    try {
+      await ApiService.solicitarRecuperacion(correo);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Solicitud recibida'),
+          content: const Text(
+            'Si existe una cuenta activa con ese correo, la solicitud quedó registrada para el administrador. El restablecimiento requiere comprobar tu identidad; no se envían contraseñas automáticamente.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   @override
