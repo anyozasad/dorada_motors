@@ -548,6 +548,15 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     registro = api(f"productos.php?id={id_nuevo}")
     assert float(registro["precio"]) == 28.0, registro
     assert int(registro["stock"]) == 12, registro
+    edicion_obsoleta = admin_page(navegador, "dashboard.php", form={
+        **formulario, "actualizar_producto": "1",
+        "id_producto": str(id_nuevo), "stock_original": "9",
+        "stock": "10",
+    })
+    assert "El stock cambió mientras editabas" in edicion_obsoleta
+    assert int(api(f"productos.php?id={id_nuevo}")["stock"]) == 12, (
+        "Un formulario viejo sobreescribió el inventario actualizado"
+    )
     kardex_editado = actualizado.split('id="tablaKardex"',1)[1].split("</table>",1)[0]
     assert re.search(rf"{re.escape(nombre)}.*?Ajuste desde edición de producto", kardex_editado, re.S), (
         "Editar stock no registró movimiento de Kardex"
