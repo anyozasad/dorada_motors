@@ -64,6 +64,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           id: 'DM-${row['id_pedido'] ?? '-'}',
           fecha: fecha,
           estado: row['estado_pedido']?.toString() ?? 'Pendiente',
+          comprobanteId: int.tryParse(row['id_comprobante']?.toString() ?? '') ?? 0,
           metodoPago: row['metodo_pago']?.toString() ?? 'Pendiente',
           estadoPago: row['estado_pago']?.toString() ?? 'Pendiente',
           referenciaPago: row['referencia_pago']?.toString() ?? '',
@@ -131,6 +132,91 @@ class _OrdersScreenState extends State<OrdersScreen> {
       await _refresh();
     } finally {
       if (mounted) setState(() => _cancelando.remove(pedido.id));
+    }
+  }
+
+  Future<void> _verComprobante(Pedido pedido) async {
+    final id = int.tryParse(pedido.id.replaceFirst('DM-', '')) ?? 0;
+    if (id <= 0) return;
+    try {
+      final datos = await ApiService.obtenerComprobanteCliente(id);
+      if (!mounted) return;
+
+      final comprobante = Map<String, dynamic>.from(datos['comprobante'] as Map);
+      final empresa = Map<String, dynamic>.from(datos['empresa'] as Map);
+      final items = (datos['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map((x) => Map<String, dynamic>.from(x))
+          .toList();
+
+      String soles(dynamic valor) {
+        final numero = double.tryParse(valor?.toString() ?? '') ?? 0;
+        return 'S/ ${numero.toStringAsFixed(2)}';
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (contexto) => AlertDialog(
+          title: Text(
+            '${comprobante['tipo_comprobante'] ?? 'Comprobante'} '
+            '${comprobante['numero_comprobante'] ?? ''}',
+          ),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(empresa['razon_social']?.toString() ?? 'Dorada Motors',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                  if ((empresa['ruc']?.toString() ?? '').isNotEmpty)
+                    Text('RUC ${empresa['ruc']}'),
+                  if ((empresa['direccion']?.toString() ?? '').isNotEmpty)
+                    Text(empresa['direccion'].toString()),
+                  const Divider(height: 25),
+                  Text('Pedido: ${comprobante['id_pedido']}'),
+                  Text('Cliente: ${comprobante['nombres']} ${comprobante['apellidos']}'),
+                  Text('Emisión: ${comprobante['fecha_emision']}'),
+                  const SizedBox(height: 10),
+                  ...items.map((item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text('${item['cantidad']} × ${item['nombre_producto']}'),
+                        ),
+                        Text(soles(item['subtotal'])),
+                      ],
+                    ),
+                  )),
+                  const Divider(),
+                  _infoRow(Icons.receipt_outlined, 'Subtotal', soles(comprobante['subtotal'])),
+                  _infoRow(Icons.percent_outlined, 'IGV', soles(comprobante['igv'])),
+                  _infoRow(Icons.payments_outlined, 'Total', soles(comprobante['total'])),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Comprobante de demostración. No está validado electrónicamente por SUNAT.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(contexto),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo consultar el comprobante: '
+            '${e.toString().replaceFirst('Exception: ', '')}')),
+      );
     }
   }
 
@@ -405,6 +491,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
             _infoRow(Icons.phone_outlined, 'Teléfono', order.telefono),
             if (order.tipoEntrega == 'Delivery')
               _infoRow(Icons.location_on_outlined, 'Dirección', order.direccion),
+            if (order.comprobanteId > 0) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: () => _verComprobante(order),
+                  icon: const Icon(Icons.receipt_long_rounded),
+                  label: const Text('Ver comprobante emitido'),
+                ),
+              ),
+            ],
             if (order.estado == 'Pendiente') ...[
               const SizedBox(height: 14),
               Align(
