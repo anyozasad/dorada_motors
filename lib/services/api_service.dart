@@ -46,11 +46,18 @@ class ApiService {
       headers: await _headers(),
     ).timeout(const Duration(seconds: 8));
 
-    if (response.statusCode != 200) {
-      throw Exception('HTTP ${response.statusCode} al consultar $endpoint');
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('Respuesta inválida del servidor en $endpoint');
     }
 
-    final decoded = jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded is Map && decoded['mensaje'] != null
+          ? decoded['mensaje'].toString()
+          : 'HTTP ${response.statusCode} al consultar $endpoint');
+    }
 
     if (decoded is Map && decoded['estado'] == false) {
       throw Exception(
@@ -129,6 +136,69 @@ class ApiService {
     }
 
     return decoded;
+  }
+
+  // Los datos privados siempre se consultan con el token del cliente.
+  static Future<Map<String, dynamic>> obtenerCarritoUsuario(int idUsuario) async {
+    final data = await _getJson('carrito.php?id_usuario=$idUsuario');
+    if (data is! Map) throw Exception('Respuesta inválida del carrito');
+    return Map<String, dynamic>.from(data);
+  }
+
+  static Future<List<dynamic>> obtenerFavoritosUsuario(int idUsuario) =>
+      _getList('favoritos.php?id_usuario=$idUsuario');
+
+  static Future<void> guardarFavorito({
+    required int idUsuario,
+    required int idProducto,
+    required bool agregar,
+  }) async {
+    await _postJson('favoritos.php', {
+      'id_usuario': idUsuario,
+      'id_producto': idProducto,
+      'accion': agregar ? 'agregar' : 'quitar',
+    });
+  }
+
+  static Future<void> guardarCantidadCarrito({
+    required int idUsuario,
+    required int idProducto,
+    required int cantidad,
+  }) async {
+    if (cantidad <= 0) {
+      await _deleteJson('carrito.php?id_usuario=$idUsuario&id_producto=$idProducto');
+    } else {
+      await _postJson('carrito.php', {
+        'id_usuario': idUsuario,
+        'id_producto': idProducto,
+        'cantidad': cantidad,
+      });
+    }
+  }
+
+  static Future<void> _deleteJson(String endpoint) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: await _headers(),
+    ).timeout(const Duration(seconds: 10));
+    dynamic data;
+    try {
+      data = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('Respuesta inválida del servidor en $endpoint');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300 ||
+        (data is Map && data['estado'] == false)) {
+      throw Exception(data is Map && data['mensaje'] != null
+          ? data['mensaje'].toString()
+          : 'Error HTTP ${response.statusCode} en $endpoint');
+    }
+  }
+
+  static Future<double> obtenerCostoDelivery() async {
+    final data = await _getJson('config_publica.php');
+    if (data is! Map) throw Exception('No se pudo consultar el costo de entrega');
+    return double.tryParse(data['costo_delivery']?.toString() ?? '') ?? 0;
   }
 
   static Future<void> cerrarSesion() async {
@@ -266,24 +336,8 @@ class ApiService {
     return Map<String, dynamic>.from(data as Map);
   }
 
-  static Future<void> eliminarDireccion(int idDireccion) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/direcciones.php?id=$idDireccion'),
-      headers: await _headers(),
-    ).timeout(const Duration(seconds: 10));
-
-    Map<String, dynamic> data;
-    try {
-      data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    } catch (_) {
-      throw Exception('Respuesta inválida al eliminar dirección');
-    }
-
-    if (response.statusCode < 200 || response.statusCode >= 300 ||
-        data['estado'] == false) {
-      throw Exception(data['mensaje']?.toString() ?? 'No se pudo eliminar la dirección');
-    }
-  }
+  static Future<void> eliminarDireccion(int idDireccion) =>
+      _deleteJson('direcciones.php?id=$idDireccion');
 
   static Future<Map<String, dynamic>> registrarPedido({
     required int idUsuario,
