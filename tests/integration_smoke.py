@@ -376,6 +376,10 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     navegador = urllib.request.build_opener(
         urllib.request.HTTPCookieProcessor(CookieJar())
     )
+    instalador_publico = admin_page(navegador, "instalar.php")
+    assert "Verificar / importar base de datos" not in instalador_publico, (
+        "El instalador SQL no debe estar disponible sin iniciar sesión"
+    )
     inicio = admin_page(navegador, "admin_login.php")
     match = re.search(r'name="csrf_token" value="([a-f0-9]{64})"', inicio)
     assert match, "No se encontró el token CSRF del formulario administrativo"
