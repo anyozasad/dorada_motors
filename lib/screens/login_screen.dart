@@ -89,6 +89,85 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _configurarServidor() async {
+    final guardada = await LocalStore.getApiBaseUrl();
+    if (!mounted) return;
+    final actual = guardada?.trim().isNotEmpty == true
+        ? guardada! : ApiService.baseUrl;
+    final controller = TextEditingController(text: actual);
+
+    final nueva = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Conectar con Dorada Motors'),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'En Chrome de la PC: http://localhost/dorada_api. '
+                'En el emulador Android: http://10.0.2.2/dorada_api. '
+                'En un teléfono real conectado al mismo Wi-Fi, '
+                'usa http://IP_DE_TU_PC/dorada_api.',
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Dirección de la API PHP',
+                  hintText: 'http://192.168.1.10/dorada_api',
+                  prefixIcon: Icon(Icons.dns_outlined),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Probar conexión'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted || nueva == null) return;
+
+    final direccion = Uri.tryParse(nueva);
+    if (direccion == null ||
+        !['http', 'https'].contains(direccion.scheme) ||
+        direccion.host.isEmpty ||
+        !direccion.path.endsWith('/dorada_api')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Usa una URL válida terminada en /dorada_api.')),
+      );
+      return;
+    }
+
+    final anterior = await LocalStore.getApiBaseUrl();
+    ApiService.configurarServidor(nueva);
+    try {
+      await ApiService.obtenerProductos();
+      await LocalStore.saveApiBaseUrl(nueva);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conexión con PHP/MySQL comprobada y guardada.')),
+      );
+    } catch (e) {
+      ApiService.configurarServidor(anterior);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No conecta con la API: ${e.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
   Future<void> _forgotPassword() async {
     final controller = TextEditingController(text: _emailController.text.trim());
     final formKey = GlobalKey<FormState>();
@@ -520,6 +599,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _configurarServidor,
+                  icon: const Icon(Icons.settings_ethernet_rounded, size: 17),
+                  label: const Text('Configurar conexión con PHP'),
                 ),
               ],
             ),
