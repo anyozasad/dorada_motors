@@ -60,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
         userId: id,
         name: nombre.isEmpty ? 'Usuario' : nombre,
         email: usuario['correo']?.toString() ?? _emailController.text.trim(),
+        token: response['token']?.toString() ?? '',
       );
 
       if (!mounted) return;
