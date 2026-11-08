@@ -28,6 +28,18 @@ class LocalStore {
     await prefs.setString(_sessionToken, token);
   }
 
+  static Future<void> updateSessionProfile({
+    required String name,
+    required String email,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getString(_sessionToken) ?? '').isEmpty) {
+      throw StateError('No hay sesión activa para actualizar');
+    }
+    await prefs.setString(_sessionName, name.trim());
+    await prefs.setString(_sessionEmail, email.trim().toLowerCase());
+  }
+
   static Future<Map<String, String>?> getSession() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString(_sessionUserId);
