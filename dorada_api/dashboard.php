@@ -829,7 +829,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $transiciones = [
                     "Pendiente" => ["Pendiente","Procesando","Pagado","Cancelado"],
                     "Procesando" => ["Procesando","Pagado","Enviado","Cancelado"],
-                    "Pagado" => ["Pagado","Enviado","Completado"],
+                    "Pagado" => ["Pagado","Enviado","Completado","Cancelado"],
                     "Enviado" => ["Enviado","Completado"],
                     "Completado" => ["Completado"],
                     "Cancelado" => ["Cancelado","Pendiente","Procesando"]
