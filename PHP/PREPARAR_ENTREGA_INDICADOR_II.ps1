@@ -43,6 +43,7 @@ $ArchivoZip = [System.IO.Compression.ZipFile]::Open($Zip, [System.IO.Compression
 try {
   foreach ($recurso in @(
     @{ Origen=$Htaccess; Entrada='PHP/dorada_api/data/.htaccess' },
+    @{ Origen=(Join-Path $Php 'dorada_api\.htaccess'); Entrada='PHP/dorada_api/.htaccess' },
     @{ Origen=(Join-Path $Flutter '.metadata'); Entrada='Flutter/.metadata' }
   )) {
     if (!(Test-Path -LiteralPath $recurso.Origen)) { throw "No existe archivo requerido: $($recurso.Origen)" }
