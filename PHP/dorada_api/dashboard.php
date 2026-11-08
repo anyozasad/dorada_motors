@@ -3338,6 +3338,7 @@ const nombresPanel={
  pagos:'Pagos',
  comprobantes:'Comprobantes',
  reportes:'Reportes',
+ soporte:'Atención al cliente',
  configuracion:'Configuración',
  };
 
