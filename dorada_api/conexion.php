@@ -102,7 +102,11 @@ $tablasPrincipales = [
     "compra",
     "detalle_compra",
     "movimiento_stock",
-    "comprobante"
+    "comprobante",
+    "sesion_cliente",
+    "carrito",
+    "detalle_carrito",
+    "favorito"
 ];
 
 $faltanTablas = false;
