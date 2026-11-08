@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dorada_motors/models/producto.dart';
 import 'package:dorada_motors/theme/app_theme.dart';
 import 'package:dorada_motors/widgets/product_card.dart';
+import 'package:dorada_motors/screens/main_shell.dart';
 
 void main() {
   testWidgets('Muestra la pantalla de acceso de Dorada Motors', (tester) async {
@@ -95,5 +96,30 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.textContaining('Kit de transmisión'), findsOneWidget);
     expect(find.text('S/ 125.00'), findsOneWidget);
+  });
+
+  testWidgets('La portada y navegación se adaptan a 320 píxeles',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(320, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light,
+      home: MainShell(
+        isGuest: true,
+        onLoginRequested: () {},
+        onLogout: () {},
+        onProfileUpdated: () {},
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 850));
+    expect(tester.takeException(), isNull);
+    expect(find.text('DORADA MOTORS'), findsOneWidget);
+    expect(find.text('Ver catálogo'), findsOneWidget);
   });
 }
