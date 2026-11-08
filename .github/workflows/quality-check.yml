@@ -35,3 +35,38 @@ jobs:
         run: flutter analyze
       - name: Tests
         run: flutter test
+
+  integration:
+    name: PHP + MySQL integration
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli
+      - name: Probar registro, login, carrito, favoritos, stock y pedidos
+        run: |
+          mkdir -p dorada_api/data
+          printf '{"costo_delivery":5}' > dorada_api/data/config_empresa.json
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php -S 127.0.0.1:8090 -t dorada_api > /tmp/dorada-php.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          if ! python3 tests/integration_smoke.py; then
+            echo "=== Registro del servidor PHP ==="
+            tail -n 100 /tmp/dorada-php.log
+            exit 1
+          fi
