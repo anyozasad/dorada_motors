@@ -192,7 +192,7 @@ def probar_administracion_integral(navegador, csrf, id_producto):
     print("    compras con varios productos, anulación, reactivación y reportes.")
 
 
-def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original, otro_id, otro_token, id_solicitud):
+def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original, otro_id, otro_token, id_solicitud, id_recuperacion):
     navegador = urllib.request.build_opener(
         urllib.request.HTTPCookieProcessor(CookieJar())
     )
@@ -354,6 +354,28 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     impresion = admin_page(navegador, f"comprobante_print.php?id={enlaces[0]}")
     assert "BOLETA" in impresion and "S/ " in impresion
     probar_administracion_integral(navegador, csrf, id_producto)
+
+    no_verificado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf,
+        "restablecer_clave_cliente": "1",
+        "id_solicitud": id_recuperacion,
+        "clave_temporal": "Temporal_2026_Verificada",
+    })
+    assert "verifica la identidad" in no_verificado
+    assert api("cuenta.php", token=token)["estado"] is True
+
+    recuperado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf,
+        "restablecer_clave_cliente": "1",
+        "id_solicitud": id_recuperacion,
+        "clave_temporal": "Temporal_2026_Verificada",
+        "identidad_verificada": "1",
+    })
+    assert "Acceso restablecido" in recuperado, recuperado[:300]
+    assert "Temporal_2026_Verificada" not in recuperado
+    assert api("cuenta.php", token=token, status=401)["estado"] is False
+
+    print("OK: recuperación de acceso asistida, identidad confirmada y tokens revocados.")
     print("OK: confirmar pago, actualizar estado y emitir boleta imprimible.")
     print("OK: dashboard PHP, sesión admin, CSRF, CRUD producto,")
     print("    métricas, cancelación de pedido, reversión stock y pago.")
@@ -444,8 +466,23 @@ def probar_cuenta_soporte(id_usuario, token, otro_token):
     assert any(int(x["id_solicitud"]) == id_solicitud for x in mis_casos)
     casos_otra_cuenta = api("soporte.php", token=otro_token)["solicitudes"]
     assert not any(int(x["id_solicitud"]) == id_solicitud for x in casos_otra_cuenta)
+    recuperacion = api("recuperacion.php", method="POST", status=202, body={
+        "correo": nuevo_correo,
+    })
+    no_registrado = api("recuperacion.php", method="POST", status=202, body={
+        "correo": f"desconocido-{uuid4().hex[:10]}@example.test",
+    })
+    assert recuperacion["mensaje"] == no_registrado["mensaje"]
+    api("recuperacion.php", method="POST", status=202, body={"correo": nuevo_correo})
+
+    lista = api("soporte.php", token=token)["solicitudes"]
+    recuperaciones = [
+        x for x in lista if x["asunto"] == "Recuperación de acceso"
+    ]
+    assert len(recuperaciones) == 1, recuperaciones
+    id_recuperacion = int(recuperaciones[0]["id_solicitud"])
     print("OK: perfil editable, cambio de clave, correos únicos y soporte privado.")
-    return id_solicitud
+    return id_solicitud, id_recuperacion
 
 
 def crear_cliente(nombre):
@@ -502,7 +539,7 @@ def main():
 
     id_usuario, token = crear_cliente("Cliente Uno")
     otro_id, otro_token = crear_cliente("Cliente Dos")
-    id_solicitud = probar_cuenta_soporte(id_usuario, token, otro_token)
+    id_solicitud, id_recuperacion = probar_cuenta_soporte(id_usuario, token, otro_token)
 
     # Un token no permite suplantar otra cuenta a través de id_usuario.
     assert api(f"pedidos.php?id_usuario={id_usuario}", token=otro_token, status=403)["estado"] is False
@@ -601,7 +638,7 @@ def main():
     # Verificar las operaciones reales del dashboard sobre ese mismo pedido.
     probar_dashboard_admin(
         id_pedido, id_usuario, token, id_producto, stock_anterior,
-        otro_id, otro_token, id_solicitud,
+        otro_id, otro_token, id_solicitud, id_recuperacion,
     )
 
     # El cierre de sesión revoca el token y prohíbe futuras consultas.
