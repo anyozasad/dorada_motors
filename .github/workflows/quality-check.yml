@@ -86,8 +86,7 @@ jobs:
             'PHP/INICIAR_DEMO.ps1',
             'PHP/VERIFICAR_SISTEMA.ps1',
             'PHP/PREPARAR_ENTREGA_INDICADOR_II.ps1',
-            'PHP/PREPARAR_ENTREGA_INDICADOR_IV.ps1',
-            'PREPARAR_ENTREGA_INDICADOR_IV.ps1'
+            'PHP/PREPARAR_ENTREGA_INDICADOR_IV.ps1'
           )
           foreach ($archivo in $archivos) {
             $tokens = $null
