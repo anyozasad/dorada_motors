@@ -514,8 +514,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $telefono = trim($_POST["telefono"] ?? "");
             $contrasenaPlano = $_POST["contrasena"] ?? "";
 
-            if ($nombres === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($contrasenaPlano) < 6) {
-                redir("Completa los datos. La contraseña debe tener mínimo 6 caracteres", "error", "clientes");
+            if ($nombres === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($contrasenaPlano) < 8) {
+                redir("Completa los datos. La contraseña debe tener mínimo 8 caracteres", "error", "clientes");
             }
 
             $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE correo=? LIMIT 1");
@@ -557,10 +557,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt = $conexion->prepare("
                 UPDATE usuario
                 SET nombres=?,apellidos=?,correo=?,telefono=?
-                WHERE id_usuario=?
+                WHERE id_usuario=? AND rol_sistema='Cliente'
             ");
             $stmt->bind_param("ssssi", $nombres, $apellidos, $correo, $telefono, $idUsuario);
             $stmt->execute();
+            if ($stmt->affected_rows===0) {
+                $stmt=$conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND rol_sistema='Cliente'");
+                $stmt->bind_param("i",$idUsuario);
+                $stmt->execute();
+                if (!$stmt->get_result()->fetch_assoc()) {
+                    redir("Cliente no encontrado o cuenta administrativa protegida", "error", "clientes");
+                }
+            }
             redir("Cliente actualizado correctamente", "ok", "clientes");
         }
 
@@ -572,7 +580,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Estado de usuario inválido", "error", "clientes");
             }
 
-            $stmt = $conexion->prepare("UPDATE usuario SET estado=? WHERE id_usuario=?");
+            if ($idUsuario <= 0) redir("Cliente inválido", "error", "clientes");
+            $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND rol_sistema='Cliente'");
+            $stmt->bind_param("i",$idUsuario);
+            $stmt->execute();
+            if (!$stmt->get_result()->fetch_assoc()) {
+                redir("Solo se puede cambiar el estado de cuentas de clientes", "error", "clientes");
+            }
+            $stmt = $conexion->prepare("UPDATE usuario SET estado=? WHERE id_usuario=? AND rol_sistema='Cliente'");
             $stmt->bind_param("si", $estadoUsuario, $idUsuario);
             $stmt->execute();
             redir("Estado del usuario actualizado", "ok", "clientes");
@@ -2664,7 +2679,7 @@ input:focus,select:focus,textarea:focus{
    <div class="field"><label>APELLIDOS</label><input name="apellidos" value="<?= h($clienteEditar["apellidos"]??"") ?>"></div>
    <div class="field"><label>CORREO</label><input type="email" name="correo" value="<?= h($clienteEditar["correo"]??"") ?>" required></div>
    <div class="field"><label>TELÉFONO</label><input name="telefono" value="<?= h($clienteEditar["telefono"]??"") ?>"></div>
-   <?php if(!$clienteEditar): ?><div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="6" required></div><?php endif; ?>
+   <?php if(!$clienteEditar): ?><div class="field"><label>CONTRASEÑA</label><input type="password" name="contrasena" minlength="8" required></div><?php endif; ?>
    <div class="form-actions"><button class="btn btn-primary" name="<?= $clienteEditar ? "actualizar_usuario" : "registrar_usuario" ?>"><?= $clienteEditar ? "Guardar cambios" : "Registrar cliente" ?></button><?php if($clienteEditar): ?><a class="btn btn-light" href="dashboard.php#clientes">Cancelar</a><?php endif; ?></div>
   </form>
  </details>
