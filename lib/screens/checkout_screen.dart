@@ -7,6 +7,7 @@ import '../models/producto.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/product_image.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final Map<int, int> cart;
@@ -528,17 +529,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(13)),
                               child: Padding(
                                 padding: const EdgeInsets.all(4),
-                                child: p.imagen.startsWith('http://') || p.imagen.startsWith('https://')
-                                    ? Image.network(
-                                        p.imagen,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported_outlined),
-                                      )
-                                    : Image.asset(
-                                        p.imagen,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported_outlined),
-                                      ),
+                                child: ProductImage(
+                                  source: p.imagen,
+                                  fit: BoxFit.contain,
+                                  semanticLabel: 'Imagen de ${p.nombre}',
+                                ),
                               ),
                             ),
                             const SizedBox(width: 10),
