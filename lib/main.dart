@@ -90,6 +90,7 @@ class _AppRootState extends State<AppRoot> {
           isGuest: true,
           onLoginRequested: _showLogin,
           onLogout: _logout,
+          onProfileUpdated: _loadSession,
         ),
       AppMode.authenticated => MainShell(
           isGuest: false,
@@ -97,6 +98,7 @@ class _AppRootState extends State<AppRoot> {
           userEmail: _session?['email'],
           onLoginRequested: _showLogin,
           onLogout: _logout,
+          onProfileUpdated: _loadSession,
         ),
     };
 
