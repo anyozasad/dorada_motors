@@ -2,6 +2,7 @@
 
 include("conexion.php");
 require_once "sistema_bootstrap.php";
+require_once __DIR__ . "/cliente_auth.php";
 
 function responderCarrito(array $data, int $status = 200): void {
     http_response_code($status);
@@ -35,6 +36,7 @@ function obtenerCarritoActivo(mysqli $conexion, int $idUsuario): int {
 }
 
 $metodo = $_SERVER["REQUEST_METHOD"];
+$idClienteSesion = requerirClienteApi($conexion);
 
 if ($metodo === "POST" || $metodo === "PUT") {
     $datos = json_decode(file_get_contents("php://input"), true);
@@ -44,6 +46,7 @@ if ($metodo === "POST" || $metodo === "PUT") {
     }
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $idProducto = (int)($datos["id_producto"] ?? 0);
     $cantidad = (int)($datos["cantidad"] ?? 1);
 
@@ -84,6 +87,7 @@ if ($metodo === "POST" || $metodo === "PUT") {
 if ($metodo === "DELETE") {
     $datos = json_decode(file_get_contents("php://input"), true) ?: [];
     $idUsuario = (int)($datos["id_usuario"] ?? $_GET["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $idProducto = (int)($datos["id_producto"] ?? $_GET["id_producto"] ?? 0);
     $vaciar = !empty($datos["vaciar"]) || ($_GET["vaciar"] ?? "") === "1";
 
@@ -115,6 +119,8 @@ if ($metodo === "DELETE") {
 }
 
 $idUsuario = (int)($_GET["id_usuario"] ?? 0);
+if ($idUsuario <= 0) $idUsuario = $idClienteSesion;
+requerirClienteApi($conexion, $idUsuario);
 
 if ($idUsuario <= 0) {
     responderCarrito(["estado"=>false,"mensaje"=>"Falta id_usuario"], 400);
