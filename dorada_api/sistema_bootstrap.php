@@ -5,7 +5,7 @@ if (!isset($conexion) || !($conexion instanceof mysqli)) {
 
 /*
  * Dorada Motors - estructura simplificada.
- * La base principal usa solo 13 tablas.
+ * Las tablas de la aplicación y el panel se preparan desde dorada_motors.sql.
  * Este archivo únicamente mantiene compatibilidad de columnas antiguas.
  */
 
