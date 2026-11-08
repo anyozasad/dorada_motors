@@ -90,6 +90,7 @@ $igvEmpresa = (float)($configEmpresa["igv"] ?? 18);
 
 $accionesSistema = [
     "responder_soporte" => ["soporte", "Atender solicitud del cliente"],
+    "restablecer_clave_cliente" => ["soporte", "Restablecer acceso verificado"],
     "registrar_producto" => ["gestion-productos", "Crear producto"],
     "actualizar_producto" => ["gestion-productos", "Actualizar producto"],
     "eliminar_producto" => ["gestion-productos", "Eliminar producto"],
@@ -196,6 +197,58 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 }
             }
             redir("Solicitud #".$idSolicitud." actualizada correctamente.", "ok", "soporte");
+        }
+
+        if (isset($_POST["restablecer_clave_cliente"])) {
+            if (rolActual() !== "Administrador") {
+                redir("Solo el Administrador puede restablecer accesos.", "error", "soporte");
+            }
+            $idSolicitud = (int)($_POST["id_solicitud"] ?? 0);
+            $claveTemporal = (string)($_POST["clave_temporal"] ?? "");
+            if (($_POST["identidad_verificada"] ?? "") !== "1") {
+                redir("Primero verifica la identidad del cliente por un canal confiable.", "error", "soporte");
+            }
+            if (strlen($claveTemporal) < 8 || strlen($claveTemporal) > 128) {
+                redir("La clave temporal debe tener entre 8 y 128 caracteres.", "error", "soporte");
+            }
+            $stmt = $conexion->prepare(
+                "SELECT id_usuario,asunto FROM solicitud_soporte WHERE id_solicitud=? LIMIT 1"
+            );
+            $stmt->bind_param("i", $idSolicitud);
+            $stmt->execute();
+            $solicitudRecuperacion = $stmt->get_result()->fetch_assoc();
+            if (!$solicitudRecuperacion || $solicitudRecuperacion["asunto"] !== "Recuperación de acceso") {
+                redir("No existe una solicitud de recuperación válida.", "error", "soporte");
+            }
+            $idCliente = (int)$solicitudRecuperacion["id_usuario"];
+            $hashNueva = password_hash($claveTemporal, PASSWORD_DEFAULT);
+
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare(
+                    "UPDATE usuario SET contrasena=? WHERE id_usuario=? AND rol_sistema='Cliente'"
+                );
+                $stmt->bind_param("si", $hashNueva, $idCliente);
+                $stmt->execute();
+
+                $stmt = $conexion->prepare("DELETE FROM sesion_cliente WHERE id_usuario=?");
+                $stmt->bind_param("i", $idCliente);
+                $stmt->execute();
+
+                $respuesta = "Solicitud atendida. La identidad fue validada por el administrador. La clave temporal debe comunicarse por un canal verificado; no está incluida en esta respuesta.";
+                $estado = "Respondido";
+                $stmt = $conexion->prepare(
+                    "UPDATE solicitud_soporte SET estado=?,respuesta=?,fecha_actualizacion=NOW() WHERE id_solicitud=?"
+                );
+                $stmt->bind_param("ssi", $estado, $respuesta, $idSolicitud);
+                $stmt->execute();
+                $conexion->commit();
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                error_log("Restablecimiento asistido: " . $e->getMessage());
+                redir("No se pudo restablecer el acceso.", "error", "soporte");
+            }
+            redir("Acceso restablecido; comunica la clave temporal por un canal verificado.", "ok", "soporte");
         }
 
         /* ================= PRODUCTOS ================= */
@@ -1488,7 +1541,7 @@ $solicitudesSoporte = [];
 $totalSoportePendiente = 0;
 if (puede("soporte")) {
     $resultadoSoporte = $conexion->query(
-        "SELECT s.id_solicitud,s.asunto,s.mensaje,s.respuesta,s.estado,
+        "SELECT s.id_solicitud,s.id_usuario,s.asunto,s.mensaje,s.respuesta,s.estado,
                 s.fecha_creacion,s.fecha_actualizacion,
                 u.nombres,u.apellidos,u.correo
          FROM solicitud_soporte s
@@ -2787,6 +2840,20 @@ input:focus,select:focus,textarea:focus{
         <textarea id="respuesta_s_<?= (int)$sol["id_solicitud"] ?>" name="respuesta_soporte" rows="3" maxlength="5000" placeholder="Respuesta para el cliente"><?= h($sol["respuesta"]??"") ?></textarea>
         <button class="btn btn-primary btn-small" name="responder_soporte" type="submit">Guardar respuesta</button>
        </form>
+       <?php if(rolActual()==="Administrador" && $sol["asunto"]==="Recuperación de acceso"): ?>
+       <form method="POST" style="margin-top:10px;display:grid;gap:8px">
+        <?= csrfInput() ?>
+        <input type="hidden" name="id_solicitud" value="<?= (int)$sol["id_solicitud"] ?>">
+        <label>Clave temporal nueva (mínimo 8 caracteres)</label>
+        <input type="password" name="clave_temporal" minlength="8" maxlength="128" required autocomplete="new-password">
+        <label style="display:flex;gap:6px;align-items:flex-start;font-size:11px">
+         <input type="checkbox" name="identidad_verificada" value="1" required>
+         Confirmo que verifiqué la identidad del cliente por un canal confiable.
+        </label>
+        <button class="btn btn-light btn-small" name="restablecer_clave_cliente" type="submit">Restablecer acceso</button>
+        <small>Comunica la clave por un canal verificado. Nunca se enviará automáticamente ni se mostrará en el historial.</small>
+       </form>
+       <?php endif; ?>
       </td>
      </tr>
     <?php endforeach; endif; ?>
