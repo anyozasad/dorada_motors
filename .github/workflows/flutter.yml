@@ -27,3 +27,6 @@ jobs:
 
       - name: Ejecutar pruebas
         run: flutter test
+
+      - name: Compilar Flutter Web para presentación
+        run: flutter build web --release
