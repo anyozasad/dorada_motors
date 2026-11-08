@@ -15,6 +15,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   late Future<List<Pedido>> _orders;
   final Set<String> _cancelando = <String>{};
+  final Set<String> _reportando = <String>{};
 
   @override
   void initState() {
@@ -64,6 +65,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
           fecha: fecha,
           estado: row['estado_pedido']?.toString() ?? 'Pendiente',
           metodoPago: row['metodo_pago']?.toString() ?? 'Pendiente',
+          estadoPago: row['estado_pago']?.toString() ?? 'Pendiente',
+          referenciaPago: row['referencia_pago']?.toString() ?? '',
           tipoEntrega:
               row['tipo_entrega']?.toString() ?? 'Recojo en tienda',
           direccion: row['direccion_detalle']?.toString().trim().isNotEmpty == true
@@ -128,6 +131,83 @@ class _OrdersScreenState extends State<OrdersScreen> {
       await _refresh();
     } finally {
       if (mounted) setState(() => _cancelando.remove(pedido.id));
+    }
+  }
+
+  Future<void> _reportarPago(Pedido pedido) async {
+    if (_reportando.contains(pedido.id)) return;
+    final controller = TextEditingController(text: pedido.referenciaPago);
+    final formKey = GlobalKey<FormState>();
+    final referencia = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Informar pago digital'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Pedido ${pedido.id} · ${pedido.metodoPago}. '
+                'Ingresa el número de operación que recibiste al pagar. '
+                'El administrador verificará el abono antes de confirmarlo.',
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Número de operación',
+                  prefixIcon: Icon(Icons.receipt_long_outlined),
+                ),
+                maxLength: 80,
+                validator: (value) {
+                  final numero = value?.trim() ?? '';
+                  if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9 -]{5,79}$').hasMatch(numero)) {
+                    return 'Escribe una referencia válida (6 a 80 caracteres)';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(dialogContext, controller.text.trim());
+              }
+            },
+            child: const Text('Enviar referencia'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted || referencia == null) return;
+    final id = int.tryParse(pedido.id.replaceFirst('DM-', '')) ?? 0;
+    if (id <= 0) return;
+
+    setState(() => _reportando.add(pedido.id));
+    try {
+      await ApiService.reportarReferenciaPago(idPedido: id, referencia: referencia);
+      if (!mounted) return;
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Referencia recibida. El pago sigue pendiente hasta su verificación.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _reportando.remove(pedido.id));
     }
   }
 
@@ -301,7 +381,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
             const SizedBox(height: 4),
             _infoRow(Icons.local_shipping_outlined, 'Entrega', order.tipoEntrega),
-            _infoRow(Icons.account_balance_wallet_outlined, 'Pago', order.metodoPago),
+            _infoRow(Icons.account_balance_wallet_outlined, 'Pago',
+                '${order.metodoPago} · ${order.estadoPago}'),
+            if (order.referenciaPago.isNotEmpty)
+              _infoRow(Icons.numbers_outlined, 'Operación', order.referenciaPago),
+            if (order.estadoPago == 'Pendiente' &&
+                (order.estado == 'Pendiente' || order.estado == 'Procesando') &&
+                ['Yape', 'Plin', 'Transferencia'].contains(order.metodoPago)) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _reportando.contains(order.id)
+                      ? null : () => _reportarPago(order),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: Text(_reportando.contains(order.id)
+                      ? 'Enviando...' : order.referenciaPago.isEmpty
+                          ? 'Informar número de operación'
+                          : 'Corregir número de operación'),
+                ),
+              ),
+            ],
             _infoRow(Icons.phone_outlined, 'Teléfono', order.telefono),
             if (order.tipoEntrega == 'Delivery')
               _infoRow(Icons.location_on_outlined, 'Dirección', order.direccion),
