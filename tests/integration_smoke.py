@@ -688,6 +688,30 @@ def main():
     assert next(p for p in historial_cancelado if int(p["id_pedido"]) == id_cancelable)["estado_pedido"] == "Cancelado"
     print("OK: cancelación de pedido por cliente, stock, permisos e idempotencia.")
 
+    # Petición duplicada por pérdida de conexión: un pedido y un movimiento de stock.
+    stock_antes_reintento = int(api(f"productos.php?id={id_producto}")["stock"])
+    clave = f"checkout-{uuid4().hex[:32]}"
+    datos_compra = {
+        "id_usuario": id_usuario, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "clave_operacion": clave,
+        "items": [{"id_producto": id_producto, "cantidad": 1}],
+    }
+    primera = api("pedidos.php", method="POST", token=token,
+                  status=201, body=datos_compra)
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_reintento - 1
+    repetida = api("pedidos.php", method="POST", token=token,
+                   status=200, body=datos_compra)
+    assert repetida["estado"] is True and repetida.get("reutilizado") is True, repetida
+    assert int(repetida["id_pedido"]) == int(primera["id_pedido"])
+    assert float(repetida["total"]) == float(primera["total"])
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_reintento - 1
+    api("cliente_cancelar_pedido.php", method="POST", token=token, body={
+        "id_pedido": int(primera["id_pedido"]),
+    })
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_reintento
+    print("OK: reintentar checkout no duplica pedidos, pagos ni descuenta stock.")
+
     # Verificar las operaciones reales del dashboard sobre ese mismo pedido.
     probar_dashboard_admin(
         id_pedido, id_usuario, token, id_producto, stock_anterior,
