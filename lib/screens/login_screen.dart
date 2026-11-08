@@ -139,7 +139,9 @@ class _LoginScreenState extends State<LoginScreen> {
     controller.dispose();
     if (!mounted || nueva == null) return;
 
-    final direccion = Uri.tryParse(nueva);
+    final normalizada = nueva.endsWith('/')
+        ? nueva.substring(0, nueva.length - 1) : nueva;
+    final direccion = Uri.tryParse(normalizada);
     if (direccion == null ||
         !['http', 'https'].contains(direccion.scheme) ||
         direccion.host.isEmpty ||
@@ -151,10 +153,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final anterior = await LocalStore.getApiBaseUrl();
-    ApiService.configurarServidor(nueva);
+    ApiService.configurarServidor(normalizada);
     try {
       await ApiService.obtenerProductos();
-      await LocalStore.saveApiBaseUrl(nueva);
+      await LocalStore.saveApiBaseUrl(normalizada);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Conexión con PHP/MySQL comprobada y guardada.')),
