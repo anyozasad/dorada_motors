@@ -973,7 +973,13 @@ class _MainShellState extends State<MainShell> {
         clipBehavior: Clip.antiAlias,
         child: NavigationBar(
           selectedIndex: _page,
-          onDestinationSelected: (index) => setState(() => _page = index),
+          onDestinationSelected: (index) {
+            if (index != _page) setState(() => _page = index);
+            if (index <= 2) _loadCatalogoApi();
+            if (index == 2 && !widget.isGuest && !_cargandoMisDatos) {
+              _loadLocalData();
+            }
+          },
           destinations: const [
             NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Inicio'),
             NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'Productos'),
@@ -1376,8 +1382,11 @@ class _MainShellState extends State<MainShell> {
             children: [
               Text('${products.length} producto${products.length == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.ink)),
               const Spacer(),
-              const Icon(Icons.sort_rounded, size: 18, color: AppColors.muted),
-              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'Actualizar productos desde MySQL',
+                onPressed: _cargandoProductosApi ? null : _loadCatalogoApi,
+                icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.muted),
+              ),
               const Text('Catálogo activo', style: TextStyle(fontSize: 11, color: AppColors.muted)),
             ],
           ),
@@ -1468,8 +1477,9 @@ class _MainShellState extends State<MainShell> {
           _profileOption(Icons.person_outline_rounded, 'Mis datos', 'Edita tu perfil y contraseña', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => CuentaScreen(onUpdated: widget.onProfileUpdated)));
           }),
-          _profileOption(Icons.receipt_long_outlined, 'Mis pedidos', 'Revisa compras, totales y estados', () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
+          _profileOption(Icons.receipt_long_outlined, 'Mis pedidos', 'Revisa compras, totales y estados', () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
+            if (mounted) _loadCatalogoApi();
           }),
           _profileOption(Icons.location_on_outlined, 'Direcciones', 'Administra tus direcciones de entrega', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const DireccionesScreen()));
