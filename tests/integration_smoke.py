@@ -690,6 +690,14 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert "Comprobante B001-" in comprobante, (
         "No se emitió la boleta de demostración"
     )
+    repetido = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "registrar_comprobante": "1",
+        "id_pedido_comprobante": str(id_otro_pedido),
+        "tipo_comprobante": "Boleta", "numero_comprobante": "",
+    })
+    assert "Ya existe un comprobante para este pedido" in repetido, (
+        "La emisión duplicada debería rechazarse"
+    )
     # Flutter consulta la boleta de su propia compra; otro cliente no puede leerla.
     boleta_cliente = api(
         f"cliente_comprobante.php?id_pedido={id_otro_pedido}", token=otro_token,
