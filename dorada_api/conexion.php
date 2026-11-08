@@ -38,13 +38,23 @@ $dbPort = (int)(getenv("DB_PORT") ?: 3306);
  * 2) crea dorada_motors si no existe
  * 3) importa el esquema automáticamente si faltan tablas principales
  */
-$conexion = @new mysqli(
-    $dbHost,
-    $dbUser,
-    $dbPass,
-    "",
-    $dbPort
-);
+try {
+    $conexion = @new mysqli(
+        $dbHost,
+        $dbUser,
+        $dbPass,
+        "",
+        $dbPort
+    );
+} catch (Throwable $e) {
+    error_log("Dorada Motors DB: " . $e->getMessage());
+    http_response_code(503);
+    echo json_encode([
+        "estado" => false,
+        "mensaje" => "MySQL no responde. Enciende MySQL desde XAMPP y vuelve a intentar."
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 if ($conexion->connect_error) {
     error_log("Dorada Motors DB: " . $conexion->connect_error);
