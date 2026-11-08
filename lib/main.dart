@@ -45,6 +45,7 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Future<void> _loadSession() async {
+    ApiService.configurarServidor(await LocalStore.getApiBaseUrl());
     final session = await LocalStore.getSession();
     if (!mounted) return;
     setState(() {
