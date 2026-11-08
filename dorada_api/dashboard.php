@@ -89,6 +89,7 @@ $configEmpresa = cargarConfigEmpresa();
 $igvEmpresa = (float)($configEmpresa["igv"] ?? 18);
 
 $accionesSistema = [
+    "responder_soporte" => ["soporte", "Atender solicitud del cliente"],
     "registrar_producto" => ["gestion-productos", "Crear producto"],
     "actualizar_producto" => ["gestion-productos", "Actualizar producto"],
     "eliminar_producto" => ["gestion-productos", "Eliminar producto"],
@@ -159,6 +160,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     try {
+        /* ================= ATENCIÓN AL CLIENTE ================= */
+        if (isset($_POST["responder_soporte"])) {
+            $idSolicitud = (int)($_POST["id_solicitud"] ?? 0);
+            $estadoSoporte = trim((string)($_POST["estado_soporte"] ?? ""));
+            $respuestaSoporte = trim((string)($_POST["respuesta_soporte"] ?? ""));
+            $estadosSoporte = ["Abierto", "En proceso", "Respondido", "Cerrado"];
+
+            if ($idSolicitud <= 0 || !in_array($estadoSoporte, $estadosSoporte, true)) {
+                redir("Solicitud o estado inválido.", "error", "soporte");
+            }
+            if (in_array($estadoSoporte, ["Respondido", "Cerrado"], true)
+                && strlen($respuestaSoporte) < 5) {
+                redir("Escribe una respuesta de al menos 5 caracteres.", "error", "soporte");
+            }
+            if (strlen($respuestaSoporte) > 5000) {
+                redir("La respuesta supera los 5000 caracteres.", "error", "soporte");
+            }
+
+            $stmt = $conexion->prepare(
+                "UPDATE solicitud_soporte
+                 SET estado=?,respuesta=?,fecha_actualizacion=NOW()
+                 WHERE id_solicitud=?"
+            );
+            $stmt->bind_param("ssi", $estadoSoporte, $respuestaSoporte, $idSolicitud);
+            $stmt->execute();
+            if ($stmt->affected_rows === 0) {
+                $stmt = $conexion->prepare(
+                    "SELECT id_solicitud FROM solicitud_soporte WHERE id_solicitud=? LIMIT 1"
+                );
+                $stmt->bind_param("i", $idSolicitud);
+                $stmt->execute();
+                if (!$stmt->get_result()->fetch_assoc()) {
+                    redir("Solicitud de soporte no encontrada.", "error", "soporte");
+                }
+            }
+            redir("Solicitud #".$idSolicitud." actualizada correctamente.", "ok", "soporte");
+        }
+
         /* ================= PRODUCTOS ================= */
         if (isset($_POST["registrar_producto"])) {
             $idCategoria = (int)($_POST["id_categoria"] ?? 0);
@@ -1434,6 +1473,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
+/* ================= ATENCIÓN AL CLIENTE ================= */
+$solicitudesSoporte = [];
+$totalSoportePendiente = 0;
+if (puede("soporte")) {
+    $resultadoSoporte = $conexion->query(
+        "SELECT s.id_solicitud,s.asunto,s.mensaje,s.respuesta,s.estado,
+                s.fecha_creacion,s.fecha_actualizacion,
+                u.nombres,u.apellidos,u.correo
+         FROM solicitud_soporte s
+         INNER JOIN usuario u ON u.id_usuario=s.id_usuario
+         ORDER BY CASE WHEN s.estado IN ('Abierto','En proceso') THEN 0 ELSE 1 END,
+                  s.id_solicitud DESC
+         LIMIT 200"
+    );
+    $solicitudesSoporte = $resultadoSoporte->fetch_all(MYSQLI_ASSOC);
+    $totalSoportePendiente = (int)$conexion->query(
+        "SELECT COUNT(*) AS total FROM solicitud_soporte
+         WHERE estado IN ('Abierto','En proceso')"
+    )->fetch_assoc()["total"];
+}
+
 /* ================= MÉTRICAS ================= */
 $totalProductos = (int)$conexion->query("SELECT COUNT(*) AS total FROM producto")->fetch_assoc()["total"];
 $totalUsuarios = (int)$conexion->query("SELECT COUNT(*) AS total FROM usuario WHERE rol_sistema='Cliente'")->fetch_assoc()["total"];
@@ -2184,6 +2244,10 @@ input:focus,select:focus,textarea:focus{
   </div>
   <?php endif; ?>
 
+  <?php if(puede("soporte")): ?>
+  <a href="#soporte" class="nav-main"><span class="nav-icon">✉</span><span>Atención al cliente</span></a>
+  <?php endif; ?>
+
   <?php if(puede("reportes")): ?>
   <a href="#reportes" class="nav-main"><span class="nav-icon">▥</span><span>Reportes</span></a>
   <?php endif; ?>
@@ -2676,6 +2740,47 @@ input:focus,select:focus,textarea:focus{
    <button type="button" class="btn btn-light" onclick="exportarTabla('tablaReporteProductos','reporte_productos_adn.csv')">Exportar productos CSV</button>
    <button type="button" class="btn btn-light" onclick="exportarTabla('tablaPedidos','pedidos_adn.csv')">Exportar pedidos CSV</button>
   </div>
+ </div>
+</section>
+<?php endif; ?>
+
+<?php if(puede("soporte")): ?>
+<section id="soporte" class="card page-panel">
+ <div class="section-intro">
+  <div><h2>Atención al cliente</h2><p>Consultas enviadas desde Flutter. Responde aquí y el cliente verá el seguimiento en su aplicación.</p></div>
+  <span class="badge"><?= $totalSoportePendiente ?> por atender</span>
+ </div>
+ <div class="table-wrap">
+  <table>
+   <thead><tr><th>N.º</th><th>Cliente</th><th>Consulta</th><th>Estado</th><th>Atender</th></tr></thead>
+   <tbody>
+    <?php if(!$solicitudesSoporte): ?>
+     <tr><td colspan="5" class="empty-cell">Todavía no se han recibido consultas.</td></tr>
+    <?php else: foreach($solicitudesSoporte as $sol): ?>
+     <tr>
+      <td>#<?= (int)$sol["id_solicitud"] ?><small class="table-sub"><?= h($sol["fecha_creacion"]) ?></small></td>
+      <td><strong><?= h(trim($sol["nombres"]." ".$sol["apellidos"])) ?></strong><small class="table-sub"><?= h($sol["correo"]) ?></small></td>
+      <td><strong><?= h($sol["asunto"]) ?></strong><p style="max-width:350px;white-space:pre-wrap;overflow-wrap:anywhere"><?= h($sol["mensaje"]) ?></p></td>
+      <td><span class="status-pill"><?= h($sol["estado"]) ?></span></td>
+      <td>
+       <form method="POST" style="min-width:230px;display:grid;gap:8px">
+        <?= csrfInput() ?>
+        <input type="hidden" name="id_solicitud" value="<?= (int)$sol["id_solicitud"] ?>">
+        <label for="estado_s_<?= (int)$sol["id_solicitud"] ?>">Estado</label>
+        <select id="estado_s_<?= (int)$sol["id_solicitud"] ?>" name="estado_soporte">
+         <?php foreach(["Abierto","En proceso","Respondido","Cerrado"] as $estadoItem): ?>
+          <option value="<?= h($estadoItem) ?>" <?= $sol["estado"]===$estadoItem?"selected":"" ?>><?= h($estadoItem) ?></option>
+         <?php endforeach; ?>
+        </select>
+        <label for="respuesta_s_<?= (int)$sol["id_solicitud"] ?>">Respuesta</label>
+        <textarea id="respuesta_s_<?= (int)$sol["id_solicitud"] ?>" name="respuesta_soporte" rows="3" maxlength="5000" placeholder="Respuesta para el cliente"><?= h($sol["respuesta"]??"") ?></textarea>
+        <button class="btn btn-primary btn-small" name="responder_soporte" type="submit">Guardar respuesta</button>
+       </form>
+      </td>
+     </tr>
+    <?php endforeach; endif; ?>
+   </tbody>
+  </table>
  </div>
 </section>
 <?php endif; ?>
