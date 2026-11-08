@@ -52,6 +52,19 @@ if (!columnaExiste($conexion, "pedido", "tipo_entrega")) {
     $conexion->query("ALTER TABLE pedido ADD COLUMN tipo_entrega VARCHAR(30) NOT NULL DEFAULT 'Recojo en tienda'");
 }
 
+// Una sola compra por intento, incluso si Chrome pierde la respuesta de la API.
+if (!columnaExiste($conexion, "pedido", "clave_operacion")) {
+    $conexion->query("ALTER TABLE pedido ADD COLUMN clave_operacion VARCHAR(64) NULL DEFAULT NULL");
+}
+$indicePedido = $conexion->query(
+    "SHOW INDEX FROM pedido WHERE Key_name='uq_pedido_cliente_operacion'"
+);
+if ($indicePedido && $indicePedido->num_rows === 0) {
+    $conexion->query(
+        "ALTER TABLE pedido ADD UNIQUE KEY uq_pedido_cliente_operacion (id_usuario,clave_operacion)"
+    );
+}
+
 if (!columnaExiste($conexion, "movimiento_stock", "stock_anterior")) {
     $conexion->query("ALTER TABLE movimiento_stock ADD COLUMN stock_anterior INT NULL");
 }
