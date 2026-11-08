@@ -2,6 +2,7 @@
 
 include("conexion.php");
 require_once "sistema_bootstrap.php";
+require_once __DIR__ . "/cliente_auth.php";
 
 if ($_SERVER["REQUEST_METHOD"] === "PUT") {
     $datos = json_decode(file_get_contents("php://input"), true);
@@ -13,6 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] === "PUT") {
     }
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $telefono = trim($datos["telefono"] ?? "");
 
     if ($idUsuario <= 0 || strlen($telefono) < 7) {
@@ -108,8 +110,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     );
 
     if ($stmt->execute()) {
+        $token = emitirTokenCliente($conexion, (int)$conexion->insert_id);
         echo json_encode([
             "estado" => true,
+            "token" => $token,
             "mensaje" => "Usuario registrado",
             "id_usuario" => $conexion->insert_id
         ]);
@@ -120,6 +124,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         ]);
     }
 
+    exit;
+}
+
+require_once __DIR__ . "/auth_admin.php";
+if (!adminActual() || !puede("clientes")) {
+    http_response_code(403);
+    echo json_encode(["estado"=>false,"mensaje"=>"Acceso administrativo requerido"], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
