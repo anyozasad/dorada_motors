@@ -121,5 +121,17 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('DORADA MOTORS'), findsOneWidget);
     expect(find.text('Ver catálogo'), findsOneWidget);
+
+    // Revisar también la pantalla real de catálogo a tamaño de teléfono.
+    await tester.tap(find.text('Productos'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Solo disponibles'), findsOneWidget);
+    expect(find.text('Orden: Relevancia'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Solo disponibles'));
+    await tester.pump();
+    expect(find.text('Limpiar filtros'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
