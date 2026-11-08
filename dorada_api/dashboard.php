@@ -1742,6 +1742,17 @@ $totalVentas = (float)$conexion->query("
     WHERE LOWER(estado_pedido) <> 'cancelado'
 ")->fetch_assoc()["total"];
 $totalPagos = (float)$conexion->query("SELECT COALESCE(SUM(monto),0) AS total FROM pago WHERE estado_pago='Pagado'")->fetch_assoc()["total"];
+// Resumen financiero por pedido (no duplica importes con varios abonos).
+$cobrado = (float)$conexion->query("SELECT COALESCE(SUM(pg.monto),0) AS total FROM pago pg INNER JOIN pedido p ON p.id_pedido=pg.id_pedido WHERE pg.estado_pago='Pagado' AND p.estado_pedido<>'Cancelado'")->fetch_assoc()["total"];
+$porCobrar = (float)$conexion->query("
+ SELECT COALESCE(SUM(GREATEST(p.total-COALESCE(a.pagado,0),0)),0) AS total
+ FROM pedido p LEFT JOIN (
+  SELECT id_pedido,SUM(monto) AS pagado FROM pago WHERE estado_pago='Pagado' GROUP BY id_pedido
+ ) a ON a.id_pedido=p.id_pedido
+ WHERE p.estado_pedido<>'Cancelado'
+")->fetch_assoc()["total"];
+$porcentajeCobrado = $totalVentas>0 ? min(100.0,max(0.0,$cobrado*100/$totalVentas)) : 0;
+
 $totalCategorias = (int)$conexion->query("SELECT COUNT(*) AS total FROM categoria")->fetch_assoc()["total"];
 $totalMarcas = (int)$conexion->query("SELECT COUNT(*) AS total FROM marca")->fetch_assoc()["total"];
 
@@ -2516,6 +2527,17 @@ select:focus-visible,textarea:focus-visible{
 }
 
 @media print{.sidebar,.topbar,.mobile-bottom,.btn,.section-actions{display:none!important}.app{display:block}.content{padding:0;max-width:none}.page-panel{display:none!important}#reportes{display:block!important;box-shadow:none;border:0}.card{box-shadow:none}.stats-row{grid-template-columns:repeat(3,1fr)}}
+
+.cashflow-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 16px}
+.cashflow-card{display:block;padding:18px 21px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform .18s,box-shadow .18s}
+.cashflow-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,39,70,.10)}
+.cashflow-top{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.cashflow-label{font-weight:800;color:var(--muted);font-size:12px}
+.cashflow-amount{font-size:26px;font-weight:900;margin:7px 0;color:#10233e}
+.cashflow-card p{color:var(--muted);font-size:11px;margin:0 0 10px}
+.cashflow-track{height:9px;border-radius:999px;background:#e9eef5;overflow:hidden}
+.cashflow-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#65c982)}
+@media(max-width:620px){.cashflow-strip{grid-template-columns:1fr}.cashflow-amount{font-size:22px}}
 </style>
 </head>
 <body>
@@ -2652,6 +2674,23 @@ select:focus-visible,textarea:focus-visible{
  <?php if(puede("proveedores")): ?><a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong id="opsProveedoresValue"><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a><?php endif; ?>
  <?php if(puede("compras")): ?><a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong id="opsComprasValue">S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a><?php endif; ?>
 </section>
+
+<?php if(puede("reportes")): ?>
+<section class="cashflow-strip" aria-label="Estado real de cobranza">
+ <a class="cashflow-card" href="#pagos">
+  <div class="cashflow-top"><span class="cashflow-label">✓ Cobros confirmados</span><span class="badge">MySQL en vivo</span></div>
+  <div class="cashflow-amount" id="metricCobrado">S/ <?= number_format($cobrado,2) ?></div>
+  <p>Pagos confirmados por administración, sin contar pedidos cancelados.</p>
+  <div class="cashflow-track" role="progressbar" aria-label="Porcentaje cobrado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int)round($porcentajeCobrado) ?>" id="cobrosProgreso"><div class="cashflow-fill" id="cobrosBarra" style="width:<?= number_format($porcentajeCobrado,1,'.','') ?>%"></div></div>
+ </a>
+ <a class="cashflow-card" href="#pedidos">
+  <div class="cashflow-top"><span class="cashflow-label">◷ Saldo por cobrar</span><span class="badge">Pedidos activos</span></div>
+  <div class="cashflow-amount" id="metricPorCobrar">S/ <?= number_format($porCobrar,2) ?></div>
+  <p>Ventas activas menos abonos confirmados. Pagos pendientes no cuentan como cobrados.</p>
+  <div class="cashflow-track"><div class="cashflow-fill" id="saldoBarra" style="background:linear-gradient(90deg,#eab308,#f59e0b);width:<?= number_format(100-$porcentajeCobrado,1,'.','') ?>%"></div></div>
+ </a>
+</section>
+<?php endif; ?>
 
 <section class="grid-main">
  <article class="card">
@@ -3596,6 +3635,17 @@ async function actualizarDashboardEnVivo(manual=false){
   poner('metricPedidos',data.pedidos);
   poner('metricPedidosSub',Number(data.pedidos_pendientes||0)+' por atender');
   poner('metricVentas',moneda(data.ventas));
+  poner('metricCobrado',moneda(data.cobrado));
+  poner('metricPorCobrar',moneda(data.por_cobrar));
+  const montoCobrado=Number(data.cobrado||0), montoPendiente=Number(data.por_cobrar||0);
+  const totalCaja=montoCobrado+montoPendiente;
+  const pctCaja=totalCaja>0?Math.max(0,Math.min(100,montoCobrado*100/totalCaja)):0;
+  const barraCobros=document.getElementById('cobrosBarra');
+  if(barraCobros) barraCobros.style.width=pctCaja.toFixed(1)+'%';
+  const barraSaldo=document.getElementById('saldoBarra');
+  if(barraSaldo) barraSaldo.style.width=(100-pctCaja).toFixed(1)+'%';
+  document.getElementById('cobrosProgreso')?.setAttribute('aria-valuenow',String(Math.round(pctCaja)));
+
   poner('metricVentasSub','Mes: '+moneda(data.ventas_mes)+' · Hoy: '+moneda(data.ventas_hoy));
   poner('metricStockBajo',data.stock_bajo);
   poner('metricStockSub',Number(data.stock_critico||0)+' crítico(s)');
