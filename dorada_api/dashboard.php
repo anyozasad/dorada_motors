@@ -2565,7 +2565,7 @@ input:focus,select:focus,textarea:focus{
 <section id="gestion-productos" class="card page-panel">
  <div class="section-intro">
   <div><h2><?= $productoEditar ? "Editar producto" : "Productos" ?></h2><p>Administra catálogo, precios, imágenes y niveles mínimos de inventario.</p></div>
-  <div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaProductos','productos_adn.csv')">Exportar CSV</button><span class="badge"><?= $totalProductos ?> productos</span></div>
+  <div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=productos">Exportar CSV</a><span class="badge"><?= $totalProductos ?> productos</span></div>
  </div>
 
  <form method="POST" enctype="multipart/form-data" class="form-grid product-form">
@@ -2654,7 +2654,7 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("clientes")): ?>
 <section id="clientes" class="card page-panel">
- <div class="section-intro"><div><h2>Clientes</h2><p>Administra las cuentas que ingresan desde Flutter y consulta su historial de compras.</p></div><span class="badge"><?= count($clientes) ?> clientes</span></div>
+ <div class="section-intro"><div><h2>Clientes</h2><p>Administra las cuentas que ingresan desde Flutter y consulta su historial de compras.</p></div><div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=clientes">Exportar CSV</a><span class="badge"><?= count($clientes) ?> clientes</span></div></div>
 
  <details class="detail-card" style="margin-bottom:16px" <?= $clienteEditar ? "open" : "" ?>>
   <summary style="cursor:pointer;font-weight:900"><?= $clienteEditar ? "Editar cliente" : "+ Registrar nuevo cliente" ?></summary>
@@ -2703,7 +2703,7 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("pedidos")): ?>
 <section id="pedidos" class="card page-panel">
- <div class="section-intro"><div><h2>Pedidos</h2><p>Consulta el detalle y actualiza el avance de cada venta.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPedidos','pedidos_adn.csv')">Exportar CSV</button><span class="badge"><?= $totalPedidos ?> registrados</span></div></div>
+ <div class="section-intro"><div><h2>Pedidos</h2><p>Consulta el detalle y actualiza el avance de cada venta.</p></div><div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=pedidos">Exportar CSV completo</a><span class="badge"><?= $totalPedidos ?> registrados</span></div></div>
 
  <details class="detail-card" style="margin-bottom:16px">
   <summary style="cursor:pointer;font-weight:900">+ Registrar nuevo pedido</summary>
@@ -2762,7 +2762,7 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("pagos")): ?>
 <section id="pagos" class="card page-panel">
- <div class="section-intro"><div><h2>Pagos</h2><p>Controla montos y confirma el estado de cada pago recibido. Las referencias Yape/Plin/transferencia enviadas desde Flutter se verifican manualmente antes de marcar «Pagado».</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="exportarTabla('tablaPagos','pagos_adn.csv')">Exportar CSV</button><span class="badge">S/ <?= number_format($totalPagos,2) ?> confirmados</span></div></div>
+ <div class="section-intro"><div><h2>Pagos</h2><p>Controla montos y confirma el estado de cada pago recibido. Las referencias Yape/Plin/transferencia enviadas desde Flutter se verifican manualmente antes de marcar «Pagado».</p></div><div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=pagos">Exportar CSV</a><span class="badge">S/ <?= number_format($totalPagos,2) ?> confirmados</span></div></div>
  <details class="detail-card" style="margin-bottom:16px">
   <summary style="cursor:pointer;font-weight:900">+ Registrar pago manual</summary>
   <form method="POST" class="form-grid" style="margin-top:14px">
@@ -2837,7 +2837,7 @@ input:focus,select:focus,textarea:focus{
 <section id="inventario" class="card page-panel">
  <div class="section-intro">
   <div><h2>Inventario y Kardex</h2><p>Controla existencias y conserva el historial de cada entrada y salida.</p></div>
-  <div class="kpi-inline"><span class="pill"><?= $unidadesStock ?> unidades</span><span class="pill danger-soft"><?= $stockBajo ?> bajo mínimo</span></div>
+  <div class="kpi-inline"><a class="btn btn-light btn-small" href="exportar_csv.php?tipo=kardex">Exportar Kardex</a><span class="pill"><?= $unidadesStock ?> unidades</span><span class="pill danger-soft"><?= $stockBajo ?> bajo mínimo</span></div>
  </div>
  <div class="two-col inventory-layout">
   <div>
@@ -2881,7 +2881,7 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("compras")): ?>
 <section id="compras" class="card page-panel">
- <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra la reposición de mercadería; el stock aumenta automáticamente.</p></div><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div>
+ <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra la reposición de mercadería; el stock aumenta automáticamente.</p></div><div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=compras">Exportar CSV</a><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div></div>
  <form method="POST" class="form-grid">
   <div class="field"><label>PROVEEDOR</label><select name="id_proveedor_compra" required><option value="">Seleccione proveedor</option><?php foreach($proveedores as $pr): ?><option value="<?= h($pr["id_proveedor"]) ?>"><?= h($pr["razon_social"]) ?></option><?php endforeach; ?></select></div>
   <div class="field full"><label>PRODUCTOS DE LA COMPRA</label>
@@ -2905,7 +2905,7 @@ input:focus,select:focus,textarea:focus{
 
 <?php if(puede("reportes")): ?>
 <section id="reportes" class="card page-panel">
- <div class="section-intro"><div><h2>Reportes y análisis</h2><p>Selecciona un periodo y revisa ventas, pedidos y productos más vendidos.</p></div><div class="section-actions"><button type="button" class="btn btn-light" onclick="window.print()">Imprimir</button><span class="badge"><?= h($reporteDesde) ?> → <?= h($reporteHasta) ?></span></div></div>
+ <div class="section-intro"><div><h2>Reportes y análisis</h2><p>Selecciona un periodo y revisa ventas, pedidos y productos más vendidos.</p></div><div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=ventas&amp;desde=<?= urlencode($reporteDesde) ?>&amp;hasta=<?= urlencode($reporteHasta) ?>">Descargar ventas CSV</a><button type="button" class="btn btn-light" onclick="window.print()">Imprimir</button><span class="badge"><?= h($reporteDesde) ?> → <?= h($reporteHasta) ?></span></div></div>
 
  <form method="GET" action="dashboard.php#reportes" class="report-filter">
   <div class="field"><label>DESDE</label><input type="date" name="desde" value="<?= h($reporteDesde) ?>"></div>
