@@ -12,6 +12,7 @@ class LocalStore {
   static const _apiBaseUrl = 'api_base_url';
   static const _favorites = 'favorites';
   static const _cart = 'cart';
+  static const _guestCart = 'guest_cart';
   static const _orders = 'orders';
 
   static Future<void> saveSession({
@@ -98,6 +99,34 @@ class LocalStore {
     final prefs = await SharedPreferences.getInstance();
     final encoded = cart.map((key, value) => MapEntry(key.toString(), value));
     await prefs.setString(_cart, jsonEncode(encoded));
+  }
+
+  static Future<Map<int, int>> getGuestCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_guestCart);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      return {
+        for (final entry in data.entries)
+          if (int.tryParse(entry.key) != null &&
+              entry.value is num && (entry.value as num).toInt() > 0)
+            int.parse(entry.key): (entry.value as num).toInt(),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> saveGuestCart(Map<int, int> cart) async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = cart.map((key, value) => MapEntry(key.toString(), value));
+    await prefs.setString(_guestCart, jsonEncode(encoded));
+  }
+
+  static Future<void> clearGuestCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_guestCart);
   }
 
   static Future<void> clearCart() async {
