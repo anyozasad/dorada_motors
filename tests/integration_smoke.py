@@ -109,12 +109,20 @@ def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token
     historial = api(f"pedidos.php?id_usuario={cliente}", token=token)
     estado = next(x for x in historial if int(x["id_pedido"]) == id_pedido)
     assert estado["estado_pedido"] == "Pendiente", estado
+    assert estado["estado_pago"] == "Pendiente", estado
+    assert abs(float(estado["monto_pagado"]) - (mitad / 100)) < 0.01, estado
+    assert abs(float(estado["saldo_pendiente"]) - (restante / 100)) < 0.01, estado
 
     final = admin_api(navegador, "pagos.php", method="POST", csrf=csrf, body={
         **datos, "monto": round(restante / 100, 2),
     }, status=201)
     assert final["saldo_pendiente"] == 0, final
     assert final["estado_pedido"] == "Pagado", final
+    final_flu = api(f"pedidos.php?id_usuario={cliente}", token=token)
+    saldado = next(x for x in final_flu if int(x["id_pedido"]) == id_pedido)
+    assert saldado["estado_pago"] == "Pagado", saldado
+    assert abs(float(saldado["monto_pagado"]) - (total_centimos / 100)) < 0.01
+    assert abs(float(saldado["saldo_pendiente"])) < 0.01
 
     sobrepago = admin_api(navegador, "pagos.php", method="POST", csrf=csrf,
                          body=datos, status=409)
