@@ -219,6 +219,21 @@ CREATE TABLE IF NOT EXISTS favorito (
     REFERENCES producto(id_producto) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS solicitud_soporte (
+  id_solicitud INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  asunto VARCHAR(180) NOT NULL,
+  mensaje TEXT NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'Abierto',
+  respuesta TEXT NULL,
+  fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_actualizacion DATETIME NULL,
+  INDEX idx_soporte_usuario (id_usuario),
+  INDEX idx_soporte_estado_fecha (estado, fecha_creacion),
+  CONSTRAINT fk_soporte_usuario FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO categoria (nombre_categoria) VALUES
 ('Transmisión'),
 ('Frenos'),
