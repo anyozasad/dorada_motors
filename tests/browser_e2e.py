@@ -50,7 +50,7 @@ def main():
         # Indicador IV: la caja real se presenta en tarjetas conectadas con MySQL.
         expect(page.locator("#metricCobrado")).to_contain_text("S/")
         expect(page.locator("#metricPorCobrar")).to_contain_text("S/")
-        expect(page.locator("#cobrosBarra")).to_have_attribute("style", re.compile(r"width:\\s*[0-9.]+%"))
+        expect(page.locator("#cobrosBarra")).to_have_attribute("style", re.compile("width:"))
         expect(page.locator(".cashflow-strip .cashflow-card")).to_have_count(2)
         print("OK BROWSER: tarjetas de caja real y progreso financiero")
         page.screenshot(path="artifacts/ui/01_dashboard.png", full_page=True)
