@@ -1,6 +1,7 @@
 <?php
 include("conexion.php");
 require_once "sistema_bootstrap.php";
+require_once __DIR__ . "/cliente_auth.php";
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -11,6 +12,7 @@ function responderDireccion(array $data, int $status = 200): void {
 }
 
 $metodo = $_SERVER["REQUEST_METHOD"];
+$idClienteSesion = requerirClienteApi($conexion);
 
 if ($metodo === "POST" || $metodo === "PUT") {
     $datos = json_decode(file_get_contents("php://input"), true);
@@ -20,6 +22,7 @@ if ($metodo === "POST" || $metodo === "PUT") {
     }
 
     $idUsuario = (int)($datos["id_usuario"] ?? 0);
+    requerirClienteApi($conexion, $idUsuario);
     $departamento = trim($datos["departamento"] ?? "");
     $provincia = trim($datos["provincia"] ?? "");
     $distrito = trim($datos["distrito"] ?? "");
@@ -64,9 +67,9 @@ if ($metodo === "POST" || $metodo === "PUT") {
     $stmt = $conexion->prepare("
         UPDATE direccion
         SET id_usuario=?,departamento=?,provincia=?,distrito=?,direccion_detalle=?,referencia=?
-        WHERE id_direccion=?
+        WHERE id_direccion=? AND id_usuario=?
     ");
-    $stmt->bind_param("isssssi",$idUsuario,$departamento,$provincia,$distrito,$direccion,$referencia,$idDireccion);
+    $stmt->bind_param("isssssii",$idUsuario,$departamento,$provincia,$distrito,$direccion,$referencia,$idDireccion,$idClienteSesion);
     $stmt->execute();
 
     responderDireccion(["estado"=>true,"mensaje"=>"Dirección actualizada"]);
@@ -87,19 +90,21 @@ if ($metodo === "DELETE") {
         responderDireccion(["estado"=>false,"mensaje"=>"La dirección está asociada a pedidos"], 409);
     }
 
-    $stmt = $conexion->prepare("DELETE FROM direccion WHERE id_direccion=?");
-    $stmt->bind_param("i",$idDireccion);
+    $stmt = $conexion->prepare("DELETE FROM direccion WHERE id_direccion=? AND id_usuario=?");
+    $stmt->bind_param("ii",$idDireccion,$idClienteSesion);
     $stmt->execute();
 
     responderDireccion(["estado"=>true,"mensaje"=>"Dirección eliminada"]);
 }
 
 $idUsuario = (int)($_GET["id_usuario"] ?? 0);
+if ($idUsuario <= 0) $idUsuario = $idClienteSesion;
+requerirClienteApi($conexion, $idUsuario);
 $idDireccion = (int)($_GET["id"] ?? 0);
 
 if ($idDireccion > 0) {
-    $stmt = $conexion->prepare("SELECT * FROM direccion WHERE id_direccion=? LIMIT 1");
-    $stmt->bind_param("i",$idDireccion);
+    $stmt = $conexion->prepare("SELECT * FROM direccion WHERE id_direccion=? AND id_usuario=? LIMIT 1");
+    $stmt->bind_param("ii",$idDireccion,$idClienteSesion);
     $stmt->execute();
     $fila = $stmt->get_result()->fetch_assoc();
     if (!$fila) responderDireccion(["estado"=>false,"mensaje"=>"Dirección no encontrada"], 404);
