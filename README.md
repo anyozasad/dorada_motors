@@ -30,7 +30,7 @@ flutter pub get
 flutter run -d chrome --web-port 8080
 ```
 
-**Primera instalación:** la API prepara automáticamente la base de datos `dorada_motors` y sus 17 tablas cuando se usan sus rutas. Si la base de datos es nueva y el catálogo está vacío, `dorada_motors.sql` incorpora 19 productos de demostración con imágenes locales. No sustituye ni borra productos ya registrados. Si la base fue creada antes de incorporar el catálogo de ejemplo y sigue vacía, ejecuta una vez `dorada_motors.sql` en phpMyAdmin.
+**Primera instalación:** la API prepara automáticamente la base de datos `dorada_motors` y sus 18 tablas cuando se usan sus rutas. Si la base de datos es nueva y el catálogo está vacío, `dorada_motors.sql` incorpora 19 productos de demostración con imágenes locales. No sustituye ni borra productos ya registrados. Si la base fue creada antes de incorporar el catálogo de ejemplo y sigue vacía, ejecuta una vez `dorada_motors.sql` en phpMyAdmin.
 
 **URLs de prueba:**
 - Dashboard protegido: http://localhost/dorada_api/admin_login.php
@@ -42,9 +42,9 @@ flutter run -d chrome --web-port 8080
 
 1. En el dashboard PHP, registrar o editar un producto, precio o stock.
 2. En Flutter, abrir el catálogo o pulsar **Reintentar** para actualizarlo y verificar que el producto aparece.
-3. Crear una cuenta de cliente e iniciar sesión en Flutter. El primer acceso al panel PHP permite crear el administrador inicial.
-4. Agregar un producto a **Favoritos** y al **Carrito** y comprobar ambos datos en MySQL.
-5. Completar un pedido con recojo o delivery y verificar la tarifa de entrega configurada en PHP.
+3. Crear una cuenta de cliente, editar el perfil y cambiar la contraseña desde Flutter. El primer acceso al panel PHP permite crear el administrador inicial.
+4. Agregar un producto a **Favoritos** y al **Carrito** y comprobar ambos datos en MySQL. Desde **Ayuda y soporte**, enviar una consulta y responderla en la nueva sección del panel PHP.
+5. Completar un pedido con recojo o delivery, elegir una dirección guardada en MySQL y verificar la tarifa de entrega configurada en PHP.
 6. Verificar en PHP el pedido, el pago pendiente y los movimientos de stock. Confirmar el pago desde el dashboard.
 7. Emitir e imprimir un comprobante de demostración, y revisar en Flutter **Mis pedidos** y sus estados.
 8. Probar en PHP la cancelación de un pedido pendiente y comprobar que se repone el inventario.
@@ -100,11 +100,15 @@ GitHub Actions ejecuta la sintaxis de PHP, el análisis y las pruebas Flutter, y
 - `lib/services/local_store.dart`: preferencias y respaldo local.
 - `dorada_api/conexion.php`: conexión y preparación MySQL.
 - `dorada_api/cliente_auth.php`: autenticación de clientes.
+- `dorada_api/cuenta.php`: edición de cuenta y cambio de contraseña.
+- `dorada_api/soporte.php`: envío y seguimiento de solicitudes del cliente.
 - `dorada_api/dashboard.php`: panel administrativo.
 - `dorada_api/config_publica.php`: tarifa de entrega compartida con Flutter.
 - `dorada_api/carrito.php` y `dorada_api/favoritos.php`: datos persistidos en MySQL por cliente.
-- `tests/integration_smoke.py`: prueba real de todos los flujos contra PHP y MySQL.
+- `tests/integration_smoke.py`: pruebas de integración real contra PHP y MySQL (clientes, soporte, pedidos, inventario, compras y otros flujos).
+- `MATRIZ_VALIDACION_FUNCIONAL_150.md`: matriz de los 150 requisitos del panel para verificar cada punto con el profesor.
+- `VERIFICAR_SISTEMA.ps1`: verificación local de XAMPP, API pública/privada, PHP y Flutter.
 - `dorada_api/dorada_motors.sql`: esquema y ejemplos para una instalación vacía.
 - `dorada_api/LEEME_PROFESOR.txt`: guía de evaluación.
 
-> La ejecución real depende de que Apache, MySQL y Flutter estén instalados y configurados en la computadora donde se presentará el proyecto.
+> La ejecución real depende de que Apache, MySQL y Flutter estén instalados y configurados en la computadora donde se presentará el proyecto. La matriz enumera los 150 requisitos; las pruebas automáticas no certifican por sí solas los 150 casos de uso.
