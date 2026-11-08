@@ -37,6 +37,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _page = 0;
   String _search = '';
+  final TextEditingController _searchController = TextEditingController();
   String _category = 'Todos';
   String _brand = 'Todas';
   String _vehicle = 'Todos';
@@ -56,6 +57,12 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _loadLocalData();
     _loadCatalogoApi();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<int> _idCliente() async {
@@ -1281,7 +1288,7 @@ class _MainShellState extends State<MainShell> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Todo para tu moto\\nen un solo lugar',
+                        'Todo para tu moto\nen un solo lugar',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: compacto ? 26 : 30,
@@ -1306,6 +1313,7 @@ class _MainShellState extends State<MainShell> {
                           FilledButton.icon(
                             onPressed: () => setState(() {
                               _search = '';
+                              _searchController.clear();
                               _category = 'Todos';
                               _page = 1;
                             }),
@@ -1378,6 +1386,7 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
             child: TextField(
+              controller: _searchController,
               textInputAction: TextInputAction.search,
               onChanged: (value) => setState(() => _search = value),
               onSubmitted: (value) => setState(() {
@@ -1397,7 +1406,10 @@ class _MainShellState extends State<MainShell> {
                         ? IconButton(
                             tooltip: 'Limpiar búsqueda',
                             icon: const Icon(Icons.close_rounded),
-                            onPressed: () => setState(() => _search = ''),
+                            onPressed: () => setState(() {
+                              _search = '';
+                              _searchController.clear();
+                            }),
                           )
                         : null),
               ),
