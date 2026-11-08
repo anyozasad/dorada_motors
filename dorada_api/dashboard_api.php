@@ -70,6 +70,13 @@ try {
            AND LOWER(estado_pedido)<>'cancelado'"
     )->fetch_assoc()["total"];
 
+    $soportePendiente = puede("soporte")
+        ? (int)$conexion->query(
+            "SELECT COUNT(*) AS total FROM solicitud_soporte
+             WHERE estado IN ('Abierto','En proceso')"
+          )->fetch_assoc()["total"]
+        : 0;
+
     $stockBajo = (int)$conexion->query(
         "SELECT COUNT(*) AS total FROM producto WHERE stock<=stock_minimo"
     )->fetch_assoc()["total"];
@@ -179,6 +186,7 @@ try {
         "ventas" => $totalVentas,
         "ventas_hoy" => $ventasHoy,
         "ventas_mes" => $ventasMes,
+        "soporte_pendiente" => $soportePendiente,
         "stock_bajo" => $stockBajo,
         "stock_critico" => $stockCritico,
         "proveedores" => $proveedores,
