@@ -209,6 +209,7 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "contrasena": "ClaveAdmin_2026",
         "confirmar_contrasena": "ClaveAdmin_2026",
     })
+    assert "YP-45678123" in creada, "No se muestra la referencia en pagos administrativos"
     assert "Producto" in creada and "Pedidos" in creada, (
         "No se abrió el dashboard tras crear el administrador"
     )
@@ -628,6 +629,22 @@ def main():
     assert registrado["estado_pedido"] == "Pendiente", registrado
     assert registrado["metodo_pago"] == "Yape", registrado
     assert int(registrado["items"][0]["cantidad"]) == 2, registrado
+
+    # El cliente reporta un código Yape, pero la API nunca confirma el cobro.
+    assert api("cliente_reportar_pago.php", method="POST", status=401,
+               body={"id_pedido": id_pedido, "referencia": "YP-45678123"})["estado"] is False
+    assert api("cliente_reportar_pago.php", method="POST", token=otro_token,
+               status=404, body={"id_pedido": id_pedido,
+                                 "referencia": "YP-45678123"})["estado"] is False
+    referencia = api("cliente_reportar_pago.php", method="POST", token=token,
+                     body={"id_pedido": id_pedido, "referencia": "YP-45678123"})
+    assert referencia["estado"] is True, referencia
+    assert referencia["estado_pago"] == "Pendiente", referencia
+    con_referencia = api(f"pedidos.php?id_usuario={id_usuario}", token=token)
+    reporte = next(p for p in con_referencia if int(p["id_pedido"]) == id_pedido)
+    assert reporte["referencia_pago"] == "YP-45678123", reporte
+    assert reporte["estado_pago"] == "Pendiente", reporte
+    print("OK: referencia Yape privada, visible y pendiente de validación.")
 
     # La compra vacía el carrito del servidor.
     carrito_final = api(f"carrito.php?id_usuario={id_usuario}", token=token)
