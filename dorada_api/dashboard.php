@@ -276,27 +276,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Completa los datos obligatorios del producto", "error", "gestion-productos");
             }
 
-            $stmt = $conexion->prepare("
-                INSERT INTO producto
-                (id_categoria, id_marca, nombre_producto, descripcion, tipo_vehiculo, compatibilidad, precio, precio_oferta, stock, stock_minimo, imagen_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?,0), ?, ?, ?)
-            ");
-            $stmt->bind_param("iissssddiis", $idCategoria, $idMarca, $nombre, $descripcion, $tipoVehiculo, $compatibilidad, $precio, $precioOferta, $stock, $stockMinimo, $imagen);
-            $stmt->execute();
-            redir("Producto registrado correctamente", "ok", "gestion-productos");
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare("
+                    INSERT INTO producto
+                    (id_categoria,id_marca,nombre_producto,descripcion,tipo_vehiculo,compatibilidad,precio,precio_oferta,stock,stock_minimo,imagen_url)
+                    VALUES (?,?,?,?,?,?,?,NULLIF(?,0),?,?,?)
+                ");
+                $stmt->bind_param("iissssddiis", $idCategoria, $idMarca, $nombre, $descripcion, $tipoVehiculo, $compatibilidad, $precio, $precioOferta, $stock, $stockMinimo, $imagen);
+                $stmt->execute();
+                $idProductoNuevo = (int)$conexion->insert_id;
+
+                if ($stock > 0) {
+                    $tipoMovimiento = "Entrada";
+                    $motivoMovimiento = "Stock inicial desde dashboard";
+                    $stockAnterior = 0;
+                    $stmt = $conexion->prepare("
+                        INSERT INTO movimiento_stock
+                        (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                        VALUES (?,?,?,?,NOW(),?,?)
+                    ");
+                    $stmt->bind_param("isisii", $idProductoNuevo, $tipoMovimiento, $stock, $motivoMovimiento, $stockAnterior, $stock);
+                    $stmt->execute();
+                }
+
+                $conexion->commit();
+                redir("Producto registrado correctamente", "ok", "gestion-productos");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                error_log("Registrar producto PHP: ".$e->getMessage());
+                redir("No se pudo registrar el producto. Revisa categoría, marca y datos.", "error", "gestion-productos");
+            }
         }
 
         if (isset($_POST["actualizar_producto"])) {
             $idProducto = (int)($_POST["id_producto"] ?? 0);
 
-            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? LIMIT 1");
-            $stmt->bind_param("i", $idProducto);
-            $stmt->execute();
-            $productoStockAnterior = $stmt->get_result()->fetch_assoc();
-            if (!$productoStockAnterior) {
-                redir("Producto no encontrado", "error", "gestion-productos");
-            }
-            $stockAntesEdicion = (int)$productoStockAnterior["stock"];
+            if ($idProducto <= 0) redir("Selecciona un producto válido", "error", "gestion-productos");
             $idCategoria = (int)($_POST["id_categoria"] ?? 0);
             $idMarca = (int)($_POST["id_marca"] ?? 0);
             $nombre = trim($_POST["nombre_producto"] ?? "");
@@ -318,64 +334,85 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $imagenBase = $imagenManual !== "" ? $imagenManual : $imagenActual;
             $imagen = guardarImagenProducto($_FILES["imagen_archivo"] ?? null, $imagenBase);
 
-            $stmt = $conexion->prepare("
-                UPDATE producto
-                SET id_categoria=?, id_marca=?, nombre_producto=?, descripcion=?, tipo_vehiculo=?, compatibilidad=?,
-                    precio=?, precio_oferta=NULLIF(?,0), stock=?, stock_minimo=?, imagen_url=?
-                WHERE id_producto=?
-            ");
-            $stmt->bind_param("iissssddiisi", $idCategoria, $idMarca, $nombre, $descripcion, $tipoVehiculo, $compatibilidad, $precio, $precioOferta, $stock, $stockMinimo, $imagen, $idProducto);
-            $stmt->execute();
-
-            if ($stock !== $stockAntesEdicion) {
-                $tipoMovimiento = $stock > $stockAntesEdicion ? "Entrada" : "Salida";
-                $cantidadMovimiento = abs($stock - $stockAntesEdicion);
-                $motivoMovimiento = "Ajuste desde edición de producto";
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare(
+                    "SELECT stock FROM producto WHERE id_producto=? FOR UPDATE"
+                );
+                $stmt->bind_param("i", $idProducto);
+                $stmt->execute();
+                $productoStockAnterior = $stmt->get_result()->fetch_assoc();
+                if (!$productoStockAnterior) throw new RuntimeException("Producto no encontrado");
+                $stockAntesEdicion = (int)$productoStockAnterior["stock"];
 
                 $stmt = $conexion->prepare("
-                    INSERT INTO movimiento_stock
-                    (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
-                    VALUES (?,?,?,?,NOW(),?,?)
+                    UPDATE producto
+                    SET id_categoria=?,id_marca=?,nombre_producto=?,descripcion=?,tipo_vehiculo=?,compatibilidad=?,
+                        precio=?,precio_oferta=NULLIF(?,0),stock=?,stock_minimo=?,imagen_url=?
+                    WHERE id_producto=?
                 ");
-                $stmt->bind_param(
-                    "isisii",
-                    $idProducto,
-                    $tipoMovimiento,
-                    $cantidadMovimiento,
-                    $motivoMovimiento,
-                    $stockAntesEdicion,
-                    $stock
-                );
+                $stmt->bind_param("iissssddiisi", $idCategoria, $idMarca, $nombre, $descripcion, $tipoVehiculo, $compatibilidad, $precio, $precioOferta, $stock, $stockMinimo, $imagen, $idProducto);
                 $stmt->execute();
-            }
 
-            redir("Producto actualizado correctamente", "ok", "gestion-productos");
+                if ($stock !== $stockAntesEdicion) {
+                    $tipoMovimiento = $stock > $stockAntesEdicion ? "Entrada" : "Salida";
+                    $cantidadMovimiento = abs($stock - $stockAntesEdicion);
+                    $motivoMovimiento = "Ajuste desde edición de producto";
+                    $stmt = $conexion->prepare("
+                        INSERT INTO movimiento_stock
+                        (id_producto,tipo_movimiento,cantidad,motivo,fecha_movimiento,stock_anterior,stock_nuevo)
+                        VALUES (?,?,?,?,NOW(),?,?)
+                    ");
+                    $stmt->bind_param(
+                        "isisii",$idProducto,$tipoMovimiento,$cantidadMovimiento,
+                        $motivoMovimiento,$stockAntesEdicion,$stock
+                    );
+                    $stmt->execute();
+                }
+
+                $conexion->commit();
+                redir("Producto actualizado correctamente", "ok", "gestion-productos");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                error_log("Actualizar producto PHP: ".$e->getMessage());
+                redir("No se pudo actualizar el producto. Revisa datos y stock.", "error", "gestion-productos");
+            }
         }
 
         if (isset($_POST["eliminar_producto"])) {
             $idProducto = (int)($_POST["id_producto"] ?? 0);
 
-            $stmt = $conexion->prepare("
-                SELECT
-                    (SELECT COUNT(*) FROM detalle_pedido WHERE id_producto=?) +
-                    (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) AS total
-            ");
-            $stmt->bind_param("ii", $idProducto, $idProducto);
-            $stmt->execute();
-            $usos = (int)$stmt->get_result()->fetch_assoc()["total"];
+            if ($idProducto <= 0) redir("Producto inválido", "error", "gestion-productos");
+            $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare("SELECT id_producto FROM producto WHERE id_producto=? FOR UPDATE");
+                $stmt->bind_param("i", $idProducto);
+                $stmt->execute();
+                if (!$stmt->get_result()->fetch_assoc()) throw new RuntimeException("Producto no encontrado");
 
-            if ($usos > 0) {
-                redir("No se puede eliminar: el producto ya tiene movimientos registrados", "error", "gestion-productos");
+                $stmt = $conexion->prepare("
+                    SELECT
+                        (SELECT COUNT(*) FROM detalle_pedido WHERE id_producto=?) +
+                        (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) AS total
+                ");
+                $stmt->bind_param("ii", $idProducto, $idProducto);
+                $stmt->execute();
+                if ((int)$stmt->get_result()->fetch_assoc()["total"] > 0) {
+                    throw new RuntimeException("No se puede eliminar: el producto ya tiene movimientos registrados");
+                }
+                $stmt = $conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
+                $stmt->bind_param("i", $idProducto);
+                $stmt->execute();
+                $stmt = $conexion->prepare("DELETE FROM producto WHERE id_producto=?");
+                $stmt->bind_param("i", $idProducto);
+                $stmt->execute();
+                $conexion->commit();
+                redir("Producto eliminado correctamente", "ok", "gestion-productos");
+            } catch (Throwable $e) {
+                $conexion->rollback();
+                redir($e instanceof RuntimeException
+                    ? $e->getMessage() : "No se pudo eliminar el producto", "error", "gestion-productos");
             }
-
-            $stmt = $conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
-            $stmt->bind_param("i", $idProducto);
-            $stmt->execute();
-
-            $stmt = $conexion->prepare("DELETE FROM producto WHERE id_producto=?");
-            $stmt->bind_param("i", $idProducto);
-            $stmt->execute();
-            redir("Producto eliminado correctamente", "ok", "gestion-productos");
         }
 
         /* ================= CATEGORÍAS ================= */
