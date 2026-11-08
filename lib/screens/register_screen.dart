@@ -210,8 +210,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     icon: Icon(_hidePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                                   ),
                                 ),
-                                validator: (value) => (value == null || value.length < 6)
-                                    ? 'Mínimo 6 caracteres.'
+                                validator: (value) => (value == null || value.length < 8)
+                                    ? 'Mínimo 8 caracteres.'
                                     : null,
                               ),
                               const SizedBox(height: 10),
