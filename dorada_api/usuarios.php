@@ -72,10 +72,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 
-    if (strlen($contrasenaPlano) < 6) {
+    if (strlen($contrasenaPlano) < 8 || strlen($contrasenaPlano) > 128) {
         echo json_encode([
             "estado" => false,
-            "mensaje" => "La contraseña debe tener al menos 6 caracteres"
+            "mensaje" => "La contraseña debe tener entre 8 y 128 caracteres"
         ]);
         exit;
     }
