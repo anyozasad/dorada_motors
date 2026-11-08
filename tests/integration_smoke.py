@@ -675,6 +675,39 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert pagado_yape["referencia_pago"] == "YAPE-20261107", pagado_yape
     print("OK: referencia de Yape, verificación administrativa y estado pagado en Flutter.")
 
+    # Venta contra entrega: confirmar el abono no retrocede una entrega Enviada.
+    pedido_contraentrega = api("pedidos.php", method="POST", token=otro_token,
+                              status=201, body={
+        "id_usuario": otro_id,"tipo_entrega":"Recojo en tienda",
+        "metodo_pago":"Efectivo",
+        "items":[{"id_producto":id_producto,"cantidad":1}],
+    })
+    id_contraentrega = int(pedido_contraentrega["id_pedido"])
+    for estado in ["Procesando","Enviado"]:
+        respuesta = admin_page(navegador,"dashboard.php",form={
+            "csrf_token":csrf,"actualizar_estado_pedido":"1",
+            "id_pedido":id_contraentrega,"estado_pedido":estado,
+        })
+        assert "Estado del pedido actualizado" in respuesta, respuesta[:250]
+    cobrado = admin_page(navegador,"dashboard.php",form={
+        "csrf_token":csrf,"registrar_pago_manual":"1",
+        "id_pedido_pago":id_contraentrega,"metodo_pago_manual":"Efectivo",
+        "monto_pago":str(pedido_contraentrega["total"]),
+        "estado_pago_manual":"Pagado",
+    })
+    assert "Pago registrado correctamente" in cobrado, cobrado[:250]
+    historial_envio = api(f"pedidos.php?id_usuario={otro_id}",token=otro_token)
+    enviado = next(p for p in historial_envio if int(p["id_pedido"])==id_contraentrega)
+    assert enviado["estado_pedido"] == "Enviado", enviado
+    completado = admin_page(navegador,"dashboard.php",form={
+        "csrf_token":csrf,"actualizar_estado_pedido":"1",
+        "id_pedido":id_contraentrega,"estado_pedido":"Completado",
+    })
+    assert "Estado del pedido actualizado" in completado, completado[:250]
+    assert next(p for p in api(f"pedidos.php?id_usuario={otro_id}",token=otro_token)
+                if int(p["id_pedido"])==id_contraentrega)["estado_pedido"]=="Completado"
+    print("OK: envío, pago contraentrega y finalización sin regresión de estado.")
+
     # Un comprobante todavía no emitido no debe mostrarse en Flutter.
     sin_emitir = api(
         f"cliente_comprobante.php?id_pedido={id_otro_pedido}",
