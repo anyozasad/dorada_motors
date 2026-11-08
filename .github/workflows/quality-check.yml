@@ -19,6 +19,23 @@ jobs:
         run: find PHP/dorada_api -type f -name "*.php" -print0 | xargs -0 -n1 php -l
       - name: Dashboard 150 structural validation
         run: php PHP/VALIDAR_DASHBOARD_150.php
+      - name: Revisar metadatos y resguardo de archivos sensibles
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("PHP/dorada_api")
+          regla = (base / ".htaccess").read_text(encoding="utf-8")
+          privada = (base / "data/.htaccess").read_text(encoding="utf-8")
+          assert "FilesMatch" in regla and "sql" in regla and "Require all denied" in regla
+          assert "Require all denied" in privada
+          manifest = json.loads(Path("Flutter/web/manifest.json").read_text(encoding="utf-8"))
+          assert "Dorada Motors" in manifest["name"]
+          assert manifest["description"] != "A new Flutter project."
+          html = Path("Flutter/web/index.html").read_text(encoding="utf-8")
+          assert "<title>Dorada Motors" in html
+          print("OK: identidad web y reglas de protección de archivos")
+          PY
 
   flutter:
     name: Flutter analyze and tests
@@ -118,6 +135,9 @@ jobs:
             }
             if (!($archivo.Entries | Where-Object { $_.FullName -eq 'PHP/dorada_api/data/.htaccess' })) {
               throw "Falta .htaccess para proteger los datos internos de PHP."
+            }
+            if (!($archivo.Entries | Where-Object { $_.FullName -eq 'PHP/dorada_api/.htaccess' })) {
+              throw "Falta la proteccion del esquema SQL en la raiz de la API."
             }
             if ($archivo.Entries.Count -lt 100) {
               throw "El ZIP no contiene todos los archivos del proyecto."
