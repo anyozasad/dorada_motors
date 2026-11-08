@@ -14,7 +14,7 @@ $resultado = [
     "conexion_mysql" => false,
     "base_datos" => "",
     "tablas_encontradas" => 0,
-    "tablas_requeridas" => 17,
+    "tablas_requeridas" => 18,
     "columnas_producto" => 0,
     "columnas_producto_requeridas" => 4,
     "columnas_usuario" => 0,
@@ -32,7 +32,7 @@ try {
     $tablas = [
         "usuario","direccion","categoria","marca","producto",
         "pedido","detalle_pedido","pago","proveedor","compra",
-        "detalle_compra","movimiento_stock","comprobante","sesion_cliente","carrito","detalle_carrito","favorito"
+        "detalle_compra","movimiento_stock","comprobante","sesion_cliente","carrito","detalle_carrito","favorito","solicitud_soporte"
     ];
 
     $encontradas = 0;
@@ -90,7 +90,7 @@ try {
     $resultado["estado"] =
         $resultado["conexion_mysql"] &&
         $resultado["base_datos"] === "dorada_motors" &&
-        $resultado["tablas_encontradas"] === 17 &&
+        $resultado["tablas_encontradas"] === 18 &&
         $resultado["columnas_producto"] === 4 &&
         $resultado["columnas_usuario"] === 2 &&
         $resultado["escritura"];
