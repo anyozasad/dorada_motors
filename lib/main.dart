@@ -66,7 +66,13 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Future<void> _logout() async {
-    await ApiService.cerrarSesion();
+    // El usuario debe poder salir del dispositivo aunque XAMPP esté apagado.
+    // El token remoto caduca automáticamente; la sesión local se elimina siempre.
+    try {
+      await ApiService.cerrarSesion();
+    } catch (_) {
+      // Nunca bloquear el cierre de sesión por una falla de red.
+    }
     await LocalStore.logout();
     await LocalStore.clearCart();
     await LocalStore.saveFavorites(<int>{});
