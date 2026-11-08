@@ -4,6 +4,7 @@ import '../models/pedido.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/pedido_estado_badge.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -441,7 +442,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           title: Row(
             children: [
               Expanded(child: Text(order.id, style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.ink))),
-              _statusChip(order.estado),
+              PedidoEstadoBadge(estado: order.estado),
             ],
           ),
           subtitle: Padding(
@@ -533,21 +534,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _statusChip(String status) {
-    final isPending = status.toLowerCase().contains('pend');
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: isPending ? AppColors.goldSoft : const Color(0xFFE8F7EF),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isPending ? AppColors.goldDark : AppColors.success),
       ),
     );
   }
