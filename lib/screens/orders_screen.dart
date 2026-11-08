@@ -67,6 +67,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
           comprobanteId: int.tryParse(row['id_comprobante']?.toString() ?? '') ?? 0,
           metodoPago: row['metodo_pago']?.toString() ?? 'Pendiente',
           estadoPago: row['estado_pago']?.toString() ?? 'Pendiente',
+          montoPagado: double.tryParse(row['monto_pagado']?.toString() ?? '') ?? 0,
+          saldoPendiente: double.tryParse(row['saldo_pendiente']?.toString() ?? '') ?? 0,
           referenciaPago: row['referencia_pago']?.toString() ?? '',
           tipoEntrega:
               row['tipo_entrega']?.toString() ?? 'Recojo en tienda',
@@ -469,6 +471,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
             _infoRow(Icons.local_shipping_outlined, 'Entrega', order.tipoEntrega),
             _infoRow(Icons.account_balance_wallet_outlined, 'Pago',
                 '${order.metodoPago} · ${order.estadoPago}'),
+            if (order.montoPagado > 0)
+              _infoRow(Icons.check_circle_outline, 'Abonado',
+                  'S/ ${order.montoPagado.toStringAsFixed(2)}'),
+            if (order.estado != 'Cancelado' && order.saldoPendiente > 0)
+              _infoRow(Icons.hourglass_bottom_outlined, 'Saldo pendiente',
+                  'S/ ${order.saldoPendiente.toStringAsFixed(2)}'),
             if (order.referenciaPago.isNotEmpty)
               _infoRow(Icons.numbers_outlined, 'Operación', order.referenciaPago),
             if (order.estadoPago == 'Pendiente' &&
