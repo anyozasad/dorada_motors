@@ -35,6 +35,8 @@ class Pedido {
   final String metodoPago;
   final int comprobanteId;
   final String estadoPago;
+  final double montoPagado;
+  final double saldoPendiente;
   final String referenciaPago;
   final String tipoEntrega;
   final String direccion;
@@ -49,6 +51,8 @@ class Pedido {
     required this.metodoPago,
     this.comprobanteId = 0,
     this.estadoPago = 'Pendiente',
+    this.montoPagado = 0,
+    this.saldoPendiente = 0,
     this.referenciaPago = '',
     required this.tipoEntrega,
     required this.direccion,
@@ -64,6 +68,8 @@ class Pedido {
         'metodoPago': metodoPago,
         'comprobanteId': comprobanteId,
         'estadoPago': estadoPago,
+        'montoPagado': montoPagado,
+        'saldoPendiente': saldoPendiente,
         'referenciaPago': referenciaPago,
         'tipoEntrega': tipoEntrega,
         'direccion': direccion,
@@ -79,6 +85,8 @@ class Pedido {
         metodoPago: json['metodoPago'] as String,
         comprobanteId: int.tryParse(json['comprobanteId']?.toString() ?? '') ?? 0,
         estadoPago: json['estadoPago']?.toString() ?? 'Pendiente',
+        montoPagado: double.tryParse(json['montoPagado']?.toString() ?? '') ?? 0,
+        saldoPendiente: double.tryParse(json['saldoPendiente']?.toString() ?? '') ?? 0,
         referenciaPago: json['referenciaPago']?.toString() ?? '',
         tipoEntrega: json['tipoEntrega'] as String,
         direccion: json['direccion'] as String,
