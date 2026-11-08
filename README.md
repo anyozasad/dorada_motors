@@ -69,7 +69,9 @@ De forma predeterminada:
 - Flutter Web / Chrome en la misma PC: `http://localhost/dorada_api`
 - Emulador Android: `http://10.0.2.2/dorada_api`
 
-Para otro dispositivo conectado a la misma red, proporcionar la IP local de la PC con el backend:
+Para un celular Samsung/Android real conectado al mismo Wi-Fi que la PC donde corre XAMPP, abre la aplicación y pulsa **Configurar conexión con PHP** en el login, antes de iniciar sesión. Escribe `http://IP_DE_TU_PC/dorada_api` y pulsa **Probar conexión**. Solo se guarda la dirección si la API responde correctamente.
+
+También puedes iniciar Flutter desde la consola indicando la IP local de XAMPP:
 
 ```powershell
 flutter run -d android --dart-define=API_BASE_URL=http://IP_DE_TU_PC/dorada_api
