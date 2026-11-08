@@ -2414,6 +2414,107 @@ input:focus,select:focus,textarea:focus{
  .mobile-bottom a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:9px;font-weight:800}.mobile-bottom a.active{color:#a7780a}
 }
 @media(max-width:480px){.ops-strip{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr 1fr}.system-grid,.detail-grid,.report-stats{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.metric-icon{width:38px;height:38px}.metric-value{font-size:17px}.metric-label{font-size:10px}.quick-actions{grid-template-columns:repeat(2,1fr)}.stats-row{grid-template-columns:1fr}}
+/* Pulido de interfaz: mantiene la estructura actual y hace legibles todos los módulos. */
+:root{
+ --bg:#f6f7fa;
+ --text:#172033;
+ --muted:#5b6778;
+ --border:#e5e9f0;
+ --shadow:0 8px 28px rgba(21,24,32,.055);
+}
+body{line-height:1.5;-webkit-font-smoothing:antialiased}
+.card,.metric,.ops-card,.config-card,.detail-card{border-radius:18px}
+.card{padding:20px}
+.card-head h2,.section-title h2{font-size:17px;line-height:1.3}
+.section-intro h2{font-size:20px;line-height:1.25}
+.section-intro p,.heading p{font-size:13px;line-height:1.55}
+.brand-hero p{font-size:13px;line-height:1.55}
+.metric-label{font-size:12px}
+.metric-value{font-size:23px;line-height:1.2;overflow-wrap:anywhere}
+.metric small,.compact-row small,.system-card p,.filter-title small,
+.help-card p,.ops-card p,.report-actions-card p,.info-panel p,
+.detail-head p,.table-sub,.product-cell small{font-size:11px;line-height:1.45}
+.compact-row strong,.compact-row>b,.product-cell strong,
+.top-product strong,.top-product span,.system-card strong,
+.inventory-summary strong,.inventory-summary small{font-size:12px}
+.nav-submenu a{font-size:12px!important}
+.badge,.pill,.status-pill,.stock,.status,.rank{font-size:11px}
+.field label,.filter-title strong,.ops-card small{font-size:12px}
+.field input,.field select,.field textarea,.inline-form input,.inline-form select,
+.filter-toolbar select{min-height:42px;font-size:13px;line-height:1.35}
+.field input::placeholder,.field textarea::placeholder{color:#8994a4}
+.btn{min-height:39px;font-size:12px;line-height:1.3;padding:10px 15px}
+.btn-small{min-height:34px;font-size:11px;padding:8px 10px}
+.action-btn,.icon-btn{min-width:36px;min-height:36px}
+.card-head a,.filter-toolbar select,.inline-form,.section-actions{font-size:12px}
+table{border-collapse:separate;border-spacing:0}
+th{font-size:11px;line-height:1.45;letter-spacing:.35px;padding:12px}
+td{font-size:12px;line-height:1.5;padding:13px 11px;overflow-wrap:anywhere}
+tbody tr:nth-child(even){background:#fcfdff}
+tbody tr:hover{background:#fff6ef}
+.product-thumb{object-fit:contain;padding:3px;background:#f8fafc}
+.product-placeholder{background:linear-gradient(135deg,#292d35,#434a55)}
+.price{font-size:13px;color:#c74b12}
+.empty-cell{font-size:13px;padding:30px 20px!important}
+.alert{font-size:13px;line-height:1.5;border:1px solid transparent}
+.alert.ok{border-color:#bce9d1}.alert.error{border-color:#f6c8ce}
+.quick{font-size:12px;line-height:1.35;min-height:82px}
+.chart .day,.bar-tip{font-size:11px}
+.system-grid,.ops-strip{align-items:stretch}
+.system-card{background:#fff}
+.system-icon,.ops-icon{flex:0 0 auto}
+.filter-toolbar,.action-bar,.report-filter,.form-grid{background:#fbfcfe}
+.detail-grid strong{font-size:13px}
+.detail-grid small,.detail-head small{font-size:11px}
+.section-actions .btn,.form-actions .btn{white-space:normal}
+.btn:disabled,button:disabled{opacity:.55;cursor:not-allowed}
+a:focus-visible,button:focus-visible,input:focus-visible,
+select:focus-visible,textarea:focus-visible{
+ outline:3px solid rgba(255,106,0,.60);outline-offset:2px
+}
+.status-pill.success{background:#ddf7eb;color:#08754a}
+.status-pill.warning{background:#fff0d6;color:#805500}
+.status-pill.danger{background:#ffe8ea;color:#ae1e30}
+@media(max-width:820px){
+ .content{padding:15px}
+ .topbar{gap:12px}
+ .card{padding:16px}
+ .section-intro{align-items:flex-start;flex-wrap:wrap;padding:16px}
+ .section-intro .section-actions{width:100%}
+ .section-actions{justify-content:flex-start}
+ .metrics{gap:10px}
+ .metric{align-items:flex-start}
+ .metric-value{font-size:21px}
+ .brand-hero{position:relative}
+ .mobile-bottom{height:74px;padding-bottom:env(safe-area-inset-bottom,0px)}
+ body{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+ .mobile-bottom a{font-size:11px;line-height:1.2;min-width:0}
+ .section-title{top:64px}
+ .table-wrap{max-width:100%;border:1px solid var(--border);border-radius:12px}
+ .table-wrap table{min-width:670px}
+}
+@media(max-width:480px){
+ .content{padding:12px}
+ .card{padding:14px}
+ .metric{padding:12px}
+ .metric-icon{width:40px;height:40px}
+ .metric-value{font-size:19px}
+ .metric-label{font-size:11px}
+ .section-intro h2{font-size:18px}
+ .heading h1{font-size:22px}
+ .form-actions{display:grid;grid-template-columns:1fr}
+ .form-actions .btn{width:100%}
+ .filter-title{width:100%}
+ .action-bar input{min-width:0;width:100%}
+ .report-filter .field{min-width:0;width:100%}
+ .report-filter .btn{width:100%}
+ .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){
+ .brand-hero,#liveStatus{animation:none!important}
+ .metric:hover,.ops-card:hover,.quick:hover,.card:hover{transform:none}
+}
+
 @media print{.sidebar,.topbar,.mobile-bottom,.btn,.section-actions{display:none!important}.app{display:block}.content{padding:0;max-width:none}.page-panel{display:none!important}#reportes{display:block!important;box-shadow:none;border:0}.card{box-shadow:none}.stats-row{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
