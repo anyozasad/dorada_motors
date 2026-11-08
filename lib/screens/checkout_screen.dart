@@ -353,12 +353,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     ? Image.network(
                                         p.imagen,
                                         fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
+                                        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported_outlined),
                                       )
                                     : Image.asset(
                                         p.imagen,
                                         fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined),
+                                        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported_outlined),
                                       ),
                               ),
                             ),
