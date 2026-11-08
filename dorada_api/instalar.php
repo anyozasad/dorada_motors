@@ -59,7 +59,7 @@ try {
  <h1 class="title">Preparar base de datos</h1>
 
  <?php if($ok): ?>
-  <div class="msg ok"><strong>✓ Base de datos lista.</strong><br>Se creó/verificó <b>dorada_motors</b> con 17 tablas (incluido carrito, favoritos y sesiones), categorías y marcas iniciales.</div>
+  <div class="msg ok"><strong>✓ Base de datos lista.</strong><br>Se creó/verificó <b>dorada_motors</b> con 18 tablas (incluido soporte, carrito, favoritos y sesiones), categorías y marcas iniciales.</div>
   <ul class="list">
    <li>✓ Usuarios y direcciones</li>
    <li>✓ Productos, categorías y marcas</li>
