@@ -33,6 +33,8 @@ class Pedido {
   final DateTime fecha;
   final String estado;
   final String metodoPago;
+  final String estadoPago;
+  final String referenciaPago;
   final String tipoEntrega;
   final String direccion;
   final String telefono;
@@ -44,6 +46,8 @@ class Pedido {
     required this.fecha,
     required this.estado,
     required this.metodoPago,
+    this.estadoPago = 'Pendiente',
+    this.referenciaPago = '',
     required this.tipoEntrega,
     required this.direccion,
     required this.telefono,
@@ -56,6 +60,8 @@ class Pedido {
         'fecha': fecha.toIso8601String(),
         'estado': estado,
         'metodoPago': metodoPago,
+        'estadoPago': estadoPago,
+        'referenciaPago': referenciaPago,
         'tipoEntrega': tipoEntrega,
         'direccion': direccion,
         'telefono': telefono,
@@ -68,6 +74,8 @@ class Pedido {
         fecha: DateTime.parse(json['fecha'] as String),
         estado: json['estado'] as String,
         metodoPago: json['metodoPago'] as String,
+        estadoPago: json['estadoPago']?.toString() ?? 'Pendiente',
+        referenciaPago: json['referenciaPago']?.toString() ?? '',
         tipoEntrega: json['tipoEntrega'] as String,
         direccion: json['direccion'] as String,
         telefono: json['telefono'] as String,
