@@ -97,6 +97,23 @@ jobs:
             }
             Write-Host "OK: $archivo"
           }
+      - name: Crear ZIP completo de entrega para el profesor
+        shell: pwsh
+        run: |
+          & .\PREPARAR_ENTREGA_INDICADOR_II.ps1 -PaquetesSeparados
+          $archivoZip = Join-Path ([Environment]::GetFolderPath('Desktop')) 'ENTREGA_DORADA_MOTORS.zip'
+          if (!(Test-Path $archivoZip)) { throw "No se creó el ZIP completo de Dorada Motors" }
+          $tamano = (Get-Item $archivoZip).Length
+          if ($tamano -lt 100000) { throw "El ZIP de entrega está vacío o incompleto: $tamano bytes" }
+          Copy-Item $archivoZip (Join-Path $env:GITHUB_WORKSPACE 'ENTREGA_DORADA_MOTORS.zip') -Force
+          Write-Host "ZIP de entrega verificado: $tamano bytes"
+      - name: Publicar ZIP completo y paquetes separados
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dorada-Motors-Entrega-Completa
+          path: ENTREGA_DORADA_MOTORS.zip
+          if-no-files-found: error
+          retention-days: 14
 
   browser-e2e:
     name: Prueba real de navegador Chrome
