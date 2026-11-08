@@ -68,6 +68,8 @@ class _AppRootState extends State<AppRoot> {
   Future<void> _logout() async {
     await ApiService.cerrarSesion();
     await LocalStore.logout();
+    await LocalStore.clearCart();
+    await LocalStore.saveFavorites(<int>{});
     if (!mounted) return;
     setState(() {
       _session = null;
