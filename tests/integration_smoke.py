@@ -210,6 +210,23 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "confirmar_contrasena": "ClaveAdmin_2026",
     })
     assert "YP-45678123" in creada, "No se muestra la referencia en pagos administrativos"
+
+    # Los destinos oficiales son configurados por el administrador y leídos en Flutter.
+    formulario_empresa = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "guardar_config_empresa": "1",
+        "nombre_comercial": "Dorada Motors", "razon_social": "ADN Import's",
+        "ruc": "20123456789", "telefono_empresa": "986543210",
+        "correo_empresa": "empresa@example.test", "moneda": "S/",
+        "direccion_empresa": "Pucallpa", "igv": "18", "costo_delivery": "5",
+        "numero_yape": "987654321", "numero_plin": "977654321",
+        "cuenta_transferencia": "Banco Pruebas CCI 12345678901234567890",
+    })
+    assert "Datos de la empresa actualizados correctamente" in formulario_empresa
+    destinos = api("config_publica.php")
+    assert destinos["numero_yape"] == "987654321", destinos
+    assert destinos["numero_plin"] == "977654321", destinos
+    assert "CCI" in destinos["cuenta_transferencia"], destinos
+    assert float(destinos["costo_delivery"]) == 5.0, destinos
     assert "Producto" in creada and "Pedidos" in creada, (
         "No se abrió el dashboard tras crear el administrador"
     )
