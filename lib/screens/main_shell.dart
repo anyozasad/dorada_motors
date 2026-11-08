@@ -1046,6 +1046,38 @@ class _MainShellState extends State<MainShell> {
           }),
           ),
           const SizedBox(height: 12),
+          if (_cargandoProductosApi && _categorias.isEmpty)
+            const _CatalogLoadingCard()
+          else if (_categorias.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.inventory_2_outlined,
+                      color: AppColors.goldDark, size: 25),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Aún no hay categorías para mostrar. '
+                      'Actualiza el catálogo o comprueba la conexión con PHP.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Actualizar categorías',
+                    onPressed: _cargandoProductosApi ? null : _loadCatalogoApi,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            )
+          else
           RevealOnMount(
             delay: const Duration(milliseconds: 230),
             child: SizedBox(
@@ -1106,10 +1138,45 @@ class _MainShellState extends State<MainShell> {
             }),
           ),
           const SizedBox(height: 12),
-          RevealOnMount(
-            delay: const Duration(milliseconds: 380),
-            child: _productGrid(_productos.take(4).toList()),
-          ),
+          if (_cargandoProductosApi && _productos.isEmpty)
+            const _CatalogLoadingCard()
+          else if (_productos.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.inventory_2_outlined,
+                      color: AppColors.goldDark, size: 34),
+                  const SizedBox(height: 8),
+                  const Text('El catálogo todavía está vacío',
+                      style: TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Los productos que registre el administrador en PHP '
+                    'aparecerán aquí cuando MySQL esté conectado.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 9),
+                  TextButton.icon(
+                    onPressed: _cargandoProductosApi ? null : _loadCatalogoApi,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Actualizar catálogo'),
+                  ),
+                ],
+              ),
+            )
+          else
+            RevealOnMount(
+              delay: const Duration(milliseconds: 380),
+              child: _productGrid(_productos.take(4).toList()),
+            ),
         ],
       ),
     );
