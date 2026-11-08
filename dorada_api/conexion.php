@@ -18,7 +18,7 @@ if ($origen !== "" && (in_array($origen, $origenesPermitidos, true) || $esOrigen
     header("Vary: Origin");
 }
 
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
