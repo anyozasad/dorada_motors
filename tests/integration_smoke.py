@@ -47,7 +47,7 @@ def admin_page(opener, path, form=None):
     headers = {"Accept": "text/html, application/json"}
     data = None
     if form is not None:
-        data = urllib.parse.urlencode(form).encode("utf-8")
+        data = urllib.parse.urlencode(form, doseq=True).encode("utf-8")
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     request = urllib.request.Request(
         f"{BASE}/{path.lstrip('/')}", headers=headers,
@@ -55,6 +55,141 @@ def admin_page(opener, path, form=None):
     )
     with opener.open(request, timeout=20) as response:
         return response.read().decode("utf-8")
+
+
+def probar_administracion_integral(navegador, csrf, id_producto):
+    def enviar(accion, datos, mensaje):
+        html = admin_page(navegador, "dashboard.php", form={
+            "csrf_token": csrf, accion: "1", **datos,
+        })
+        assert mensaje in html, (
+            f"{accion}: se esperaba '{mensaje}' en el resultado del dashboard"
+        )
+        return html
+
+    # CRUD real de categorías y marcas, con datos que pueden verse en la API.
+    sufijo = uuid4().hex[:8]
+    nombre_categoria = f"Categoria Prueba {sufijo}"
+    nombre_marca = f"Marca Prueba {sufijo}"
+    enviar("registrar_categoria",
+           {"nombre_categoria": nombre_categoria}, "Categoría registrada correctamente")
+    id_categoria = next(
+        int(c["id_categoria"]) for c in api("categorias.php")
+        if c["nombre_categoria"] == nombre_categoria
+    )
+    enviar("actualizar_categoria", {
+        "id_categoria": id_categoria, "nombre_categoria": nombre_categoria + " Editada",
+    }, "Categoría actualizada correctamente")
+    assert any(c["nombre_categoria"] == nombre_categoria + " Editada"
+               for c in api("categorias.php"))
+    enviar("eliminar_categoria", {"id_categoria": id_categoria}, "Categoría eliminada")
+    assert not any(int(c["id_categoria"]) == id_categoria for c in api("categorias.php"))
+
+    enviar("registrar_marca",
+           {"nombre_marca": nombre_marca}, "Marca registrada correctamente")
+    id_marca = next(
+        int(m["id_marca"]) for m in api("marcas.php")
+        if m["nombre_marca"] == nombre_marca
+    )
+    enviar("actualizar_marca", {
+        "id_marca": id_marca, "nombre_marca": nombre_marca + " Editada",
+    }, "Marca actualizada correctamente")
+    assert any(m["nombre_marca"] == nombre_marca + " Editada"
+               for m in api("marcas.php"))
+    enviar("eliminar_marca", {"id_marca": id_marca}, "Marca eliminada")
+    assert not any(int(m["id_marca"]) == id_marca for m in api("marcas.php"))
+
+    # Proveedor y estados: la vista administrativa debe reflejar los cambios.
+    razon = f"Proveedor Pruebas {sufijo}"
+    enviar("registrar_proveedor", {
+        "razon_social": razon, "ruc": "20123456789",
+        "telefono_proveedor": "987654321",
+        "correo_proveedor": "proveedor@example.test",
+        "direccion_proveedor": "Jr. Comercio 100",
+    }, "Proveedor registrado correctamente")
+    html = admin_page(navegador, "dashboard.php")
+    match = re.search(
+        rf"<td>#(\\d+)</td><td><strong>{re.escape(razon)}</strong>", html
+    )
+    assert match, "No aparece el nuevo proveedor en el dashboard"
+    id_proveedor = int(match.group(1))
+
+    datos_proveedor = {
+        "id_proveedor": id_proveedor,
+        "razon_social": razon, "ruc": "20123456789",
+        "telefono_proveedor": "987654321",
+        "correo_proveedor": "proveedor@example.test",
+        "direccion_proveedor": "Jr. Comercio 101",
+    }
+    enviar("actualizar_proveedor", {
+        **datos_proveedor, "estado_proveedor": "Inactivo",
+    }, "Proveedor actualizado correctamente")
+    enviar("actualizar_proveedor", {
+        **datos_proveedor, "estado_proveedor": "Activo",
+    }, "Proveedor actualizado correctamente")
+
+    # Inventario/Kardex con validación de stock real.
+    inventario = api(f"productos.php?id={id_producto}")
+    stock_base = int(inventario["stock"])
+    enviar("registrar_movimiento", {
+        "id_producto_stock": id_producto, "tipo_movimiento": "Entrada",
+        "cantidad_movimiento": 7, "motivo_movimiento": "Prueba ingreso",
+    }, "Movimiento de stock registrado correctamente")
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 7
+    enviar("registrar_movimiento", {
+        "id_producto_stock": id_producto, "tipo_movimiento": "Salida",
+        "cantidad_movimiento": 2, "motivo_movimiento": "Prueba salida",
+    }, "Movimiento de stock registrado correctamente")
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 5
+    enviar("registrar_movimiento", {
+        "id_producto_stock": id_producto, "tipo_movimiento": "Salida",
+        "cantidad_movimiento": stock_base + 900,
+        "motivo_movimiento": "Salida excedida debe fallar",
+    }, "No hay stock suficiente")
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 5
+
+    # Compra de varios artículos y anulación/rehabilitación de mercadería.
+    id_segundo = next(
+        int(x["id_producto"]) for x in api("productos.php")
+        if int(x["id_producto"]) != id_producto
+    )
+    stock_segundo = int(api(f"productos.php?id={id_segundo}")["stock"])
+    html = enviar("registrar_compra", {
+        "id_proveedor_compra": id_proveedor,
+        "id_producto_compra[]": [id_producto, id_segundo],
+        "cantidad_compra[]": [3, 2],
+        "precio_compra[]": ["11.00", "12.50"],
+    }, "registrada con 2 producto(s)")
+    match = re.search(r"Compra #(\\d+) registrada", html)
+    assert match, "No se encontró identificador de la compra creada"
+    id_compra = int(match.group(1))
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 8
+    assert int(api(f"productos.php?id={id_segundo}")["stock"]) == stock_segundo + 2
+
+    enviar("actualizar_estado_compra", {
+        "id_compra": id_compra, "estado_compra": "Anulado",
+    }, "Estado de compra actualizado")
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 5
+    assert int(api(f"productos.php?id={id_segundo}")["stock"]) == stock_segundo
+    enviar("actualizar_estado_compra", {
+        "id_compra": id_compra, "estado_compra": "Registrado",
+    }, "Estado de compra actualizado")
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 8
+    assert int(api(f"productos.php?id={id_segundo}")["stock"]) == stock_segundo + 2
+
+    enviar("eliminar_proveedor", {
+        "id_proveedor": id_proveedor,
+    }, "No se puede eliminar: el proveedor tiene compras")
+
+    # Reporte de ventas real, con periodo seleccionable y resumen calculado.
+    pagina = admin_page(
+        navegador,
+        "dashboard.php?desde=2020-01-01&hasta=2030-12-31",
+    )
+    assert "Reportes y análisis" in pagina
+    assert "TICKET PROMEDIO" in pagina
+    print("OK: categorías, marcas, proveedores, stock, Kardex,")
+    print("    compras con varios productos, anulación, reactivación y reportes.")
 
 
 def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_original, otro_id, otro_token, id_solicitud):
@@ -194,6 +329,7 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert enlaces, "No se encontró enlace de impresión de comprobante"
     impresion = admin_page(navegador, f"comprobante_print.php?id={enlaces[0]}")
     assert "BOLETA" in impresion and "S/ " in impresion
+    probar_administracion_integral(navegador, csrf, id_producto)
     print("OK: confirmar pago, actualizar estado y emitir boleta imprimible.")
     print("OK: dashboard PHP, sesión admin, CSRF, CRUD producto,")
     print("    métricas, cancelación de pedido, reversión stock y pago.")
