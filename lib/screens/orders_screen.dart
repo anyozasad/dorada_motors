@@ -74,8 +74,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         );
       }).toList();
     } catch (_) {
-      // Si el servidor no está disponible, conserva el respaldo local.
-      return LocalStore.getOrders();
+      // No presentar un respaldo local como si fuera el estado actual de MySQL.
+      rethrow;
     }
   }
 
@@ -99,6 +99,36 @@ class _OrdersScreenState extends State<OrdersScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off_outlined, color: AppColors.muted, size: 54),
+                    const SizedBox(height: 12),
+                    const Text('No se pudo consultar tus pedidos',
+                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    Text(
+                      snapshot.error.toString().replaceFirst('Exception: ', ''),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
+                    const SizedBox(height: 15),
+                    FilledButton.icon(
+                      onPressed: _refresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Volver a consultar MySQL'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
           final orders = snapshot.data ?? [];
