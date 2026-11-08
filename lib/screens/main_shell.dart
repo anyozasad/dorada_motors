@@ -9,6 +9,8 @@ import '../widgets/ui_motion.dart';
 import 'checkout_screen.dart';
 import 'orders_screen.dart';
 import 'direcciones_screen.dart';
+import 'cuenta_screen.dart';
+import 'soporte_screen.dart';
 
 class MainShell extends StatefulWidget {
   final bool isGuest;
@@ -16,6 +18,7 @@ class MainShell extends StatefulWidget {
   final String? userEmail;
   final VoidCallback onLoginRequested;
   final VoidCallback onLogout;
+  final VoidCallback onProfileUpdated;
 
   const MainShell({
     super.key,
@@ -24,6 +27,7 @@ class MainShell extends StatefulWidget {
     this.userEmail,
     required this.onLoginRequested,
     required this.onLogout,
+    required this.onProfileUpdated,
   });
 
   @override
@@ -1461,19 +1465,17 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           const SizedBox(height: 18),
+          _profileOption(Icons.person_outline_rounded, 'Mis datos', 'Edita tu perfil y contraseña', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => CuentaScreen(onUpdated: widget.onProfileUpdated)));
+          }),
           _profileOption(Icons.receipt_long_outlined, 'Mis pedidos', 'Revisa compras, totales y estados', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
           }),
           _profileOption(Icons.location_on_outlined, 'Direcciones', 'Administra tus direcciones de entrega', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const DireccionesScreen()));
           }),
-          _profileOption(Icons.help_outline_rounded, 'Ayuda y soporte', 'Información de la aplicación', () {
-            showAboutDialog(
-              context: context,
-              applicationName: 'Dorada Motors',
-              applicationVersion: '1.0.0',
-              children: const [Text("Aplicación de ADN Import's para consultar y comprar repuestos de motocicletas y motokar.")],
-            );
+          _profileOption(Icons.help_outline_rounded, 'Ayuda y soporte', 'Envía consultas y revisa sus respuestas', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SoporteScreen()));
           }),
           _profileOption(Icons.settings_outlined, 'Configuración', 'Configura la conexión con el servidor PHP', _configurarConexion),
           const SizedBox(height: 8),
