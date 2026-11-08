@@ -606,6 +606,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 redir("Completa los datos de la dirección", "error", "direcciones");
             }
 
+            $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND rol_sistema='Cliente' LIMIT 1");
+            $stmt->bind_param("i",$idUsuario);
+            $stmt->execute();
+            if (!$stmt->get_result()->fetch_assoc()) {
+                redir("La dirección debe pertenecer a un cliente registrado", "error", "direcciones");
+            }
+
             $stmt = $conexion->prepare("
                 INSERT INTO direccion
                 (id_usuario,departamento,provincia,distrito,direccion_detalle,referencia)
@@ -627,6 +634,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             if ($idDireccion <= 0 || $idUsuario <= 0 || $detalle === "") {
                 redir("Datos de dirección inválidos", "error", "direcciones");
+            }
+
+            $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND rol_sistema='Cliente' LIMIT 1");
+            $stmt->bind_param("i",$idUsuario);
+            $stmt->execute();
+            if (!$stmt->get_result()->fetch_assoc()) {
+                redir("No puedes asignar direcciones a cuentas del personal", "error", "direcciones");
             }
 
             $stmt = $conexion->prepare("
@@ -698,7 +712,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conexion->begin_transaction();
 
             try {
-                $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND estado='Activo' LIMIT 1");
+                $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE id_usuario=? AND estado='Activo' AND rol_sistema='Cliente' LIMIT 1");
                 $stmt->bind_param("i", $idUsuario);
                 $stmt->execute();
                 if (!$stmt->get_result()->fetch_assoc()) {
