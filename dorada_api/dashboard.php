@@ -2265,11 +2265,12 @@ input:focus,select:focus,textarea:focus{
  <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar en la sección actual..."><kbd>Ctrl K</kbd></div>
  <div class="top-actions">
   <div class="notify-wrap">
-   <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes ?></span></button>
+   <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes+$totalSoportePendiente)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes+$totalSoportePendiente ?></span></button>
    <div class="notify-menu" id="notifyMenu">
     <div class="notify-head"><strong>Notificaciones</strong><span>En tiempo real</span></div>
     <?php if(puede("inventario")): ?><a href="#inventario"><b>⚠ Stock bajo</b><small id="notifStock"><?= $stockBajo ?> producto(s) requieren atención</small></a><?php endif; ?>
     <?php if(puede("pedidos")): ?><a href="#pedidos"><b>🛒 Pedidos por atender</b><small id="notifPedidos"><?= $pedidosPendientes ?> pendiente(s) o en proceso</small></a><?php endif; ?>
+    <?php if(puede("soporte")): ?><a href="#soporte"><b>✉ Soporte por atender</b><small id="notifSoporte"><?= $totalSoportePendiente ?> consulta(s) abiertas</small></a><?php endif; ?>
     <?php if(puede("reportes")): ?><a href="#reportes"><b>💰 Ventas de hoy</b><small id="notifVentasHoy">S/ <?= number_format($ventasHoy,2) ?></small></a><?php endif; ?>
    </div>
   </div>
@@ -3237,8 +3238,9 @@ async function actualizarDashboardEnVivo(manual=false){
   poner('notifStock',Number(data.stock_bajo||0)+' producto(s) requieren atención');
   poner('notifPedidos',Number(data.pedidos_pendientes||0)+' pendiente(s) o en proceso');
   poner('notifVentasHoy',moneda(data.ventas_hoy));
+  poner('notifSoporte',Number(data.soporte_pendiente||0)+' consulta(s) abiertas');
 
-  const totalAlertas=Number(data.stock_bajo||0)+Number(data.pedidos_pendientes||0);
+  const totalAlertas=Number(data.stock_bajo||0)+Number(data.pedidos_pendientes||0)+Number(data.soporte_pendiente||0);
   const count=document.getElementById('notificationCount');
   if(count){
    count.textContent=String(totalAlertas);
