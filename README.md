@@ -79,6 +79,14 @@ flutter run -d android --dart-define=API_BASE_URL=http://IP_DE_TU_PC/dorada_api
 
 La dirección anterior es un ejemplo; sustituye `IP_DE_TU_PC` por la IP real. El firewall y Apache deben permitir el acceso desde ese dispositivo. No utilizar HTTP sin TLS para cuentas reales fuera del entorno local.
 
+## Demostración en Android
+
+En el login de Flutter está el botón **Configurar conexión con PHP**. Para un teléfono real, introduce la IP local de la PC donde se ejecuta XAMPP; pulsa **Probar conexión** antes de registrar o iniciar sesión. La computadora y el teléfono deben estar en la misma red y Apache/Windows Firewall deben aceptar conexiones desde ella.
+
+El workflow **Flutter CI** también intenta construir un APK de depuración (`flutter build apk --debug`). Si esa comprobación está aprobada, el APK se obtiene en GitHub > **Actions** > **Flutter CI** > última ejecución exitosa > **Artifacts** > `Dorada-Motors-Android-debug`. Es una compilación de pruebas, no un APK firmado para Play Store.
+
+La app no funciona desde un teléfono externo con `localhost` ni con `10.0.2.2` (este último corresponde únicamente al emulador Android).
+
 ## Verificaciones
 
 ```powershell
