@@ -118,6 +118,12 @@ def main():
         expect(fila).to_be_visible()
         page.screenshot(path="artifacts/ui/02_producto.png", full_page=True)
         print("OK BROWSER: formulario producto, MySQL, búsqueda y filtros")
+        # Actualizar desde cualquier módulo conserva la sección y vuelve a leer MySQL.
+        page.locator("#refreshAllBtn").click()
+        expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
+        expect(page.locator("#tablaProductos tbody tr").filter(has_text=NOMBRE)).to_be_visible()
+        print("OK BROWSER: sincronización completa con MySQL sin salir del módulo")
+
 
         # Editar desde el enlace real, y comprobar la actualización de stock.
         fila.locator('a[title="Editar"]').click()
