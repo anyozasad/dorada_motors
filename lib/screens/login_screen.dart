@@ -94,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     final actual = guardada?.trim().isNotEmpty == true
         ? guardada! : ApiService.baseUrl;
-    final controller = TextEditingController(text: actual);
+    var direccionIngresada = actual;
 
     final nueva = await showDialog<String>(
       context: context,
@@ -102,9 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
         title: const Text('Conectar con Dorada Motors'),
         content: SizedBox(
           width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               const Text(
                 'En Chrome de la PC: http://localhost/dorada_api. '
                 'En el emulador Android: http://10.0.2.2/dorada_api. '
@@ -112,8 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 'usa http://IP_DE_TU_PC/dorada_api.',
               ),
               const SizedBox(height: 14),
-              TextField(
-                controller: controller,
+              TextFormField(
+                initialValue: direccionIngresada,
+                onChanged: (valor) => direccionIngresada = valor,
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(
                   labelText: 'Dirección de la API PHP',
@@ -121,7 +123,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: Icon(Icons.dns_outlined),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -130,13 +133,12 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            onPressed: () => Navigator.pop(dialogContext, direccionIngresada.trim()),
             child: const Text('Probar conexión'),
           ),
         ],
       ),
     );
-    controller.dispose();
     if (!mounted || nueva == null) return;
 
     final normalizada = nueva.endsWith('/')
@@ -171,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _forgotPassword() async {
-    final controller = TextEditingController(text: _emailController.text.trim());
+    var correoIngresado = _emailController.text.trim();
     final formKey = GlobalKey<FormState>();
     final correo = await showDialog<String>(
       context: context,
@@ -193,7 +195,8 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 18),
               TextFormField(
-                controller: controller,
+                initialValue: correoIngresado,
+                onChanged: (valor) => correoIngresado = valor,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   labelText: 'Correo electrónico',
@@ -216,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
           FilledButton(
             onPressed: () {
               if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, controller.text.trim());
+                Navigator.pop(dialogContext, correoIngresado.trim());
               }
             },
             child: const Text('Enviar solicitud'),
@@ -224,7 +227,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     );
-    controller.dispose();
     if (!mounted || correo == null) return;
 
     try {
