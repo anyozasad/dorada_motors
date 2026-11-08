@@ -58,6 +58,25 @@ foreach ($archivo in @('productos.php','categorias.php','marcas.php','config_pub
   }
 }
 
+# Seguridad de instalación: Apache no debe publicar el esquema SQL ni archivos internos.
+# Este control se ejecuta contra XAMPP; el servidor integrado php -S no interpreta .htaccess.
+foreach ($rutaPrivada in @('dorada_motors.sql','data/config_empresa.json')) {
+  $codigo = 0
+  try {
+    $r = Invoke-WebRequest "$BaseUrl/$rutaPrivada" -UseBasicParsing -TimeoutSec 15
+    $codigo = [int]$r.StatusCode
+  } catch {
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $codigo = [int]$_.Exception.Response.StatusCode
+    }
+  }
+  if ($codigo -in @(403,404)) {
+    OK "Apache protege: $rutaPrivada (HTTP $codigo)"
+  } else {
+    FAIL "Archivo expuesto o sin respuesta: $rutaPrivada (HTTP $codigo); revisa .htaccess / AllowOverride."
+  }
+}
+
 # 2: Las rutas privadas deben denegar consultas sin sesión.
 foreach ($archivo in @('cuenta.php','soporte.php','pedidos.php')) {
   $estado = 0
