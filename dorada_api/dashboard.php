@@ -344,6 +344,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $productoStockAnterior = $stmt->get_result()->fetch_assoc();
                 if (!$productoStockAnterior) throw new RuntimeException("Producto no encontrado");
                 $stockAntesEdicion = (int)$productoStockAnterior["stock"];
+                $stockVistoEnFormulario = isset($_POST["stock_original"])
+                    ? (int)$_POST["stock_original"] : $stockAntesEdicion;
+                if ($stockVistoEnFormulario !== $stockAntesEdicion) {
+                    throw new RuntimeException(
+                        "El stock cambió mientras editabas el producto. Actualiza la página para no sobrescribir una venta."
+                    );
+                }
 
                 $stmt = $conexion->prepare("
                     UPDATE producto
@@ -375,7 +382,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             } catch (Throwable $e) {
                 $conexion->rollback();
                 error_log("Actualizar producto PHP: ".$e->getMessage());
-                redir("No se pudo actualizar el producto. Revisa datos y stock.", "error", "gestion-productos");
+                $errorProducto = $e instanceof RuntimeException
+                    ? $e->getMessage() : "No se pudo actualizar el producto. Revisa datos y stock.";
+                redir($errorProducto, "error", "gestion-productos");
             }
         }
 
@@ -2562,6 +2571,7 @@ input:focus,select:focus,textarea:focus{
  <form method="POST" enctype="multipart/form-data" class="form-grid product-form">
   <?php if($productoEditar): ?>
    <input type="hidden" name="id_producto" value="<?= h($productoEditar["id_producto"]) ?>">
+   <input type="hidden" name="stock_original" value="<?= (int)$productoEditar["stock"] ?>">
    <input type="hidden" name="imagen_actual" value="<?= h($productoEditar["imagen_url"]??"") ?>">
   <?php endif; ?>
 
