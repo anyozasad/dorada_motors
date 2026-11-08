@@ -222,7 +222,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<void> _reportarPago(Pedido pedido) async {
     if (_reportando.contains(pedido.id)) return;
-    final controller = TextEditingController(text: pedido.referenciaPago);
+    var referenciaIngresada = pedido.referenciaPago;
     final formKey = GlobalKey<FormState>();
     final referencia = await showDialog<String>(
       context: context,
@@ -240,7 +240,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: controller,
+                initialValue: referenciaIngresada,
+                onChanged: (valor) => referenciaIngresada = valor,
                 decoration: const InputDecoration(
                   labelText: 'Número de operación',
                   prefixIcon: Icon(Icons.receipt_long_outlined),
@@ -265,7 +266,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           FilledButton(
             onPressed: () {
               if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, controller.text.trim());
+                Navigator.pop(dialogContext, referenciaIngresada.trim());
               }
             },
             child: const Text('Enviar referencia'),
@@ -273,7 +274,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ],
       ),
     );
-    controller.dispose();
     if (!mounted || referencia == null) return;
     final id = int.tryParse(pedido.id.replaceFirst('DM-', '')) ?? 0;
     if (id <= 0) return;
