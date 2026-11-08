@@ -9,6 +9,7 @@ class LocalStore {
   static const _sessionName = 'session_name';
   static const _sessionEmail = 'session_email';
   static const _sessionToken = 'session_token';
+  static const _apiBaseUrl = 'api_base_url';
   static const _favorites = 'favorites';
   static const _cart = 'cart';
   static const _orders = 'orders';
@@ -42,6 +43,16 @@ class LocalStore {
       'name': name,
       'email': email,
     };
+  }
+
+  static Future<String?> getApiBaseUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_apiBaseUrl);
+  }
+
+  static Future<void> saveApiBaseUrl(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_apiBaseUrl, url.trim());
   }
 
   static Future<String?> getToken() async {
