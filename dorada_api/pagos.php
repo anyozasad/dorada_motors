@@ -19,6 +19,9 @@ function responderPago(array $data, int $status = 200): void {
 $metodo = $_SERVER["REQUEST_METHOD"];
 
 if ($metodo === "POST") {
+    if (!puede("pagos") || !csrfValido($_SERVER["HTTP_X_CSRF_TOKEN"] ?? null)) {
+        responderPago(["estado"=>false,"mensaje"=>"Permiso o token CSRF inválido"], 403);
+    }
     $datos = json_decode(file_get_contents("php://input"), true);
     if (!is_array($datos)) {
         responderPago(["estado"=>false,"mensaje"=>"Datos inválidos"], 400);
