@@ -70,3 +70,30 @@ jobs:
             tail -n 100 /tmp/dorada-php.log
             exit 1
           fi
+
+  windows-scripts:
+    name: PowerShell scripts syntax
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar sintaxis de los scripts Windows
+        shell: pwsh
+        run: |
+          $archivos = @(
+            'INICIAR_DEMO.ps1',
+            'VERIFICAR_SISTEMA.ps1',
+            'PREPARAR_ENTREGA_INDICADOR_II.ps1'
+          )
+          foreach ($archivo in $archivos) {
+            $tokens = $null
+            $errores = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path (Get-Location) $archivo),
+              [ref]$tokens,
+              [ref]$errores
+            )
+            if ($errores.Count -gt 0) {
+              throw "Sintaxis PowerShell inválida: $archivo; $($errores -join '; ')"
+            }
+            Write-Host "OK: $archivo"
+          }
