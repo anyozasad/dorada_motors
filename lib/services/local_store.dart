@@ -8,6 +8,7 @@ class LocalStore {
   static const _sessionUserId = 'session_user_id';
   static const _sessionName = 'session_name';
   static const _sessionEmail = 'session_email';
+  static const _sessionToken = 'session_token';
   static const _favorites = 'favorites';
   static const _cart = 'cart';
   static const _orders = 'orders';
@@ -16,11 +17,13 @@ class LocalStore {
     required int userId,
     required String name,
     required String email,
+    required String token,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_sessionUserId, userId.toString());
     await prefs.setString(_sessionName, name.trim());
     await prefs.setString(_sessionEmail, email.trim().toLowerCase());
+    await prefs.setString(_sessionToken, token);
   }
 
   static Future<Map<String, String>?> getSession() async {
@@ -29,7 +32,8 @@ class LocalStore {
     final name = prefs.getString(_sessionName);
     final email = prefs.getString(_sessionEmail);
 
-    if (userId == null || name == null || email == null) {
+    if (userId == null || name == null || email == null ||
+        (prefs.getString(_sessionToken) ?? '').isEmpty) {
       return null;
     }
 
@@ -40,11 +44,18 @@ class LocalStore {
     };
   }
 
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_sessionToken);
+    return (token == null || token.isEmpty) ? null : token;
+  }
+
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionUserId);
     await prefs.remove(_sessionName);
     await prefs.remove(_sessionEmail);
+    await prefs.remove(_sessionToken);
   }
 
   static Future<Set<int>> getFavorites() async {
