@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/local_store.dart';
+import 'services/api_service.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -63,8 +64,10 @@ class _AppRootState extends State<AppRoot> {
     setState(() => _mode = AppMode.login);
   }
 
-  void _logout() {
-    LocalStore.logout();
+  Future<void> _logout() async {
+    await ApiService.cerrarSesion();
+    await LocalStore.logout();
+    if (!mounted) return;
     setState(() {
       _session = null;
       _mode = AppMode.login;
