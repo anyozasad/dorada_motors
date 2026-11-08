@@ -11,6 +11,22 @@ function responderMarca(array $data, int $status = 200): void {
 
 $metodo = $_SERVER["REQUEST_METHOD"];
 
+// Los catálogos públicos solo admiten lectura; la edición exige un
+// administrador autenticado y el token CSRF de la sesión administrativa.
+if (in_array($metodo, ["POST", "PUT", "DELETE"], true)) {
+    require_once __DIR__ . "/auth_admin.php";
+    if (!adminActual() || !puede("marcas")) {
+        http_response_code(403);
+        echo json_encode(["estado"=>false,"mensaje"=>"Acceso administrativo requerido"], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if (!csrfValido($_SERVER["HTTP_X_CSRF_TOKEN"] ?? null)) {
+        http_response_code(419);
+        echo json_encode(["estado"=>false,"mensaje"=>"Token de seguridad inválido"], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
 if ($metodo === "POST" || $metodo === "PUT") {
     $datos = json_decode(file_get_contents("php://input"), true);
     if (!is_array($datos)) {
