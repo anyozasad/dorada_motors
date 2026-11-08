@@ -6,7 +6,11 @@ header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 require_once "conexion.php";
 require_once "auth_admin.php";
 
-requerirAdmin();
+if (!adminActual() || !puede("inicio")) {
+    http_response_code(401);
+    echo json_encode(["estado"=>false,"mensaje"=>"Inicia sesión en el dashboard PHP para consultar las métricas"], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 require_once "sistema_bootstrap.php";
 
 function serieUltimos7Dias(mysqli $conexion, string $consulta, string $campoValor): array {
