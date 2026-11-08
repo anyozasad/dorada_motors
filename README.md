@@ -104,6 +104,19 @@ php VALIDAR_DASHBOARD_150.php
 
 GitHub Actions ejecuta la sintaxis de PHP, el análisis y las pruebas Flutter, y una **integración real con MySQL temporal** que comprueba registro, autenticación, permisos, carrito, favoritos, compras, pagos, stock, cancelaciones, CRUD administrativo y comprobantes. Su resultado actual se puede consultar en **Actions** del repositorio: https://github.com/anyozasad/dorada_motors/actions
 
+## Evidencias y archivo listo para el profesor
+
+GitHub Actions ejecuta verificaciones de PHP/MySQL y pruebas Flutter. Además, el workflow **Dorada Motors Quality Check** incorpora un navegador Chromium que pulsa los botones reales de login, producto, stock, filtros y reportes.
+
+Cuando la ejecución de **main** haya terminado correctamente, abrir **Actions → Dorada Motors Quality Check → última ejecución exitosa → Artifacts** y descargar:
+
+- **Dorada-Motors-Entrega-Completa:** ZIP generado en Windows con Flutter, PHP, esquema de MySQL y guías, más paquetes separados.
+- **Dorada-Motors-evidencias-navegador:** capturas de las pantallas realmente probadas en Chromium.
+
+En **Actions → Flutter CI** está **Dorada-Motors-Android-debug**, un APK de prueba Android. Los artefactos tienen conservación temporal, así que conviene guardarlos antes de entregar.
+
+Los resultados del pipeline muestran lo que se ejecutó en una base de datos temporal y un navegador automatizado. Para confirmar el uso en el equipo del profesor todavía hay que encender XAMPP, verificar IP/puertos y ejecutar la demostración.
+
 ## Preparar el ZIP para entregar
 
 Desde la carpeta principal de `dorada_motors` en PowerShell:
