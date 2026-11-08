@@ -42,7 +42,7 @@ flutter run -d chrome --web-port 8080
 
 1. En el dashboard PHP, registrar o editar un producto, precio o stock.
 2. En Flutter, abrir el catálogo o pulsar **Reintentar** para actualizarlo y verificar que el producto aparece.
-3. Crear una cuenta de cliente, editar el perfil y cambiar la contraseña desde Flutter. El primer acceso al panel PHP permite crear el administrador inicial.
+3. Crear una cuenta de cliente, editar el perfil y cambiar la contraseña desde Flutter. Verificar la opción «¿Olvidaste tu contraseña?» y su atención en soporte. El primer acceso al panel PHP permite crear el administrador inicial.
 4. Agregar un producto a **Favoritos** y al **Carrito** y comprobar ambos datos en MySQL. Desde **Ayuda y soporte**, enviar una consulta y responderla en la nueva sección del panel PHP.
 5. Completar un pedido con recojo o delivery, elegir una dirección guardada en MySQL y verificar la tarifa de entrega configurada en PHP.
 6. Verificar en PHP el pedido, el pago pendiente y los movimientos de stock. Confirmar el pago desde el dashboard.
@@ -59,6 +59,7 @@ Flutter obtiene los productos, favoritos y carrito de MySQL a través de `ApiSer
 - El dashboard PHP usa sesión administrativa, roles, tokens CSRF y validaciones.
 - Las operaciones de escritura de catálogo por API exigen rol autorizado y CSRF.
 - Las sesiones del cliente pueden cerrarse desde Flutter.
+- La recuperación de contraseña es **asistida**: genera un caso para administración, exige verificación de identidad fuera de la aplicación, permite al administrador establecer una clave temporal y revoca las sesiones antiguas. No afirma enviar correos automáticos.
 
 Estas protecciones corresponden a una **demostración local**. Para operar en internet se necesita HTTPS, un despliegue protegido, supervisión de acceso, copias de seguridad y una revisión de seguridad completa. Los comprobantes del dashboard no son una integración certificada con SUNAT.
 
@@ -102,6 +103,7 @@ GitHub Actions ejecuta la sintaxis de PHP, el análisis y las pruebas Flutter, y
 - `dorada_api/cliente_auth.php`: autenticación de clientes.
 - `dorada_api/cuenta.php`: edición de cuenta y cambio de contraseña.
 - `dorada_api/soporte.php`: envío y seguimiento de solicitudes del cliente.
+- `dorada_api/recuperacion.php`: solicitud de recuperación desde el login sin revelar cuentas existentes.
 - `dorada_api/dashboard.php`: panel administrativo.
 - `dorada_api/config_publica.php`: tarifa de entrega compartida con Flutter.
 - `dorada_api/carrito.php` y `dorada_api/favoritos.php`: datos persistidos en MySQL por cliente.
