@@ -21,7 +21,7 @@ git pull origin main
 powershell -ExecutionPolicy Bypass -File .\INICIAR_DEMO.ps1
 ```
 
-El script copia `dorada_api/` a `C:\xampp\htdocs\dorada_api\`, revisa sintaxis PHP si encuentra `php.exe`, comprueba la API e inicia Flutter en Chrome en `http://localhost:8080`.
+El script copia `dorada_api/` a `C:\xampp\htdocs\dorada_api\`, revisa sintaxis PHP si encuentra `php.exe`, comprueba la API, ejecuta `flutter analyze` y `flutter test` e inicia Flutter en Chrome en `http://localhost:8080`.
 
 Si XAMPP está instalado en otra ruta, copia `dorada_api/` a su carpeta `htdocs` y ejecuta:
 
@@ -30,7 +30,7 @@ flutter pub get
 flutter run -d chrome --web-port 8080
 ```
 
-**Primera instalación:** la API prepara automáticamente la base de datos `dorada_motors` y sus 17 tablas cuando se usan sus rutas. Si el catálogo está vacío, `dorada_motors.sql` incorpora 19 productos de demostración con imágenes locales. No sustituye ni borra productos que ya estén registrados.
+**Primera instalación:** la API prepara automáticamente la base de datos `dorada_motors` y sus 17 tablas cuando se usan sus rutas. Si la base de datos es nueva y el catálogo está vacío, `dorada_motors.sql` incorpora 19 productos de demostración con imágenes locales. No sustituye ni borra productos ya registrados. Si la base fue creada antes de incorporar el catálogo de ejemplo y sigue vacía, ejecuta una vez `dorada_motors.sql` en phpMyAdmin.
 
 **URLs de prueba:**
 - Dashboard protegido: http://localhost/dorada_api/admin_login.php
@@ -42,12 +42,14 @@ flutter run -d chrome --web-port 8080
 
 1. En el dashboard PHP, registrar o editar un producto, precio o stock.
 2. En Flutter, abrir el catálogo o pulsar **Reintentar** para actualizarlo y verificar que el producto aparece.
-3. Registrar un cliente e iniciar sesión en Flutter.
-4. Agregar un repuesto al carrito y completar el pedido con recogida o delivery.
-5. Verificar el pedido y los movimientos de stock en el dashboard y phpMyAdmin.
-6. Abrir **Mis pedidos** en Flutter, consultar su estado y realizar el cierre de sesión.
+3. Crear una cuenta de cliente e iniciar sesión en Flutter. El primer acceso al panel PHP permite crear el administrador inicial.
+4. Agregar un producto a **Favoritos** y al **Carrito** y comprobar ambos datos en MySQL.
+5. Completar un pedido con recojo o delivery y verificar la tarifa de entrega configurada en PHP.
+6. Verificar en PHP el pedido, el pago pendiente y los movimientos de stock. Confirmar el pago desde el dashboard.
+7. Emitir e imprimir un comprobante de demostración, y revisar en Flutter **Mis pedidos** y sus estados.
+8. Probar en PHP la cancelación de un pedido pendiente y comprobar que se repone el inventario.
 
-Flutter obtiene los productos de MySQL a través de `ApiService`. El backend comprueba el stock de cada pedido dentro de una transacción, calcula el total en el servidor y guarda el pago con estado **Pendiente**. Seleccionar Yape o Plin no equivale a confirmar un cobro real.
+Flutter obtiene los productos, favoritos y carrito de MySQL a través de `ApiService` cuando el cliente ha iniciado sesión; en modo invitado el carrito es local. El backend comprueba el stock de cada pedido dentro de una transacción, calcula el total en el servidor, vacía el carrito persistido y guarda el pago con estado **Pendiente**. Seleccionar Yape o Plin no equivale a confirmar un cobro real.
 
 ## Autenticación y permisos
 
@@ -89,7 +91,7 @@ Get-ChildItem .\dorada_api -Filter *.php -Recurse | ForEach-Object { & C:\xampp\
 php VALIDAR_DASHBOARD_150.php
 ```
 
-GitHub Actions ejecuta la sintaxis de PHP y el análisis/pruebas de Flutter automáticamente. Su resultado actual se puede consultar en **Actions** del repositorio: https://github.com/anyozasad/dorada_motors/actions
+GitHub Actions ejecuta la sintaxis de PHP, el análisis y las pruebas Flutter, y una **integración real con MySQL temporal** que comprueba registro, autenticación, permisos, carrito, favoritos, compras, pagos, stock, cancelaciones, CRUD administrativo y comprobantes. Su resultado actual se puede consultar en **Actions** del repositorio: https://github.com/anyozasad/dorada_motors/actions
 
 ## Archivos clave
 
@@ -99,6 +101,9 @@ GitHub Actions ejecuta la sintaxis de PHP y el análisis/pruebas de Flutter auto
 - `dorada_api/conexion.php`: conexión y preparación MySQL.
 - `dorada_api/cliente_auth.php`: autenticación de clientes.
 - `dorada_api/dashboard.php`: panel administrativo.
+- `dorada_api/config_publica.php`: tarifa de entrega compartida con Flutter.
+- `dorada_api/carrito.php` y `dorada_api/favoritos.php`: datos persistidos en MySQL por cliente.
+- `tests/integration_smoke.py`: prueba real de todos los flujos contra PHP y MySQL.
 - `dorada_api/dorada_motors.sql`: esquema y ejemplos para una instalación vacía.
 - `dorada_api/LEEME_PROFESOR.txt`: guía de evaluación.
 
