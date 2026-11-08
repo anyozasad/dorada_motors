@@ -16,13 +16,16 @@ jobs:
         with:
           php-version: '8.2'
       - name: PHP lint
-        run: find dorada_api -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+        run: find PHP/dorada_api -type f -name "*.php" -print0 | xargs -0 -n1 php -l
       - name: Dashboard 150 structural validation
-        run: php VALIDAR_DASHBOARD_150.php
+        run: php PHP/VALIDAR_DASHBOARD_150.php
 
   flutter:
     name: Flutter analyze and tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Flutter
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -60,12 +63,12 @@ jobs:
           extensions: mysqli
       - name: Probar registro, login, carrito, favoritos, stock y pedidos
         run: |
-          mkdir -p dorada_api/data
-          printf '{"costo_delivery":5}' > dorada_api/data/config_empresa.json
-          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php -S 127.0.0.1:8090 -t dorada_api > /tmp/dorada-php.log 2>&1 &
+          mkdir -p PHP/dorada_api/data
+          printf '{"costo_delivery":5}' > PHP/dorada_api/data/config_empresa.json
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php -S 127.0.0.1:8090 -t PHP/dorada_api > /tmp/dorada-php.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          if ! python3 tests/integration_smoke.py; then
+          if ! python3 PHP/tests/integration_smoke.py; then
             echo "=== Registro del servidor PHP ==="
             tail -n 100 /tmp/dorada-php.log
             exit 1
@@ -80,9 +83,10 @@ jobs:
         shell: pwsh
         run: |
           $archivos = @(
-            'INICIAR_DEMO.ps1',
-            'VERIFICAR_SISTEMA.ps1',
-            'PREPARAR_ENTREGA_INDICADOR_II.ps1',
+            'PHP/INICIAR_DEMO.ps1',
+            'PHP/VERIFICAR_SISTEMA.ps1',
+            'PHP/PREPARAR_ENTREGA_INDICADOR_II.ps1',
+            'PHP/PREPARAR_ENTREGA_INDICADOR_IV.ps1',
             'PREPARAR_ENTREGA_INDICADOR_IV.ps1'
           )
           foreach ($archivo in $archivos) {
@@ -101,18 +105,18 @@ jobs:
       - name: Crear ZIP completo de entrega para el profesor
         shell: pwsh
         run: |
-          & .\PREPARAR_ENTREGA_INDICADOR_II.ps1 -PaquetesSeparados
-          $archivoZip = Join-Path ([Environment]::GetFolderPath('Desktop')) 'ENTREGA_DORADA_MOTORS.zip'
+          & .\PHP\PREPARAR_ENTREGA_INDICADOR_IV.ps1
+          $archivoZip = Join-Path ([Environment]::GetFolderPath('Desktop')) 'INDICADOR_IV_DORADA_MOTORS.zip'
           if (!(Test-Path $archivoZip)) { throw "No se creó el ZIP completo de Dorada Motors" }
           $tamano = (Get-Item $archivoZip).Length
           if ($tamano -lt 100000) { throw "El ZIP de entrega está vacío o incompleto: $tamano bytes" }
-          Copy-Item $archivoZip (Join-Path $env:GITHUB_WORKSPACE 'ENTREGA_DORADA_MOTORS.zip') -Force
+          Copy-Item $archivoZip (Join-Path $env:GITHUB_WORKSPACE 'INDICADOR_IV_DORADA_MOTORS.zip') -Force
           Write-Host "ZIP de entrega verificado: $tamano bytes"
       - name: Publicar ZIP completo y paquetes separados
         uses: actions/upload-artifact@v4
         with:
           name: Dorada-Motors-Entrega-Completa
-          path: ENTREGA_DORADA_MOTORS.zip
+          path: INDICADOR_IV_DORADA_MOTORS.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -147,12 +151,12 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Probar formularios, búsqueda, Kardex y navegación móvil
         run: |
-          mkdir -p dorada_api/data
-          printf '{"costo_delivery":5}' > dorada_api/data/config_empresa.json
-          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php -S 127.0.0.1:8090 -t dorada_api > /tmp/dorada-browser-php.log 2>&1 &
+          mkdir -p PHP/dorada_api/data
+          printf '{"costo_delivery":5}' > PHP/dorada_api/data/config_empresa.json
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php -S 127.0.0.1:8090 -t PHP/dorada_api > /tmp/dorada-browser-php.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          if ! python tests/browser_e2e.py; then
+          if ! python PHP/tests/browser_e2e.py; then
             echo "=== Registro del servidor PHP del navegador ==="
             tail -n 120 /tmp/dorada-browser-php.log
             exit 1

@@ -3,6 +3,7 @@
 # Las pruebas de MySQL de PRUEBA_INTEGRACION.php revierten sus registros.
 $ErrorActionPreference = 'Continue'
 $Proyecto = $PSScriptRoot
+$Flutter = Join-Path (Split-Path -Parent $Proyecto) 'Flutter'
 $Backend = Join-Path $Proyecto 'dorada_api'
 $BaseUrl = 'http://localhost/dorada_api'
 $Php = @('C:\xampp\php\php.exe', 'D:\xampp\php\php.exe') |
@@ -22,7 +23,7 @@ function FAIL([string]$mensaje) {
 }
 
 Write-Host '--- DORADA MOTORS: REVISIÓN DE FUNCIONES REALES ---' -ForegroundColor Cyan
-if (!(Test-Path (Join-Path $Proyecto 'pubspec.yaml'))) {
+if (!(Test-Path (Join-Path $Flutter 'pubspec.yaml'))) {
   FAIL 'Ejecuta el archivo desde la carpeta raíz del repositorio Flutter.'
 }
 if (!(Test-Path $Backend)) {
@@ -109,7 +110,7 @@ if ($Php -and (Test-Path (Join-Path $Proyecto 'VALIDAR_DASHBOARD_150.php'))) {
 }
 
 # 5: Flutter: análisis, tests y compilación Web para presentación.
-Push-Location $Proyecto
+Push-Location $Flutter
 try {
   foreach ($comando in @('pub get','analyze','test','build web --release')) {
     $argumentos = $comando.Split(' ')

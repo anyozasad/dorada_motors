@@ -2,9 +2,10 @@
 # Ejecutar desde PowerShell: powershell -ExecutionPolicy Bypass -File .\INICIAR_DEMO.ps1
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $root
+$flutterRoot = Join-Path (Split-Path -Parent $root) "Flutter"
+Set-Location $flutterRoot
 
-if (-not (Test-Path (Join-Path $root "pubspec.yaml"))) {
+if (-not (Test-Path (Join-Path $flutterRoot "pubspec.yaml"))) {
     throw "No se encontró pubspec.yaml. Ejecuta el script dentro del repositorio Dorada Motors."
 }
 

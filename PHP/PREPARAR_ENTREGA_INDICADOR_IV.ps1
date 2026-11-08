@@ -15,7 +15,7 @@ $destino = Join-Path $escritorio 'INDICADOR_IV_DORADA_MOTORS.zip'
 if (!(Test-Path $origen) -or (Get-Item $origen).Length -lt 100000) {
   throw 'No se encontró la entrega completa. Revisa el empaquetado anterior.'
 }
-Copy-Item -Path $origen -Destination $destino -Force
+Move-Item -Path $origen -Destination $destino -Force
 Write-Host ''
 Write-Host 'ENTREGA INDICADOR IV PREPARADA' -ForegroundColor Green
 Write-Host "Archivo para subir al instituto: $destino" -ForegroundColor Green

@@ -48,6 +48,8 @@ app.*.map.json
 .widget_preview/
 
 # Datos operativos privados: no incorporar sesiones, auditorías ni respaldos a Git.
-/dorada_api/data/*
-!/dorada_api/data/.htaccess
-/dorada_api/uploads/privado/
+/PHP/dorada_api/data/*
+!/PHP/dorada_api/data/.htaccess
+/PHP/dorada_api/uploads/privado/
+/Flutter/build/
+/Flutter/.dart_tool/
