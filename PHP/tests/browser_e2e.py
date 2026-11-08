@@ -56,6 +56,123 @@ def main():
         page.screenshot(path="artifacts/ui/01_dashboard.png", full_page=True)
         print("OK BROWSER: alta del administrador y acceso a dashboard")
 
+        # Todas las secciones administrativas se abren desde botones reales.
+        # Si falta una sección o un enlace no responde, la prueba falla.
+        grupos = {
+            "ventas": ["pedidos", "pagos", "comprobantes"],
+            "catalogo": ["gestion-productos", "categorias", "marcas"],
+            "inventario": ["inventario", "compras", "proveedores"],
+            "clientes": ["clientes", "direcciones"],
+        }
+        for grupo, secciones in grupos.items():
+            carpeta = page.locator(f'[data-nav-folder="{grupo}"]')
+            toggle = page.locator(f'button[data-nav-toggle="{grupo}"]')
+            for seccion in secciones:
+                if "open" not in (carpeta.get_attribute("class") or "").split():
+                    toggle.click()
+                page.locator(f'#sidebar a[href="#{seccion}"]').click()
+                expect(page.locator(f'#{seccion}')).to_have_class(re.compile(r'\bactive\b'))
+                expect(page).to_have_url(re.compile(rf'#' + re.escape(seccion) + r'        page.locator('button[data-nav-toggle="catalogo"]').click()
+        page.locator('.nav-submenu a[href="#gestion-productos"]').click()
+        expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
+
+        formulario = page.locator("#gestion-productos form.product-form")
+        formulario.locator('input[name="nombre_producto"]').fill(NOMBRE)
+        formulario.locator('select[name="id_categoria"]').select_option(index=1)
+        formulario.locator('select[name="id_marca"]').select_option(index=1)
+        formulario.locator('[name="descripcion"]').fill("Producto creado en navegador por CI")
+        formulario.locator('input[name="compatibilidad"]').fill("Motocar 200cc")
+        formulario.locator('input[name="precio"]').fill("85.50")
+        formulario.locator('input[name="precio_oferta"]').fill("79.90")
+        formulario.locator('input[name="stock"]').fill("6")
+        formulario.locator('input[name="stock_minimo"]').fill("2")
+        formulario.get_by_role("button", name="Agregar producto").click()
+        expect(page.locator(".alert.ok")).to_contain_text("Producto registrado correctamente")
+        expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
+
+        # Comprobar que tabla, búsqueda y paginación usan datos guardados.
+        page.locator("#buscador").fill(NOMBRE)
+        fila = page.locator("#tablaProductos tbody tr").filter(has_text=NOMBRE)
+        expect(fila).to_be_visible()
+        expect(fila.locator("td").nth(4)).to_contain_text("6")
+        page.locator("#buscador").fill("texto-que-no-existe-9999")
+        expect(fila).to_be_hidden()
+        page.locator("#buscador").fill("")
+        expect(fila).to_be_visible()
+        page.screenshot(path="artifacts/ui/02_producto.png", full_page=True)
+        print("OK BROWSER: formulario producto, MySQL, búsqueda y filtros")
+
+        # Editar desde el enlace real, y comprobar la actualización de stock.
+        fila.locator('a[title="Editar"]').click()
+        formulario = page.locator("#gestion-productos form.product-form")
+        expect(formulario.locator('input[name="stock_original"]')).to_have_value("6")
+        formulario.locator('input[name="stock"]').fill("7")
+        formulario.locator('input[name="precio"]').fill("92.50")
+        formulario.locator('input[name="precio_oferta"]').fill("81.00")
+        formulario.get_by_role("button", name="Guardar cambios").click()
+        expect(page.locator(".alert.ok")).to_contain_text("Producto actualizado correctamente")
+
+        # Movimiento desde el formulario Kardex y lectura de su resultado.
+        page.goto(BASE + "/dashboard.php#inventario")
+        expect(page.locator("#inventario")).to_have_class(re.compile("active"))
+        mov = page.locator("#inventario form").first
+        seleccionar_producto(mov.locator('select[name="id_producto_stock"]'), NOMBRE)
+        mov.locator('select[name="tipo_movimiento"]').select_option("Entrada")
+        mov.locator('input[name="cantidad_movimiento"]').fill("3")
+        mov.locator('input[name="motivo_movimiento"]').fill("Entrada verificada desde Chromium")
+        mov.get_by_role("button", name="Registrar movimiento").click()
+        expect(page.locator(".alert.ok")).to_contain_text("Movimiento de stock registrado")
+        expect(page.locator("#tablaKardex")).to_contain_text("Entrada verificada desde Chromium")
+        page.screenshot(path="artifacts/ui/03_kardex.png", full_page=True)
+        print("OK BROWSER: edición de producto e inventario/Kardex reales")
+
+        # El informe y la descarga deben leer todos los registros, no solo la página visible.
+        page.goto(BASE + "/dashboard.php#reportes")
+        expect(page.locator("#reportes")).to_have_class(re.compile("active"))
+        page.locator("#reportes input[name='desde']").fill("2026-01-01")
+        page.locator("#reportes input[name='hasta']").fill("2026-12-31")
+        page.locator("#reportes button:has-text('Aplicar periodo')").click()
+        expect(page.locator("#reportes")).to_have_class(re.compile("active"))
+        with page.expect_download() as info:
+            page.locator("#reportes a[href^='exportar_csv.php?tipo=ventas']").click()
+        descarga = info.value
+        assert descarga.suggested_filename.endswith(".csv"), descarga.suggested_filename
+        page.screenshot(path="artifacts/ui/04_reportes.png", full_page=True)
+        print("OK BROWSER: reportes con fechas y exportación CSV real")
+
+        # La versión móvil conserva una navegación interactiva.
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.goto(BASE + "/dashboard.php#inicio")
+        expect(page.locator("#inicio")).to_have_class(re.compile("active"))
+        page.locator(".mobile-bottom a[href='#pedidos']").click()
+        expect(page.locator("#pedidos")).to_have_class(re.compile("active"))
+        page.screenshot(path="artifacts/ui/05_movil.png", full_page=True)
+        print("OK BROWSER: navegación responsive del dashboard")
+
+        assert not errores_js, "Errores Javascript del dashboard: " + "; ".join(errores_js)
+        print("OK BROWSER: sin errores Javascript no manejados")
+        browser.close()
+
+
+if __name__ == "__main__":
+    main()
+))
+                assert page.locator("#topTitle").inner_text().strip() not in (
+                    "", "ADN Import's"
+                ), f"Título de módulo no funcional: {seccion}"
+        for seccion, titulo in [("soporte", "Atención al cliente"),
+                                 ("reportes", "Reportes")]:
+            page.locator(f'#sidebar a[href="#{seccion}"]').click()
+            expect(page.locator(f'#{seccion}')).to_have_class(re.compile(r'\bactive\b'))
+            expect(page.locator("#topTitle")).to_have_text(titulo)
+        page.locator('a.admin[href="#configuracion"]').click()
+        expect(page.locator("#configuracion")).to_have_class(re.compile(r'\bactive\b'))
+        expect(page.locator("#topTitle")).to_have_text("Configuración")
+        page.locator('#sidebar a[href="#inicio"]').click()
+        expect(page.locator("#inicio")).to_have_class(re.compile(r'\bactive\b'))
+        page.screenshot(path="artifacts/ui/00_menu_modulos.png", full_page=True)
+        print("OK BROWSER: 14 secciones reales y navegación por módulos")
+
         # Navegación real del menú sin alterar plantilla ni Javascript.
         page.locator('button[data-nav-toggle="catalogo"]').click()
         page.locator('.nav-submenu a[href="#gestion-productos"]').click()
