@@ -175,7 +175,7 @@ Este documento permite al profesor evaluar **los 150 requisitos del panel PHP un
 ## Alcance y límites
 
 - Los 150 requisitos del archivo de control se refieren al **panel PHP**. Las pantallas móviles constituyen funciones adicionales, no deben contarse dos veces.
-- `VALIDAR_DASHBOARD_150.php` comprueba estructura y palabras clave, **no** ejecuta 150 casos de prueba.
+- `PHP/tests/VALIDAR_DASHBOARD_150.php` comprueba estructura y palabras clave, **no** ejecuta 150 casos de prueba.
 - `tests/integration_smoke.py` comprueba transacciones reales sobre un MySQL de pruebas; no modifica la base de la empresa.
 - La emisión imprimible de boletas/facturas es **demostrativa**; no se afirma integración oficial con SUNAT.
 - Yape y Plin figuran como medios de pago registrados: no existe confirmación automática por esas plataformas.

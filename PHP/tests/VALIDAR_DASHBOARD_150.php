@@ -2,14 +2,14 @@
 declare(strict_types=1);
 
 $archivos = [
-    __DIR__ . "/dorada_api/dashboard.php",
-    __DIR__ . "/dorada_api/auth_admin.php",
-    __DIR__ . "/dorada_api/admin_login.php",
-    __DIR__ . "/dorada_api/admin_logout.php",
-    __DIR__ . "/dorada_api/empresa_config.php",
-    __DIR__ . "/dorada_api/comprobante_print.php",
-    __DIR__ . "/dorada_api/login.php",
-    __DIR__ . "/dorada_api/usuarios.php",
+    __DIR__ . "/../dorada_api/dashboard.php",
+    __DIR__ . "/../dorada_api/auth_admin.php",
+    __DIR__ . "/../dorada_api/admin_login.php",
+    __DIR__ . "/../dorada_api/admin_logout.php",
+    __DIR__ . "/../dorada_api/empresa_config.php",
+    __DIR__ . "/../dorada_api/comprobante_print.php",
+    __DIR__ . "/../dorada_api/login.php",
+    __DIR__ . "/../dorada_api/usuarios.php",
 ];
 $control = __DIR__ . "/CONTROL_150_FUNCIONES.txt";
 

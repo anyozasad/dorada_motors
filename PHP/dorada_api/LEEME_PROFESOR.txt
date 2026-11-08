@@ -5,10 +5,10 @@ Empresa del caso: ADN Import's / Dorada Motors.
 
 1. INICIO RÁPIDO EN WINDOWS
 - Abrir XAMPP y encender Apache y MySQL.
-- Abrir PowerShell en la carpeta dorada_motors, donde está pubspec.yaml.
+- Abrir PowerShell en la carpeta dorada_motors, donde están las carpetas Flutter y PHP.
 - Ejecutar:
     git pull origin main
-    powershell -ExecutionPolicy Bypass -File .\INICIAR_DEMO.ps1
+    powershell -ExecutionPolicy Bypass -File .\PHP\INICIAR_DEMO.ps1
 - El script copia PHP y las imágenes a C:\xampp\htdocs\dorada_api e inicia Flutter en Chrome.
 
 2. DIRECCIONES
@@ -76,5 +76,5 @@ OBSERVACIONES
 - Las cuentas o números reales de cobro deben configurarse en el dashboard por el propietario; inicialmente están vacíos.
 - Los comprobantes de la demo no sustituyen un comprobante electrónico SUNAT.
 - Consultar MATRIZ_VALIDACION_FUNCIONAL_150.md para verificar los 150 requisitos.
-- Ejecutar desde la carpeta principal: powershell -ExecutionPolicy Bypass -File .\\VERIFICAR_SISTEMA.ps1
+- Ejecutar desde la carpeta principal: powershell -ExecutionPolicy Bypass -File .\PHP\VERIFICAR_SISTEMA.ps1
 - El funcionamiento definitivo debe verificarse en la PC del profesor.

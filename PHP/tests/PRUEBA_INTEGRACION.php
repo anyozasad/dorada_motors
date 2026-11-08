@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . "/dorada_api/conexion.php";
-require_once __DIR__ . "/dorada_api/sistema_bootstrap.php";
+require_once __DIR__ . "/../dorada_api/conexion.php";
+require_once __DIR__ . "/../dorada_api/sistema_bootstrap.php";
 
 function fallo(string $mensaje): never {
     fwrite(STDERR, "[ERROR] " . $mensaje . PHP_EOL);

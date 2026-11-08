@@ -107,8 +107,8 @@ try {
 }
 
 # 3: Escritura y relaciones: transacción que se revierte.
-if ($Php -and (Test-Path (Join-Path $Proyecto 'PRUEBA_INTEGRACION.php'))) {
-  $salida = & $Php (Join-Path $Proyecto 'PRUEBA_INTEGRACION.php') 2>&1
+if ($Php -and (Test-Path (Join-Path $Proyecto 'tests\PRUEBA_INTEGRACION.php'))) {
+  $salida = & $Php (Join-Path $Proyecto 'tests\PRUEBA_INTEGRACION.php') 2>&1
   if ($LASTEXITCODE -eq 0 -and ($salida -join "`n") -match 'INTEGRACION_OK') {
     OK 'Transacciones MySQL: clientes, productos, proveedores, compras, pedidos, stock y comprobantes'
   } else {
@@ -119,8 +119,8 @@ if ($Php -and (Test-Path (Join-Path $Proyecto 'PRUEBA_INTEGRACION.php'))) {
 }
 
 # 4: La lista de 150 es un control estructural, no prueba 150 acciones.
-if ($Php -and (Test-Path (Join-Path $Proyecto 'VALIDAR_DASHBOARD_150.php'))) {
-  $salida = & $Php (Join-Path $Proyecto 'VALIDAR_DASHBOARD_150.php') 2>&1
+if ($Php -and (Test-Path (Join-Path $Proyecto 'tests\VALIDAR_DASHBOARD_150.php'))) {
+  $salida = & $Php (Join-Path $Proyecto 'tests\VALIDAR_DASHBOARD_150.php') 2>&1
   if ($LASTEXITCODE -eq 0 -and ($salida -join "`n") -match 'REQUERIMIENTOS_DASHBOARD: 150/150') {
     OK 'Los 150 puntos están enumerados y sus elementos estructurales están presentes'
   } else {

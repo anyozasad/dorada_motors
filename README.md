@@ -7,14 +7,8 @@ Proyecto de compra y administración de repuestos de motocicletas y motokar. **D
 
 La carpeta técnica `.github/` conserva las pruebas automáticas de GitHub. No es otro proyecto. No elimines las subcarpetas de Flutter: son necesarias para compilar.
 
-## Limpiar duplicados de una carpeta antigua de Windows
-Si en el Escritorio ves `android/`, `ios/`, `windows/`, `build/`, `.dart_tool/` o `dorada_nuevo_*/` **junto** a `Flutter/` y `PHP/`, son restos de la estructura anterior. No los elimines directamente: `PHP/ORDENAR_CARPETA_LOCAL.ps1` mueve solo esos elementos a **Documentos** como respaldo, sin tocar las carpetas activas, Git ni el dashboard.
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\PHP\ORDENAR_CARPETA_LOCAL.ps1
-```
-
-Los dos directorios principales del sistema son `Flutter/` y `PHP/`. Las rutas técnicas `.github/`, `.gitignore` y `README.md` deben conservarse.
+## Archivos del proyecto
+En `PHP/` únicamente están `dorada_api/` (dashboard y API), `tests/` (código de validación), los tres scripts operativos y dos documentos del Indicador IV. Se retiraron las guías y empaquetadores de indicadores anteriores. El historial de Git conserva los archivos retirados si hiciera falta recuperarlos.
 
 ## Iniciar desde PowerShell
 Enciende **Apache** y **MySQL** en XAMPP. Desde la raíz del repositorio:
@@ -47,6 +41,6 @@ Para verificar funciones:
 powershell -ExecutionPolicy Bypass -File .\PHP\VERIFICAR_SISTEMA.ps1
 ```
 
-La matriz de requisitos está en [PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md](PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md). Revisa resultados de Flutter, PHP/MySQL y navegador en [Actions](https://github.com/anyozasad/dorada_motors/actions).
+La matriz de requisitos está en [PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md](PHP/MATRIZ_VALIDACION_FUNCIONAL_150.md), y las pruebas técnicas en [PHP/tests/](PHP/tests/). Revisa resultados de Flutter, PHP/MySQL y navegador en [Actions](https://github.com/anyozasad/dorada_motors/actions).
 
 Nota: los comprobantes son de demostración y los pagos digitales se confirman manualmente, no por una pasarela bancaria.
