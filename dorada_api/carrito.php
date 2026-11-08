@@ -139,7 +139,7 @@ $stmt = $conexion->prepare("
         p.imagen_url,
         m.nombre_marca,
         c.nombre_categoria,
-        (dc.cantidad * p.precio) AS subtotal
+        (dc.cantidad * CASE WHEN p.precio_oferta>0 AND p.precio_oferta<p.precio THEN p.precio_oferta ELSE p.precio END) AS subtotal
     FROM detalle_carrito dc
     INNER JOIN producto p ON dc.id_producto=p.id_producto
     INNER JOIN marca m ON p.id_marca=m.id_marca
