@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/producto.dart';
 import '../theme/app_theme.dart';
+import 'product_image.dart';
 
 class ProductCard extends StatefulWidget {
   final Producto product;
@@ -109,32 +110,11 @@ class _ProductCardState extends State<ProductCard> {
                                     scale: _hovered ? 1.045 : 1,
                                     duration: const Duration(milliseconds: 260),
                                     curve: Curves.easeOutCubic,
-                                    child: product.imagen.startsWith('http://') ||
-                                            product.imagen.startsWith('https://')
-                                        ? Image.network(
-                                            product.imagen,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (_, _, _) =>
-                                                const Center(
-                                              child: Icon(
-                                                Icons.image_not_supported_outlined,
-                                                size: 44,
-                                                color: Colors.black26,
-                                              ),
-                                            ),
-                                          )
-                                        : Image.asset(
-                                            product.imagen,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (_, _, _) =>
-                                                const Center(
-                                              child: Icon(
-                                                Icons.image_not_supported_outlined,
-                                                size: 44,
-                                                color: Colors.black26,
-                                              ),
-                                            ),
-                                          ),
+                                    child: ProductImage(
+                                      source: product.imagen,
+                                      fit: BoxFit.contain,
+                                      semanticLabel: 'Imagen de ${product.nombre}',
+                                    ),
                                   ),
                                 ),
                               ),
