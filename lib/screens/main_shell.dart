@@ -42,6 +42,8 @@ class _MainShellState extends State<MainShell> {
   String _category = 'Todos';
   String _brand = 'Todas';
   String _vehicle = 'Todos';
+  String _ordenCatalogo = 'Relevancia';
+  bool _soloDisponibles = false;
   Set<int> _favorites = {};
   Map<int, int> _cart = {};
   List<Producto> _productos = [];
@@ -380,18 +382,53 @@ class _MainShellState extends State<MainShell> {
     return total;
   }
 
+  String _normalizarBusqueda(String texto) {
+    const origen = 'áéíóúüñ';
+    const destino = 'aeiouun';
+    final minusculas = texto.toLowerCase().trim();
+    return minusculas.split('').map((letra) {
+      final indice = origen.indexOf(letra);
+      return indice >= 0 ? destino[indice] : letra;
+    }).join();
+  }
+
+  void _limpiarBusquedaYFiltros() {
+    _searchController.clear();
+    setState(() {
+      _search = '';
+      _category = 'Todos';
+      _brand = 'Todas';
+      _vehicle = 'Todos';
+      _soloDisponibles = false;
+      _ordenCatalogo = 'Relevancia';
+    });
+  }
+
   List<Producto> get _filteredProducts {
-    final text = _search.trim().toLowerCase();
-    return _productos.where((p) {
-      final searchOk = text.isEmpty ||
-          p.nombre.toLowerCase().contains(text) ||
-          p.marca.toLowerCase().contains(text) ||
-          p.descripcion.toLowerCase().contains(text);
-      final categoryOk = _category == 'Todos' || p.categoria == _category;
-      final brandOk = _brand == 'Todas' || p.marca == _brand;
-      final vehicleOk = _vehicle == 'Todos' || p.tipoVehiculo.contains(_vehicle);
-      return searchOk && categoryOk && brandOk && vehicleOk;
+    final texto = _normalizarBusqueda(_search);
+    final encontrados = _productos.where((p) {
+      final informacion = _normalizarBusqueda(
+        '${p.nombre} ${p.marca} ${p.categoria} ${p.descripcion} '
+        '${p.compatibilidad} ${p.tipoVehiculo}',
+      );
+      final coincide = texto.isEmpty || informacion.contains(texto);
+      final categoria = _category == 'Todos' || p.categoria == _category;
+      final marca = _brand == 'Todas' || p.marca == _brand;
+      final vehiculo = _vehicle == 'Todos' || p.tipoVehiculo.contains(_vehicle);
+      final disponible = !_soloDisponibles || p.disponible;
+      return coincide && categoria && marca && vehiculo && disponible;
     }).toList();
+    switch (_ordenCatalogo) {
+      case 'Menor precio':
+        encontrados.sort((a, b) => a.precioFinal.compareTo(b.precioFinal));
+      case 'Mayor precio':
+        encontrados.sort((a, b) => b.precioFinal.compareTo(a.precioFinal));
+      case 'Nombre A-Z':
+        encontrados.sort((a, b) => a.nombre.compareTo(b.nombre));
+      default:
+        break;
+    }
+    return encontrados;
   }
 
   Future<void> _configurarConexion() async {
