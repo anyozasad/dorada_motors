@@ -87,8 +87,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _orders = _loadOrders());
-    await _orders;
+    // Una caída de Apache no debe lanzar una excepción sin manejar al
+    // deslizar para actualizar: FutureBuilder mostrará el error y Reintentar.
+    final nuevaConsulta = _loadOrders();
+    if (!mounted) return;
+    setState(() => _orders = nuevaConsulta);
+    try {
+      await nuevaConsulta;
+    } catch (_) {
+      // El mensaje se presenta en la pantalla de pedidos, sin duplicarlo.
+    }
   }
 
   Future<void> _cancelarPedido(Pedido pedido) async {
