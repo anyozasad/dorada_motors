@@ -57,7 +57,7 @@ def main():
         formulario.locator('input[name="nombre_producto"]').fill(NOMBRE)
         formulario.locator('select[name="id_categoria"]').select_option(index=1)
         formulario.locator('select[name="id_marca"]').select_option(index=1)
-        formulario.locator('input[name="descripcion"]').fill("Producto creado en navegador por CI")
+        formulario.locator('[name="descripcion"]').fill("Producto creado en navegador por CI")
         formulario.locator('input[name="compatibilidad"]').fill("Motocar 200cc")
         formulario.locator('input[name="precio"]').fill("85.50")
         formulario.locator('input[name="precio_oferta"]').fill("79.90")
