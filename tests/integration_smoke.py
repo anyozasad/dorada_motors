@@ -57,6 +57,132 @@ def admin_page(opener, path, form=None):
         return response.read().decode("utf-8")
 
 
+
+def admin_api(opener, path, *, method="GET", body=None, csrf=None, status=200):
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    headers = {"Accept": "application/json"}
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    if csrf:
+        headers["X-CSRF-Token"] = csrf
+    req = urllib.request.Request(
+        f"{BASE}/{path.lstrip('/')}", headers=headers,
+        data=data, method=method,
+    )
+    try:
+        with opener.open(req, timeout=20) as response:
+            code = response.status
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        code = error.code
+        raw = error.read().decode("utf-8")
+    assert code == status, f"{method} {path}: HTTP {code} (esperado {status}) {raw[:350]}"
+    return json.loads(raw)
+
+
+def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token):
+    # El endpoint JSON debe cumplir las mismas reglas financieras que el dashboard.
+    pedido = api("pedidos.php", method="POST", token=token, status=201, body={
+        "id_usuario": cliente,
+        "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_producto, "cantidad": 1}],
+    })
+    id_pedido = int(pedido["id_pedido"])
+    total_centimos = round(float(pedido["total"]) * 100)
+    assert total_centimos >= 2
+    mitad = total_centimos // 2
+    restante = total_centimos - mitad
+
+    datos = {
+        "id_pedido": id_pedido, "metodo_pago": "Efectivo",
+        "monto": round(mitad / 100, 2), "estado_pago": "Pagado",
+    }
+    assert admin_api(navegador, "pagos.php", method="POST", body=datos,
+                     status=419)["estado"] is False
+    assert admin_api(navegador, "pagos.php", method="POST", csrf=csrf,
+                     body={**datos, "monto": 0}, status=422)["estado"] is False
+
+    primer_abono = admin_api(navegador, "pagos.php", method="POST", csrf=csrf,
+                            body=datos, status=201)
+    assert primer_abono["saldo_pendiente"] > 0, primer_abono
+    historial = api(f"pedidos.php?id_usuario={cliente}", token=token)
+    estado = next(x for x in historial if int(x["id_pedido"]) == id_pedido)
+    assert estado["estado_pedido"] == "Pendiente", estado
+
+    final = admin_api(navegador, "pagos.php", method="POST", csrf=csrf, body={
+        **datos, "monto": round(restante / 100, 2),
+    }, status=201)
+    assert final["saldo_pendiente"] == 0, final
+    assert final["estado_pedido"] == "Pagado", final
+
+    sobrepago = admin_api(navegador, "pagos.php", method="POST", csrf=csrf,
+                         body=datos, status=409)
+    assert sobrepago["estado"] is False, sobrepago
+
+    otro = api("pedidos.php", method="POST", token=token, status=201, body={
+        "id_usuario": cliente, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_producto, "cantidad": 1}],
+    })
+    cancelado = api("cliente_cancelar_pedido.php", method="POST", token=token,
+                   body={"id_pedido": int(otro["id_pedido"])})
+    assert cancelado["estado"] is True
+    imposible = admin_api(navegador, "pagos.php", method="POST", csrf=csrf,
+                          body={**datos,"id_pedido":int(otro["id_pedido"])},
+                          status=409)
+    assert imposible["estado"] is False
+    print("OK: API pagos rechaza CSRF, sobrepagos y cancelados; suma abonos parciales.")
+
+
+def probar_revocacion_de_personal(navegador_admin, csrf):
+    correo = f"vendedor-{uuid4().hex[:10]}@example.test"
+    clave = "ClaveVendedor_2026"
+    admin_page(navegador_admin, "dashboard.php", form={
+        "csrf_token": csrf, "crear_usuario_admin": "1",
+        "admin_nombres": "Vendedor", "admin_apellidos": "Temporal",
+        "admin_correo": correo, "admin_contrasena": clave,
+        "admin_rol": "Vendedor", "admin_telefono": "999888777",
+    })
+
+    personal = admin_page(navegador_admin, "dashboard.php")
+    pos = personal.find(f"<td>{correo}</td>")
+    assert pos >= 0, "No aparece el usuario vendedor en el panel"
+    match = re.search(r'name="id_usuario_admin" value="(\d+)"', personal[pos:pos + 1800])
+    assert match, "No se pudo leer el ID del vendedor"
+    id_personal = int(match.group(1))
+
+    navegador_vendedor = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(CookieJar())
+    )
+    entrada = admin_page(navegador_vendedor, "admin_login.php")
+    match = re.search(r'name="csrf_token" value="([a-f0-9]{64})"', entrada)
+    assert match
+    acceso = admin_page(navegador_vendedor, "admin_login.php", form={
+        "csrf_token": match.group(1), "iniciar_admin": "1",
+        "correo": correo, "contrasena": clave,
+    })
+    assert "Dashboard" in acceso or "Panel" in acceso
+    assert isinstance(admin_api(navegador_vendedor, "pagos.php"), list)
+
+    cambiar = admin_page(navegador_admin, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_usuario_admin": "1",
+        "id_usuario_admin": str(id_personal),
+        "rol_usuario_admin": "Almacen", "estado_usuario_admin": "Activo",
+    })
+    assert "Cuenta administrativa actualizada" in cambiar
+    assert admin_api(navegador_vendedor, "pagos.php", status=403)["estado"] is False
+
+    bloquear = admin_page(navegador_admin, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_usuario_admin": "1",
+        "id_usuario_admin": str(id_personal),
+        "rol_usuario_admin": "Almacen", "estado_usuario_admin": "Bloqueado",
+    })
+    assert "Cuenta administrativa actualizada" in bloquear
+    assert admin_api(navegador_vendedor, "dashboard_api.php", status=401)["estado"] is False
+    print("OK: roles actualizados y sesión administrativa revocada al bloquear empleado.")
+
+
 def probar_administracion_integral(navegador, csrf, id_producto):
     def enviar(accion, datos, mensaje):
         html = admin_page(navegador, "dashboard.php", form={
@@ -210,6 +336,7 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "confirmar_contrasena": "ClaveAdmin_2026",
     })
     assert "YP-45678123" in creada, "No se muestra la referencia en pagos administrativos"
+    probar_revocacion_de_personal(navegador, csrf)
 
     # Los destinos oficiales son configurados por el administrador y leídos en Flutter.
     formulario_empresa = admin_page(navegador, "dashboard.php", form={
@@ -417,6 +544,7 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     impresion = admin_page(navegador, f"comprobante_print.php?id={enlaces[0]}")
     assert "BOLETA" in impresion and "S/ " in impresion
     probar_administracion_integral(navegador, csrf, id_producto)
+    probar_pagos_api_administrativa(navegador, csrf, id_producto, otro_id, otro_token)
 
     no_verificado = admin_page(navegador, "dashboard.php", form={
         "csrf_token": csrf,
