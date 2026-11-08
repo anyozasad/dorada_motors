@@ -530,6 +530,13 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert pagado_yape["referencia_pago"] == "YAPE-20261107", pagado_yape
     print("OK: referencia de Yape, verificación administrativa y estado pagado en Flutter.")
 
+    # Un comprobante todavía no emitido no debe mostrarse en Flutter.
+    sin_emitir = api(
+        f"cliente_comprobante.php?id_pedido={id_otro_pedido}",
+        token=otro_token, status=404,
+    )
+    assert sin_emitir["estado"] is False, sin_emitir
+
     comprobante = admin_page(navegador, "dashboard.php", form={
         "csrf_token": csrf, "registrar_comprobante": "1",
         "id_pedido_comprobante": str(id_otro_pedido),
@@ -538,6 +545,22 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert "Comprobante B001-" in comprobante, (
         "No se emitió la boleta de demostración"
     )
+    # Flutter consulta la boleta de su propia compra; otro cliente no puede leerla.
+    boleta_cliente = api(
+        f"cliente_comprobante.php?id_pedido={id_otro_pedido}", token=otro_token,
+    )
+    assert boleta_cliente["estado"] is True, boleta_cliente
+    assert boleta_cliente["comprobante"]["tipo_comprobante"] == "Boleta"
+    assert boleta_cliente["items"] and float(boleta_cliente["comprobante"]["total"]) > 0
+    assert api(
+        f"cliente_comprobante.php?id_pedido={id_otro_pedido}",
+        token=token, status=404,
+    )["estado"] is False
+    assert api(
+        f"cliente_comprobante.php?id_pedido={id_otro_pedido}",
+        status=401,
+    )["estado"] is False
+    print("OK: comprobantes del cliente visibles en Flutter, protegidos por sesión.")
     pagina_dashboard = admin_page(navegador, "dashboard.php")
     enlaces = re.findall(r'comprobante_print\.php\?id=(\d+)', pagina_dashboard)
     assert enlaces, "No se encontró enlace de impresión de comprobante"
