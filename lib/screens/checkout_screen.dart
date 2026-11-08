@@ -38,6 +38,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _saving = false;
   bool _costoDeliveryCargado = false;
   double _costoDeliveryServidor = 0;
+  String _numeroYape = '';
+  String _numeroPlin = '';
+  String _cuentaTransferencia = '';
   List<Map<String, dynamic>> _direccionesGuardadas = [];
   int _idDireccionSeleccionada = 0;
   String? _errorDirecciones;
@@ -80,12 +83,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return _addressController.text.trim();
   }
 
+  String get _destinoPago {
+    if (_payment == 'Yape') return _numeroYape;
+    if (_payment == 'Plin') return _numeroPlin;
+    if (_payment == 'Transferencia') return _cuentaTransferencia;
+    return '';
+  }
+
   Future<void> _cargarCostoDelivery() async {
     try {
-      final costo = await ApiService.obtenerCostoDelivery();
+      final config = await ApiService.obtenerConfiguracionPublica();
+      final costo = double.tryParse(config['costo_delivery']?.toString() ?? '') ?? 0;
       if (!mounted) return;
       setState(() {
         _costoDeliveryServidor = costo;
+        _numeroYape = config['numero_yape']?.toString() ?? '';
+        _numeroPlin = config['numero_plin']?.toString() ?? '';
+        _cuentaTransferencia = config['cuenta_transferencia']?.toString() ?? '';
         _costoDeliveryCargado = true;
       });
     } catch (_) {
@@ -271,6 +285,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'S/ ${order.total.toStringAsFixed(2)}',
                       strong: true,
                     ),
+                    if (order.metodoPago != 'Efectivo') ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Pago pendiente: entra a Perfil → Mis pedidos para informar tu número de operación ${order.metodoPago}. La empresa debe verificarlo.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -451,18 +473,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               _sectionCard(
                 title: 'Método de pago',
                 icon: Icons.account_balance_wallet_outlined,
-                child: Wrap(
-                  spacing: 9,
-                  runSpacing: 9,
-                  children: ['Yape', 'Plin', 'Efectivo', 'Transferencia'].map((method) {
-                    final selected = _payment == method;
-                    return ChoiceChip(
-                      avatar: Icon(_paymentIcon(method), size: 18, color: selected ? AppColors.navy : AppColors.muted),
-                      label: Text(method),
-                      selected: selected,
-                      onSelected: (_) => setState(() => _payment = method),
-                    );
-                  }).toList(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 9,
+                      runSpacing: 9,
+                      children: ['Yape', 'Plin', 'Efectivo', 'Transferencia'].map((method) {
+                        final selected = _payment == method;
+                        return ChoiceChip(
+                          avatar: Icon(_paymentIcon(method), size: 18, color: selected ? AppColors.navy : AppColors.muted),
+                          label: Text(method),
+                          selected: selected,
+                          onSelected: (_) => setState(() => _payment = method),
+                        );
+                      }).toList(),
+                    ),
+                    if (_payment != 'Efectivo') ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _destinoPago.isNotEmpty
+                            ? 'Destino oficial configurado para $_payment: $_destinoPago'
+                            : 'El destino de pago aún no está configurado. Consulta con la empresa antes de transferir.',
+                        style: const TextStyle(
+                          color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'El pago requiere confirmación del administrador. Después de registrar el pedido, informa el número de operación en «Mis pedidos».',
+                        style: TextStyle(color: AppColors.muted, fontSize: 11),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
