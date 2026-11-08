@@ -155,6 +155,38 @@ try {
         LIMIT 5
     ")->fetch_all(MYSQLI_ASSOC);
 
+    // Caja real: pagos confirmados; una venta pendiente no es dinero cobrado.
+    $cobrado = (float)$conexion->query(
+        "SELECT COALESCE(SUM(pg.monto),0) AS total
+         FROM pago pg
+         INNER JOIN pedido p ON p.id_pedido=pg.id_pedido
+         WHERE pg.estado_pago='Pagado' AND p.estado_pedido<>'Cancelado'"
+    )->fetch_assoc()["total"];
+
+    // Sumar por pedido evita duplicar el total cuando existen varios abonos.
+    $porCobrar = (float)$conexion->query(
+        "SELECT COALESCE(SUM(GREATEST(p.total-COALESCE(abonos.pagado,0),0)),0) AS total
+         FROM pedido p
+         LEFT JOIN (
+             SELECT id_pedido,SUM(monto) AS pagado
+             FROM pago WHERE estado_pago='Pagado' GROUP BY id_pedido
+         ) abonos ON abonos.id_pedido=p.id_pedido
+         WHERE p.estado_pedido<>'Cancelado'"
+    )->fetch_assoc()["total"];
+
+    $cobros7Dias = serieUltimos7Dias(
+        $conexion,
+        "SELECT DATE(pg.fecha_pago) AS fecha, COALESCE(SUM(pg.monto),0) AS total
+         FROM pago pg
+         INNER JOIN pedido p ON p.id_pedido=pg.id_pedido
+         WHERE pg.estado_pago='Pagado'
+           AND p.estado_pedido<>'Cancelado'
+           AND pg.fecha_pago >= CURDATE() - INTERVAL 6 DAY
+         GROUP BY DATE(pg.fecha_pago)
+         ORDER BY fecha",
+        "total"
+    );
+
     $ventas7Dias = serieUltimos7Dias(
         $conexion,
         "SELECT DATE(fecha_pedido) AS fecha, COALESCE(SUM(total),0) AS total
@@ -184,6 +216,8 @@ try {
         "pedidos" => $totalPedidos,
         "pedidos_pendientes" => $pedidosPendientes,
         "ventas" => $totalVentas,
+        "cobrado" => round($cobrado, 2),
+        "por_cobrar" => round($porCobrar, 2),
         "ventas_hoy" => $ventasHoy,
         "ventas_mes" => $ventasMes,
         "soporte_pendiente" => $soportePendiente,
@@ -196,6 +230,7 @@ try {
         "pagos_recientes" => $pagosRecientes,
         "productos_mas_vendidos" => $productosMasVendidos,
         "ventas_7_dias" => $ventas7Dias,
+        "cobros_7_dias" => $cobros7Dias,
         "pedidos_7_dias" => $pedidos7Dias
     ], JSON_UNESCAPED_UNICODE);
 
