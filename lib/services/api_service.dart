@@ -426,6 +426,16 @@ class ApiService {
     throw Exception('Respuesta inválida al registrar el pedido');
   }
 
+  static Future<void> reportarReferenciaPago({
+    required int idPedido,
+    required String referencia,
+  }) async {
+    await _postJson('cliente_reportar_pago.php', {
+      'id_pedido': idPedido,
+      'referencia': referencia.trim(),
+    });
+  }
+
   static Future<Map<String, dynamic>> cancelarPedidoCliente(int idPedido) async {
     final respuesta = await _postJson('cliente_cancelar_pedido.php', {
       'id_pedido': idPedido,
