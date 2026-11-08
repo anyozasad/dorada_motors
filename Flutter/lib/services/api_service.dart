@@ -31,6 +31,38 @@ class ApiService {
     return 'http://10.0.2.2/dorada_api';
   }
 
+  /// Comprueba la sesión persistida contra PHP/MySQL.
+  /// true: token válido; false: revocado o vencido; null: red/servidor no disponible.
+  /// Un fallo temporal de XAMPP nunca debe borrar la sesión del cliente.
+  static Future<bool?> verificarSesion({http.Client? client}) async {
+    final token = await LocalStore.getToken();
+    if (token == null) return false;
+
+    final cliente = client ?? http.Client();
+    try {
+      final respuesta = await cliente.get(
+        Uri.parse('$baseUrl/cuenta.php'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      if (respuesta.statusCode == 401 || respuesta.statusCode == 403) {
+        return false;
+      }
+      if (respuesta.statusCode != 200) return null;
+
+      final decoded = jsonDecode(respuesta.body);
+      if (decoded is! Map || decoded['estado'] != true) return null;
+      return decoded['usuario'] is Map;
+    } catch (_) {
+      return null;
+    } finally {
+      if (client == null) cliente.close();
+    }
+  }
+
   static Future<Map<String, String>> _headers({bool enviarJson = false}) async {
     final token = await LocalStore.getToken();
     return {
