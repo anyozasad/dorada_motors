@@ -418,15 +418,13 @@ class _MainShellState extends State<MainShell> {
       final disponible = !_soloDisponibles || p.disponible;
       return coincide && categoria && marca && vehiculo && disponible;
     }).toList();
-    switch (_ordenCatalogo) {
-      case 'Menor precio':
-        encontrados.sort((a, b) => a.precioFinal.compareTo(b.precioFinal));
-      case 'Mayor precio':
-        encontrados.sort((a, b) => b.precioFinal.compareTo(a.precioFinal));
-      case 'Nombre A-Z':
-        encontrados.sort((a, b) => a.nombre.compareTo(b.nombre));
-      default:
-        break;
+    if (_ordenCatalogo == 'Menor precio') {
+      encontrados.sort((a, b) => a.precioFinal.compareTo(b.precioFinal));
+    } else if (_ordenCatalogo == 'Mayor precio') {
+      encontrados.sort((a, b) => b.precioFinal.compareTo(a.precioFinal));
+    } else if (_ordenCatalogo == 'Nombre A-Z') {
+      encontrados.sort((a, b) => _normalizarBusqueda(a.nombre)
+          .compareTo(_normalizarBusqueda(b.nombre)));
     }
     return encontrados;
   }
