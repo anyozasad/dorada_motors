@@ -1790,7 +1790,24 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(height: 18),
           Expanded(
             child: products.isEmpty
-                ? const _EmptyState(icon: Icons.favorite_border_rounded, title: 'Todavía no tienes favoritos', text: 'Toca el corazón de un producto para guardarlo aquí.')
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _EmptyState(
+                          icon: Icons.favorite_border_rounded,
+                          title: 'Todavía no tienes favoritos',
+                          text: 'Toca el corazón de un producto para guardarlo aquí.',
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () => setState(() => _page = 1),
+                          icon: const Icon(Icons.storefront_outlined),
+                          label: const Text('Explorar repuestos'),
+                        ),
+                      ],
+                    ),
+                  )
                 : SingleChildScrollView(child: _productGrid(products)),
           ),
         ],
