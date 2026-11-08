@@ -7,6 +7,15 @@ Proyecto de compra y administración de repuestos de motocicletas y motokar. **D
 
 La carpeta técnica `.github/` conserva las pruebas automáticas de GitHub. No es otro proyecto. No elimines las subcarpetas de Flutter: son necesarias para compilar.
 
+## Limpiar duplicados de una carpeta antigua de Windows
+Si en el Escritorio ves `android/`, `ios/`, `windows/`, `build/`, `.dart_tool/` o `dorada_nuevo_*/` **junto** a `Flutter/` y `PHP/`, son restos de la estructura anterior. No los elimines directamente: `PHP/ORDENAR_CARPETA_LOCAL.ps1` mueve solo esos elementos a **Documentos** como respaldo, sin tocar las carpetas activas, Git ni el dashboard.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\PHP\ORDENAR_CARPETA_LOCAL.ps1
+```
+
+Los dos directorios principales del sistema son `Flutter/` y `PHP/`. Las rutas técnicas `.github/`, `.gitignore` y `README.md` deben conservarse.
+
 ## Iniciar desde PowerShell
 Enciende **Apache** y **MySQL** en XAMPP. Desde la raíz del repositorio:
 
