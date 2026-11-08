@@ -138,7 +138,7 @@ header("X-Content-Type-Options: nosniff");
 $salida=fopen("php://output","w");
 echo "\xEF\xBB\xBF"; // Excel reconoce acentos y caracteres UTF-8.
 $campos=$rows->fetch_fields();
-fputcsv($salida,array_map(static fn($f)=>$f->name,$campos),";");
+fputcsv($salida,array_map(static fn($f)=>$f->name,$campos),";",'"',"");
 while ($registro=$rows->fetch_assoc()) {
     $fila=[];
     foreach ($registro as $valor) {
@@ -150,7 +150,7 @@ while ($registro=$rows->fetch_assoc()) {
         }
         $fila[]=$texto;
     }
-    fputcsv($salida,$fila,";");
+    fputcsv($salida,$fila,";",'"',"");
 }
 fclose($salida);
 exit;
