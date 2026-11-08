@@ -103,7 +103,8 @@ jobs:
             'PHP/INICIAR_DEMO.ps1',
             'PHP/VERIFICAR_SISTEMA.ps1',
             'PHP/PREPARAR_ENTREGA_INDICADOR_II.ps1',
-            'PHP/PREPARAR_ENTREGA_INDICADOR_IV.ps1'
+            'PHP/PREPARAR_ENTREGA_INDICADOR_IV.ps1',
+            'PHP/ORDENAR_CARPETA_LOCAL.ps1'
           )
           foreach ($archivo in $archivos) {
             $tokens = $null
@@ -118,6 +119,27 @@ jobs:
             }
             Write-Host "OK: $archivo"
           }
+      - name: Probar limpieza de duplicados sin tocar Flutter ni PHP
+        shell: pwsh
+        run: |
+          $proyecto = Join-Path $env:RUNNER_TEMP 'auditoria_local\dorada_motors'
+          foreach ($nombre in @('Flutter', 'PHP\dorada_api', 'android', 'ios', 'windows', 'build', '.dart_tool', 'dorada_nuevo_ejemplo')) {
+            New-Item -ItemType Directory -Force -Path (Join-Path $proyecto $nombre) | Out-Null
+          }
+          Set-Content -Path (Join-Path $proyecto 'Flutter\pubspec.yaml') -Value 'name: prueba'
+          Set-Content -Path (Join-Path $proyecto 'PHP\dorada_api\dashboard.php') -Value '<?php'
+          Set-Content -Path (Join-Path $proyecto 'README.md') -Value 'No mover'
+          Copy-Item 'PHP/ORDENAR_CARPETA_LOCAL.ps1' (Join-Path $proyecto 'PHP\ORDENAR_CARPETA_LOCAL.ps1')
+          & (Join-Path $proyecto 'PHP\ORDENAR_CARPETA_LOCAL.ps1')
+          foreach ($nombre in @('android', 'ios', 'windows', 'build', '.dart_tool', 'dorada_nuevo_ejemplo')) {
+            if (Test-Path (Join-Path $proyecto $nombre)) { throw "No se ordeno: $nombre" }
+          }
+          if (!(Test-Path (Join-Path $proyecto 'Flutter\pubspec.yaml')) -or
+              !(Test-Path (Join-Path $proyecto 'PHP\dorada_api\dashboard.php')) -or
+              !(Test-Path (Join-Path $proyecto 'README.md'))) {
+              throw 'La limpieza altero los archivos esenciales del proyecto.'
+          }
+          Write-Host 'OK: duplicados respaldados y Flutter/PHP intactos'
       - name: Crear ZIP completo de entrega para el profesor
         shell: pwsh
         run: |
