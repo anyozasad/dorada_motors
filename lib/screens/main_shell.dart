@@ -42,6 +42,9 @@ class _MainShellState extends State<MainShell> {
   List<String> _categorias = [];
   List<String> _marcas = [];
   bool _cargandoProductosApi = false;
+  bool _cargandoMisDatos = false;
+  final Set<int> _carritoEnProceso = <int>{};
+  final Set<int> _favoritosEnProceso = <int>{};
   String? _errorProductosApi;
 
   @override
@@ -51,14 +54,62 @@ class _MainShellState extends State<MainShell> {
     _loadCatalogoApi();
   }
 
+  Future<int> _idCliente() async {
+    final session = await LocalStore.getSession();
+    return int.tryParse(session?['id'] ?? '') ?? 0;
+  }
+
   Future<void> _loadLocalData() async {
-    final favorites = await LocalStore.getFavorites();
-    final cart = await LocalStore.getCart();
-    if (!mounted) return;
-    setState(() {
-      _favorites = favorites;
-      _cart = cart;
-    });
+    // Invitados mantienen únicamente un carrito local. Para clientes,
+    // MySQL es la fuente de verdad, incluso al cambiar de dispositivo.
+    if (widget.isGuest) {
+      final cart = await LocalStore.getCart();
+      if (!mounted) return;
+      setState(() {
+        _favorites = {};
+        _cart = cart;
+      });
+      return;
+    }
+
+    if (mounted) setState(() => _cargandoMisDatos = true);
+    try {
+      final idUsuario = await _idCliente();
+      if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
+      final respuestaCarrito = await ApiService.obtenerCarritoUsuario(idUsuario);
+      final respuestaFavoritos = await ApiService.obtenerFavoritosUsuario(idUsuario);
+
+      final carrito = <int, int>{};
+      for (final item in (respuestaCarrito['items'] as List? ?? const [])) {
+        if (item is! Map) continue;
+        final id = int.tryParse(item['id_producto']?.toString() ?? '') ?? 0;
+        final cantidad = int.tryParse(item['cantidad']?.toString() ?? '') ?? 0;
+        if (id > 0 && cantidad > 0) carrito[id] = cantidad;
+      }
+      final favoritos = <int>{};
+      for (final item in respuestaFavoritos) {
+        if (item is! Map) continue;
+        final id = int.tryParse(item['id_producto']?.toString() ?? '') ?? 0;
+        if (id > 0) favoritos.add(id);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _cart = carrito;
+        _favorites = favoritos;
+        _cargandoMisDatos = false;
+      });
+      await LocalStore.saveCart(carrito);
+      await LocalStore.saveFavorites(favoritos);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cargandoMisDatos = false;
+        _cart = {};
+        _favorites = {};
+      });
+      _message('No se pudo sincronizar carrito y favoritos. Revisa la conexión.');
+    }
   }
   Future<void> _loadCatalogoApi() async {
     if (mounted) {
@@ -188,13 +239,35 @@ class _MainShellState extends State<MainShell> {
       _requireAccount('Inicia sesión para guardar productos en Favoritos.');
       return;
     }
-    setState(() {
-      _favorites.contains(id) ? _favorites.remove(id) : _favorites.add(id);
-    });
-    await LocalStore.saveFavorites(_favorites);
+    if (_cargandoMisDatos || _favoritosEnProceso.contains(id)) return;
+    _favoritosEnProceso.add(id);
+    try {
+      final idUsuario = await _idCliente();
+      if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
+      final agregar = !_favorites.contains(id);
+      await ApiService.guardarFavorito(
+        idUsuario: idUsuario,
+        idProducto: id,
+        agregar: agregar,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (agregar) {
+          _favorites.add(id);
+        } else {
+          _favorites.remove(id);
+        }
+      });
+      await LocalStore.saveFavorites(_favorites);
+    } catch (e) {
+      if (mounted) _message('No se pudo actualizar Favoritos: ${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      _favoritosEnProceso.remove(id);
+    }
   }
 
   Future<void> _addCart(int id) async {
+    if (_cargandoMisDatos || _carritoEnProceso.contains(id)) return;
     final product = _productById(id);
     final current = _cart[id] ?? 0;
     if (!product.disponible) {
@@ -205,26 +278,64 @@ class _MainShellState extends State<MainShell> {
       _message('No hay más unidades disponibles de ${product.nombre}.');
       return;
     }
-    setState(() => _cart[id] = current + 1);
-    await LocalStore.saveCart(_cart);
-    if (mounted) _message('${product.nombre} agregado al carrito.');
+    _carritoEnProceso.add(id);
+    try {
+      if (!widget.isGuest) {
+        final idUsuario = await _idCliente();
+        if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
+        await ApiService.guardarCantidadCarrito(
+          idUsuario: idUsuario,
+          idProducto: id,
+          cantidad: current + 1,
+        );
+      }
+      if (!mounted) return;
+      setState(() => _cart[id] = current + 1);
+      await LocalStore.saveCart(_cart);
+      if (mounted) _message('${product.nombre} agregado al carrito.');
+    } catch (e) {
+      if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      _carritoEnProceso.remove(id);
+    }
   }
 
   Future<void> _changeQty(int id, int delta, [VoidCallback? modalRefresh]) async {
+    if (_cargandoMisDatos || _carritoEnProceso.contains(id)) return;
     final product = _productById(id);
     final current = _cart[id] ?? 0;
     final next = current + delta;
-    if (next <= 0) {
-      _cart.remove(id);
-    } else if (next <= product.stock) {
-      _cart[id] = next;
-    } else {
+    if (next > product.stock) {
       _message('Stock máximo disponible: ${product.stock}.');
       return;
     }
-    setState(() {});
-    modalRefresh?.call();
-    await LocalStore.saveCart(_cart);
+    _carritoEnProceso.add(id);
+    try {
+      if (!widget.isGuest) {
+        final idUsuario = await _idCliente();
+        if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
+        await ApiService.guardarCantidadCarrito(
+          idUsuario: idUsuario,
+          idProducto: id,
+          cantidad: next,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        if (next <= 0) {
+          _cart.remove(id);
+        } else {
+          _cart[id] = next;
+        }
+      });
+      // La lámina del carrito puede haberse cerrado durante la petición.
+      try { modalRefresh?.call(); } catch (_) {}
+      await LocalStore.saveCart(_cart);
+    } catch (e) {
+      if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      _carritoEnProceso.remove(id);
+    }
   }
 
   // Ignora artículos eliminados del catálogo para evitar errores de búsqueda.
