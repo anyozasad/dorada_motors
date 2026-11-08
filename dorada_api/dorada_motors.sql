@@ -172,6 +172,53 @@ CREATE TABLE IF NOT EXISTS comprobante (
     REFERENCES pedido(id_pedido) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS sesion_cliente (
+  token_hash CHAR(64) NOT NULL PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_expiracion DATETIME NOT NULL,
+  INDEX idx_sesion_cliente_usuario (id_usuario),
+  INDEX idx_sesion_cliente_expiracion (fecha_expiracion),
+  CONSTRAINT fk_sesion_cliente_usuario FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS carrito (
+  id_carrito INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'Activo',
+  fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_carrito_usuario (id_usuario),
+  CONSTRAINT fk_carrito_usuario FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS detalle_carrito (
+  id_detalle_carrito INT AUTO_INCREMENT PRIMARY KEY,
+  id_carrito INT NOT NULL,
+  id_producto INT NOT NULL,
+  cantidad INT NOT NULL,
+  UNIQUE KEY uq_detalle_carrito (id_carrito,id_producto),
+  INDEX idx_detalle_carrito_producto (id_producto),
+  CONSTRAINT fk_detalle_carrito_carrito FOREIGN KEY (id_carrito)
+    REFERENCES carrito(id_carrito) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_detalle_carrito_producto FOREIGN KEY (id_producto)
+    REFERENCES producto(id_producto) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS favorito (
+  id_favorito INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  id_producto INT NOT NULL,
+  fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_favorito_usuario_producto (id_usuario,id_producto),
+  INDEX idx_favorito_producto (id_producto),
+  CONSTRAINT fk_favorito_usuario FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_favorito_producto FOREIGN KEY (id_producto)
+    REFERENCES producto(id_producto) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO categoria (nombre_categoria) VALUES
 ('Transmisión'),
 ('Frenos'),
