@@ -59,12 +59,8 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
   Future<void> _editar([Map<String, dynamic>? actual]) async {
     if (_guardando || _idUsuario <= 0) return;
 
-    final direccionController = TextEditingController(
-      text: actual?['direccion_detalle']?.toString() ?? '',
-    );
-    final referenciaController = TextEditingController(
-      text: actual?['referencia']?.toString() ?? '',
-    );
+    var direccionEditada = actual?['direccion_detalle']?.toString() ?? '';
+    var referenciaEditada = actual?['referencia']?.toString() ?? '';
     final formKey = GlobalKey<FormState>();
     final confirmar = await showDialog<bool>(
       context: context,
@@ -78,7 +74,8 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
-                  controller: direccionController,
+                  initialValue: direccionEditada,
+                  onChanged: (valor) => direccionEditada = valor,
                   autofocus: true,
                   maxLength: 255,
                   maxLines: 2,
@@ -92,7 +89,8 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  controller: referenciaController,
+                  initialValue: referenciaEditada,
+                  onChanged: (valor) => referenciaEditada = valor,
                   maxLength: 255,
                   decoration: const InputDecoration(
                     labelText: 'Referencia (opcional)',
@@ -126,16 +124,16 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
         if (actual == null) {
           await ApiService.registrarDireccion(
             idUsuario: _idUsuario,
-            direccion: direccionController.text,
-            referencia: referenciaController.text,
+            direccion: direccionEditada.trim(),
+            referencia: referenciaEditada.trim(),
           );
         } else {
           final id = int.tryParse(actual['id_direccion']?.toString() ?? '') ?? 0;
           await ApiService.actualizarDireccion(
             idUsuario: _idUsuario,
             idDireccion: id,
-            direccion: direccionController.text,
-            referencia: referenciaController.text,
+            direccion: direccionEditada.trim(),
+            referencia: referenciaEditada.trim(),
           );
         }
         _mensaje('Dirección guardada correctamente.');
@@ -147,8 +145,6 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
       }
     }
 
-    direccionController.dispose();
-    referenciaController.dispose();
   }
 
   Future<void> _eliminar(Map<String, dynamic> actual) async {
