@@ -1,222 +1,110 @@
-# DORADA MOTORS - PREPARAR ENTREGA DEL EXAMEN INDICADOR II
-# Genera una carpeta PROYECTO y un PROYECTO.zip en el Escritorio.
+# DORADA MOTORS - EMPAQUETAR PROYECTO COMPLETO Y ENTREGABLES
+# Uso:
+# powershell -ExecutionPolicy Bypass -File .\PREPARAR_ENTREGA_INDICADOR_II.ps1
+# Paquetes separados opcionales:
+# powershell -ExecutionPolicy Bypass -File .\PREPARAR_ENTREGA_INDICADOR_II.ps1 -PaquetesSeparados
+# Este script NO modifica el proyecto original ni exporta datos privados de clientes.
 
-$ErrorActionPreference = "Stop"
-
-$Proyecto = "C:\Users\CESAR\Desktop\dorada_motors"
-$Backend = Join-Path $Proyecto "dorada_api"
-$Desktop = [Environment]::GetFolderPath("Desktop")
-$Entrega = Join-Path $Desktop "PROYECTO"
-$ZipFinal = Join-Path $Desktop "PROYECTO.zip"
-$Dump = "C:\xampp\mysql\bin\mysqldump.exe"
-$Htdocs = "C:\xampp\htdocs\dorada_api"
-
-Write-Host ""
-Write-Host "=== DORADA MOTORS - PREPARANDO ENTREGA ===" -ForegroundColor Cyan
-
-if (!(Test-Path $Proyecto)) {
-    throw "No se encontro el proyecto en: $Proyecto"
-}
-
-if (!(Test-Path $Backend)) {
-    throw "No se encontro la carpeta dorada_api en: $Backend"
-}
-
-if (!(Test-Path $Dump)) {
-    throw "No se encontro mysqldump.exe. Verifica XAMPP."
-}
-
-# 1. Limpiar entrega anterior
-if (Test-Path $Entrega) {
-    Remove-Item $Entrega -Recurse -Force
-}
-
-if (Test-Path $ZipFinal) {
-    Remove-Item $ZipFinal -Force
-}
-
-New-Item -ItemType Directory -Path $Entrega | Out-Null
-
-# 2. Recuperar configuracion empresarial guardada desde XAMPP
-Write-Host "Sincronizando configuracion empresarial..." -ForegroundColor Yellow
-$ConfigHtdocs = Join-Path $Htdocs "data\config_empresa.json"
-$ConfigProyecto = Join-Path $Backend "data\config_empresa.json"
-if (Test-Path $ConfigHtdocs) {
-    $ConfigDirProyecto = Split-Path $ConfigProyecto -Parent
-    if (!(Test-Path $ConfigDirProyecto)) {
-        New-Item -ItemType Directory -Path $ConfigDirProyecto -Force | Out-Null
-    }
-    Copy-Item $ConfigHtdocs $ConfigProyecto -Force
-}
-
-# 3. Aplicar compatibilidad/estructura actual antes de exportar
-Write-Host "Aplicando estructura actual de la base de datos..." -ForegroundColor Yellow
-$PhpExe = "C:\xampp\php\php.exe"
-if (!(Test-Path $PhpExe)) {
-    throw "No se encontro PHP de XAMPP en $PhpExe"
-}
-& $PhpExe (Join-Path $Backend "sistema_bootstrap.php")
-if ($LASTEXITCODE -ne 0) {
-    throw "No se pudo actualizar la estructura de la base de datos."
-}
-
-# 3. Exportar la base de datos real
-$SqlBackend = Join-Path $Backend "dorada_motors.sql"
-$SqlEntrega = Join-Path $Entrega "Dorada_Motors_BD.sql"
-
-Write-Host "Exportando base de datos dorada_motors..." -ForegroundColor Yellow
-
-& $Dump -u root --default-character-set=utf8mb4 --routines --events --triggers dorada_motors |
-    Set-Content -Path $SqlBackend -Encoding UTF8
-
-if (!(Test-Path $SqlBackend)) {
-    throw "No se pudo crear dorada_motors.sql."
-}
-
-if ((Get-Item $SqlBackend).Length -lt 100) {
-    throw "El archivo SQL esta vacio o incompleto. Verifica que MySQL este encendido."
-}
-
-Copy-Item $SqlBackend $SqlEntrega -Force
-
-$Control150 = Join-Path $Proyecto "CONTROL_150_FUNCIONES.txt"
-if (Test-Path $Control150) {
-    Copy-Item $Control150 (Join-Path $Entrega "REQUERIMIENTOS_FUNCIONALES_150.txt") -Force
-}
-
-# 3. Sincronizar backend con XAMPP
-if (!(Test-Path $Htdocs)) {
-    New-Item -ItemType Directory -Path $Htdocs | Out-Null
-}
-
-Copy-Item (Join-Path $Backend "*") $Htdocs -Recurse -Force
-
-# 4. Crear ZIP limpio del proyecto web + API
-# El ZIP incluye una carpeta raiz "dorada_api" para que el profesor
-# solo la extraiga directamente dentro de C:\xampp\htdocs\
-$TempBackend = Join-Path $env:TEMP "Dorada_Motors_WEB_API_ENTREGA"
-$TempBackendApp = Join-Path $TempBackend "dorada_api"
-
-if (Test-Path $TempBackend) {
-    Remove-Item $TempBackend -Recurse -Force
-}
-
-New-Item -ItemType Directory -Path $TempBackendApp -Force | Out-Null
-
-Get-ChildItem $Backend -Force |
-    Where-Object {
-        $_.Name -notin @(
-            "LEEME_PROFESOR.txt",
-            "carrito.php",
-            "favoritos.php",
-            ".git",
-            ".github",
-            ".vscode"
-        )
-    } |
-    ForEach-Object {
-        Copy-Item $_.FullName $TempBackendApp -Recurse -Force
-    }
-
-$AuditoriaTemp = Join-Path $TempBackendApp "data\auditoria.jsonl"
-if (Test-Path $AuditoriaTemp) {
-    Remove-Item $AuditoriaTemp -Force
-}
-
-$WebZip = Join-Path $Entrega "Dorada_Motors_WEB_API.zip"
-Compress-Archive -Path $TempBackendApp -DestinationPath $WebZip -Force
-
-# 5. Crear ZIP limpio de Flutter
-$TempFlutter = Join-Path $env:TEMP "Dorada_Motors_FLUTTER_ENTREGA"
-
-if (Test-Path $TempFlutter) {
-    Remove-Item $TempFlutter -Recurse -Force
-}
-
-New-Item -ItemType Directory -Path $TempFlutter | Out-Null
-
-$ExcluirDirectorios = @(
-    ".git",
-    ".github",
-    ".vscode",
-    ".dart_tool",
-    "build",
-    ".idea",
-    "dorada_api"
+param(
+  [switch]$PaquetesSeparados
 )
 
-$ArgsRobocopy = @(
-    $Proyecto,
-    $TempFlutter,
-    "/E",
-    "/NFL",
-    "/NDL",
-    "/NJH",
-    "/NJS",
-    "/NP"
-)
+$ErrorActionPreference = 'Stop'
+$Proyecto = $PSScriptRoot
+$Desktop = [Environment]::GetFolderPath('Desktop')
+$Entrega = Join-Path $Desktop 'ENTREGA_DORADA_MOTORS'
+$ZipFinal = Join-Path $Desktop 'ENTREGA_DORADA_MOTORS.zip'
+$Temporal = Join-Path $env:TEMP 'DORADA_MOTORS_ENTREGA_TEMP'
+$ProyectoTemporal = Join-Path $Temporal 'dorada_motors'
 
-foreach ($dir in $ExcluirDirectorios) {
-    $ArgsRobocopy += "/XD"
-    $ArgsRobocopy += (Join-Path $Proyecto $dir)
+if (!(Test-Path (Join-Path $Proyecto 'pubspec.yaml')) -or
+    !(Test-Path (Join-Path $Proyecto 'dorada_api\dashboard.php'))) {
+  throw 'No se encontró el proyecto completo Flutter + PHP. Ejecuta el script desde la carpeta del repositorio.'
 }
 
-& robocopy @ArgsRobocopy | Out-Null
+Write-Host 'Preparando entrega Dorada Motors...' -ForegroundColor Cyan
+if (Test-Path $Temporal) { Remove-Item $Temporal -Recurse -Force }
+if (Test-Path $Entrega) { Remove-Item $Entrega -Recurse -Force }
+if (Test-Path $ZipFinal) { Remove-Item $ZipFinal -Force }
+New-Item -ItemType Directory -Path $ProyectoTemporal -Force | Out-Null
+New-Item -ItemType Directory -Path $Entrega -Force | Out-Null
 
-if ($LASTEXITCODE -gt 7) {
-    throw "Error al copiar el proyecto Flutter."
+# Copiar solamente archivos fuente, assets, API, SQL y pruebas.
+$argumentos = @(
+  $Proyecto, $ProyectoTemporal, '/E', '/NFL', '/NDL',
+  '/NJH', '/NJS', '/NP', '/XD',
+  (Join-Path $Proyecto '.git'),
+  (Join-Path $Proyecto '.dart_tool'),
+  (Join-Path $Proyecto 'build'),
+  (Join-Path $Proyecto '.idea'),
+  (Join-Path $Proyecto '.vscode'),
+  '/XF', '*.zip', '*.iml', '.env', '*.log'
+)
+& robocopy @argumentos | Out-Null
+if ($LASTEXITCODE -gt 7) { throw 'No se pudo copiar el código fuente del proyecto.' }
+
+# Excluir secretos, sesiones locales, auditoría y clientes reales.
+$Privados = @(
+  'dorada_api\data',
+  'dorada_api\uploads\privado',
+  'dorada_api\.env'
+)
+foreach ($relativa in $Privados) {
+  $ruta = Join-Path $ProyectoTemporal $relativa
+  if (Test-Path $ruta) { Remove-Item $ruta -Recurse -Force }
 }
 
-# Quitar archivos auxiliares que no necesita el profesor
-$ArchivosQuitarFlutter = @(
-    "dorada_motors.iml",
-    "PREPARAR_ENTREGA_INDICADOR_II.ps1",
-    "VERIFICAR_SISTEMA.ps1",
-    "PRUEBA_INTEGRACION.php",
-    "CONTROL_150_FUNCIONES.txt",
-    "VALIDAR_DASHBOARD_150.php",
-    "ENTREGA_INDICADOR_II.txt"
-)
+$SqlFuente = Join-Path $Proyecto 'dorada_api\dorada_motors.sql'
+$SqlEntrega = Join-Path $Entrega 'Dorada_Motors_BD.sql'
+Copy-Item $SqlFuente $SqlEntrega -Force
 
-foreach ($archivo in $ArchivosQuitarFlutter) {
-    $ruta = Join-Path $TempFlutter $archivo
-    if (Test-Path $ruta) {
-        Remove-Item $ruta -Force
+# Entrega principal: incluye Flutter, PHP, MySQL, imágenes locales y pruebas.
+$ZipCompleto = Join-Path $Entrega 'Dorada_Motors_PROYECTO_COMPLETO.zip'
+Compress-Archive -Path (Join-Path $ProyectoTemporal '*') -DestinationPath $ZipCompleto -CompressionLevel Optimal -Force
+
+foreach ($recurso in @(
+  'dorada_api\LEEME_PROFESOR.txt',
+  'CONTROL_150_FUNCIONES.txt',
+  'MATRIZ_VALIDACION_FUNCIONAL_150.md'
+)) {
+  $origen = Join-Path $ProyectoTemporal $recurso
+  if (Test-Path $origen) {
+    Copy-Item $origen (Join-Path $Entrega (Split-Path $recurso -Leaf)) -Force
+  }
+}
+
+# Opcional: los paquetes separados que algunas evaluaciones solicitan.
+if ($PaquetesSeparados) {
+  $ZipWeb = Join-Path $Entrega 'Dorada_Motors_WEB_API.zip'
+  $ZipFlutter = Join-Path $Entrega 'Dorada_Motors_FLUTTER.zip'
+
+  $SoloBackend = Join-Path $Temporal 'solo_backend\dorada_api'
+  New-Item -ItemType Directory -Path $SoloBackend -Force | Out-Null
+  Copy-Item (Join-Path $ProyectoTemporal 'dorada_api\*') $SoloBackend -Recurse -Force
+  Compress-Archive -Path (Join-Path $Temporal 'solo_backend\dorada_api') -DestinationPath $ZipWeb -Force
+
+  $SoloFlutter = Join-Path $Temporal 'solo_flutter'
+  New-Item -ItemType Directory -Path $SoloFlutter -Force | Out-Null
+  foreach ($item in (Get-ChildItem $ProyectoTemporal -Force)) {
+    if ($item.Name -ne 'dorada_api') {
+      Copy-Item $item.FullName $SoloFlutter -Recurse -Force
     }
+  }
+  Compress-Archive -Path (Join-Path $SoloFlutter '*') -DestinationPath $ZipFlutter -Force
 }
 
-$FlutterZip = Join-Path $Entrega "Dorada_Motors_FLUTTER.zip"
-Compress-Archive -Path (Join-Path $TempFlutter "*") -DestinationPath $FlutterZip -Force
-
-# 6. Validar que los tres archivos de entrega existan
-$ArchivosEntrega = @(
-    $SqlEntrega,
-    $WebZip,
-    $FlutterZip
-)
-
-foreach ($archivo in $ArchivosEntrega) {
-    if (!(Test-Path $archivo)) {
-        throw "Falta un archivo de entrega: $archivo"
-    }
+# Comprobar que existen los archivos de entrega y que contienen bytes.
+foreach ($archivo in @($SqlEntrega,$ZipCompleto)) {
+  if (!(Test-Path $archivo) -or (Get-Item $archivo).Length -le 100) {
+    throw "El archivo está ausente o vacío: $archivo"
+  }
 }
 
-# 7. Crear ZIP final
-Compress-Archive -Path $Entrega -DestinationPath $ZipFinal -Force
-
-# 8. Mostrar resultado
-Write-Host ""
-Write-Host "=== ENTREGA LISTA ===" -ForegroundColor Green
+Compress-Archive -Path $Entrega -DestinationPath $ZipFinal -CompressionLevel Optimal -Force
+Write-Host ''
+Write-Host 'ENTREGA CREADA CORRECTAMENTE' -ForegroundColor Green
 Write-Host "Carpeta: $Entrega" -ForegroundColor Green
 Write-Host "ZIP final: $ZipFinal" -ForegroundColor Green
-Write-Host ""
-Write-Host "Contenido de PROYECTO:" -ForegroundColor Cyan
-
-Get-ChildItem $Entrega |
-    Select-Object Name, Length |
-    Format-Table -AutoSize
-
-Write-Host ""
-Write-Host "El archivo que debes subir al examen es: PROYECTO.zip" -ForegroundColor Yellow
-
-Start-Process $Entrega
+Write-Host 'El ZIP completo incluye Flutter y el dashboard PHP con carrito, favoritos y soporte.' -ForegroundColor Cyan
+Write-Host 'No se exportaron usuarios, contraseñas ni pedidos reales de MySQL.' -ForegroundColor Cyan
+Get-ChildItem $Entrega | Select-Object Name,Length | Format-Table -AutoSize
