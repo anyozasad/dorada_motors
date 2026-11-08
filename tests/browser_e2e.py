@@ -47,6 +47,12 @@ def main():
         page.wait_for_url(re.compile(r".*/dashboard\.php.*"))
         expect(page.locator("#inicio")).to_have_class(re.compile("active"))
         expect(page.locator(".top-title")).to_contain_text("Dashboard")
+        # Indicador IV: la caja real se presenta en tarjetas conectadas con MySQL.
+        expect(page.locator("#metricCobrado")).to_contain_text("S/")
+        expect(page.locator("#metricPorCobrar")).to_contain_text("S/")
+        expect(page.locator("#cobrosBarra")).to_have_attribute("style", re.compile(r"width:\\s*[0-9.]+%"))
+        expect(page.locator(".cashflow-strip .cashflow-card")).to_have_count(2)
+        print("OK BROWSER: tarjetas de caja real y progreso financiero")
         page.screenshot(path="artifacts/ui/01_dashboard.png", full_page=True)
         print("OK BROWSER: alta del administrador y acceso a dashboard")
 
