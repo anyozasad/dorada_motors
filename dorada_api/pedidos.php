@@ -325,7 +325,17 @@ $stmt = $conexion->prepare("
             WHERE pg.id_pedido=p.id_pedido
             ORDER BY pg.id_pago DESC
             LIMIT 1
-        ) AS metodo_pago
+        ) AS metodo_pago,
+        (
+            SELECT pg.estado_pago
+            FROM pago pg WHERE pg.id_pedido=p.id_pedido
+            ORDER BY pg.id_pago DESC LIMIT 1
+        ) AS estado_pago,
+        (
+            SELECT pg.referencia_cliente
+            FROM pago pg WHERE pg.id_pedido=p.id_pedido
+            ORDER BY pg.id_pago DESC LIMIT 1
+        ) AS referencia_pago
     FROM pedido p
     INNER JOIN usuario u ON p.id_usuario=u.id_usuario
     LEFT JOIN direccion d ON p.id_direccion=d.id_direccion
