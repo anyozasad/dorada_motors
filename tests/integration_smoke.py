@@ -339,6 +339,11 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     nuevos_pedidos = api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)
     actual = next(p for p in nuevos_pedidos if int(p["id_pedido"]) == id_otro_pedido)
     assert actual["estado_pedido"] == "Pagado", actual
+    cancelacion_pagada = api("cliente_cancelar_pedido.php", method="POST",
+                            token=otro_token, status=409,
+                            body={"id_pedido": id_otro_pedido})
+    assert cancelacion_pagada["estado"] is False
+    assert api(f"pedidos.php?id_usuario={otro_id}", token=otro_token)[0]["estado_pedido"] == "Pagado"
 
     comprobante = admin_page(navegador, "dashboard.php", form={
         "csrf_token": csrf, "registrar_comprobante": "1",
@@ -643,6 +648,33 @@ def main():
         method="DELETE", token=token,
     )
     assert eliminada["estado"] is True, eliminada
+
+    # Cancelación de un pedido pendiente iniciada desde el usuario móvil.
+    stock_para_cancelar = int(api(f"productos.php?id={id_producto}")["stock"])
+    pedido_cancelable = api("pedidos.php", method="POST", token=token, status=201, body={
+        "id_usuario": id_usuario, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_producto, "cantidad": 1}],
+    })
+    id_cancelable = int(pedido_cancelable["id_pedido"])
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_para_cancelar - 1
+    assert api("cliente_cancelar_pedido.php", method="POST", token=otro_token,
+               body={"id_pedido": id_cancelable}, status=404)["estado"] is False
+
+    cancelacion_cliente = api("cliente_cancelar_pedido.php", method="POST", token=token,
+                             body={"id_pedido": id_cancelable})
+    assert cancelacion_cliente["estado"] is True
+    assert cancelacion_cliente["estado_pedido"] == "Cancelado"
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_para_cancelar
+
+    # Una petición repetida no puede reponer el stock dos veces.
+    segunda_cancelacion = api("cliente_cancelar_pedido.php", method="POST",
+                             token=token, body={"id_pedido": id_cancelable})
+    assert segunda_cancelacion["estado"] is True
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_para_cancelar
+    historial_cancelado = api(f"pedidos.php?id_usuario={id_usuario}", token=token)
+    assert next(p for p in historial_cancelado if int(p["id_pedido"]) == id_cancelable)["estado_pedido"] == "Cancelado"
+    print("OK: cancelación de pedido por cliente, stock, permisos e idempotencia.")
 
     # Verificar las operaciones reales del dashboard sobre ese mismo pedido.
     probar_dashboard_admin(
