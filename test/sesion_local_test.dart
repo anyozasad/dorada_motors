@@ -1,4 +1,5 @@
 import 'package:dorada_motors/services/local_store.dart';
+import 'package:dorada_motors/services/api_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +36,15 @@ void main() {
       'session_email': 'anterior@example.com',
     });
     expect(await LocalStore.getSession(), isNull);
+  });
+
+  test('la configuración del servidor PHP se guarda y se usa', () async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStore.saveApiBaseUrl('http://192.168.1.10/dorada_api');
+    expect(await LocalStore.getApiBaseUrl(), 'http://192.168.1.10/dorada_api');
+    ApiService.configurarServidor('http://192.168.1.10/dorada_api/');
+    expect(ApiService.baseUrl, 'http://192.168.1.10/dorada_api');
+    ApiService.configurarServidor(null);
   });
 
   test('el carrito y favoritos conservan sus valores locales', () async {
