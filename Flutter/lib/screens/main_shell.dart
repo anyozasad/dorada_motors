@@ -4,6 +4,7 @@ import '../models/producto.dart';
 import '../services/api_service.dart';
 import '../services/api_server_address.dart';
 import '../services/local_store.dart';
+import '../services/product_image_url.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_image.dart';
@@ -171,10 +172,12 @@ class _MainShellState extends State<MainShell> {
     }
 
     try {
-      final resultados = await Future.wait([
+      // El catálogo no debe quedarse vacío si falla un filtro secundario.
+      // Solo la consulta de productos es indispensable.
+      final resultados = await Future.wait<List<dynamic>>([
         ApiService.obtenerProductos(),
-        ApiService.obtenerCategorias(),
-        ApiService.obtenerMarcas(),
+        ApiService.obtenerCategorias().catchError((_) => <dynamic>[]),
+        ApiService.obtenerMarcas().catchError((_) => <dynamic>[]),
       ]);
       final data = resultados[0];
       final categoriasData = resultados[1];
@@ -191,17 +194,7 @@ class _MainShellState extends State<MainShell> {
             : null;
         final imagenRaw = (row['imagen_url']?.toString() ?? '').trim();
 
-        String imagen = imagenRaw;
-        if (imagen.isNotEmpty &&
-            !imagen.startsWith('http://') &&
-            !imagen.startsWith('https://') &&
-            !imagen.startsWith('assets/')) {
-          imagen = '${ApiService.baseUrl}/$imagen';
-        }
-
-        if (imagen.isEmpty) {
-          imagen = 'assets/imagenes/logo_adn_imports.png';
-        }
+        final imagen = ProductImageUrl.resolver(imagenRaw, ApiService.baseUrl);
 
         return Producto(
           id: id,
@@ -231,6 +224,13 @@ class _MainShellState extends State<MainShell> {
             .map((e) => e is Map ? (e['nombre_marca']?.toString() ?? '') : '')
             .where((e) => e.isNotEmpty)
             .toList();
+        // Mostrar los filtros reales aun si categorías/marcas no responden.
+        if (_categorias.isEmpty) {
+          _categorias = productosApi.map((p) => p.categoria).toSet().toList();
+        }
+        if (_marcas.isEmpty) {
+          _marcas = productosApi.map((p) => p.marca).toSet().toList();
+        }
 
         if (_category != 'Todos' && !_categorias.contains(_category)) {
           _category = 'Todos';
