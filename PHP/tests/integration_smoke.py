@@ -1092,7 +1092,8 @@ def crear_cliente(nombre):
 
 
 def main():
-    # La API inicia MySQL y precarga catálogo en una instalación vacía.
+    # La prueba del APK debe verificar que se conecta a NUESTRA API PHP,
+    # no únicamente a una web o al ejemplo de Registro de Personas.
     for intento in range(25):
         try:
             productos = api("productos.php")
@@ -1101,6 +1102,12 @@ def main():
             if intento == 24:
                 raise
             time.sleep(1)
+    estado_api = api("conexion_estado.php")
+    assert estado_api["estado"] is True
+    assert estado_api["api"] == "dorada_motors"
+    assert int(estado_api["tablas_verificadas"]) >= 10
+    assert api("conexion_estado.php", method="POST", status=405)["estado"] is False
+    print("OK: APK apunta a la API Dorada Motors y tablas reales de MySQL.")
     assert isinstance(productos, list) and len(productos) >= 19, productos
     product = productos[0]
     id_producto = int(product["id_producto"])
