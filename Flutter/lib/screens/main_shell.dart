@@ -1030,7 +1030,11 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
       bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        // En pantallas de 320 px, los cuatro destinos necesitan más
+        // espacio horizontal. Mantener sus etiquetas visibles y táctiles.
+        margin: MediaQuery.sizeOf(context).width < 360
+            ? const EdgeInsets.fromLTRB(2, 0, 2, 8)
+            : const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
