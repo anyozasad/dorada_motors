@@ -63,11 +63,25 @@ if ($metodo === "POST" || $metodo === "PUT") {
         responderCarrito(["estado"=>false,"mensaje"=>"Producto no encontrado"], 404);
     }
 
-    if ($cantidad > (int)$producto["stock"]) {
-        responderCarrito(["estado"=>false,"mensaje"=>"La cantidad supera el stock disponible"], 409);
-    }
-
     $idCarrito = obtenerCarritoActivo($conexion,$idUsuario);
+    $stmt = $conexion->prepare(
+        "SELECT cantidad FROM detalle_carrito WHERE id_carrito=? AND id_producto=? LIMIT 1"
+    );
+    $stmt->bind_param("ii",$idCarrito,$idProducto);
+    $stmt->execute();
+    $anterior = $stmt->get_result()->fetch_assoc();
+    $cantidadAnterior = $anterior ? (int)$anterior["cantidad"] : 0;
+
+    // Cuando el administrador reduce el stock, permitir al cliente
+    // DISMINUIR su carrito existente, pero nunca aumentarlo ni crear
+    // nuevas unidades por encima de las existencias actuales.
+    if ($cantidad > (int)$producto["stock"] &&
+        ($cantidadAnterior <= 0 || $cantidad >= $cantidadAnterior)) {
+        responderCarrito([
+            "estado"=>false,
+            "mensaje"=>"La cantidad supera el stock disponible. Puedes reducir o quitar unidades."
+        ],409);
+    }
 
     $stmt = $conexion->prepare("
         INSERT INTO detalle_carrito (id_carrito,id_producto,cantidad)
