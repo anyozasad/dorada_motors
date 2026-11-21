@@ -233,7 +233,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // en MySQL en un falso fallo que lleve al usuario a comprar dos veces.
       try {
         await LocalStore.addOrder(order);
-        await LocalStore.clearCart();
+        await LocalStore.saveCartForUser(idUsuario, <int, int>{});
       } catch (_) {
         // El historial principal se consulta desde el servidor.
       }
