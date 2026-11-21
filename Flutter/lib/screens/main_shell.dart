@@ -1761,20 +1761,24 @@ class _MainShellState extends State<MainShell> {
                 selected: _soloDisponibles,
                 onSelected: (valor) => setState(() => _soloDisponibles = valor),
               ),
-              DropdownButton<String>(
-                value: _ordenCatalogo,
-                borderRadius: BorderRadius.circular(16),
-                underline: const SizedBox.shrink(),
-                icon: const Icon(Icons.sort_rounded, size: 18),
-                items: const [
-                  DropdownMenuItem(value: 'Relevancia', child: Text('Orden: Relevancia')),
-                  DropdownMenuItem(value: 'Menor precio', child: Text('Menor precio')),
-                  DropdownMenuItem(value: 'Mayor precio', child: Text('Mayor precio')),
-                  DropdownMenuItem(value: 'Nombre A-Z', child: Text('Nombre A-Z')),
-                ],
-                onChanged: (valor) {
-                  if (valor != null) setState(() => _ordenCatalogo = valor);
-                },
+              SizedBox(
+                width: 200,
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _ordenCatalogo,
+                  borderRadius: BorderRadius.circular(16),
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.sort_rounded, size: 18),
+                  items: const [
+                    DropdownMenuItem(value: 'Relevancia', child: Text('Orden: Relevancia')),
+                    DropdownMenuItem(value: 'Menor precio', child: Text('Menor precio')),
+                    DropdownMenuItem(value: 'Mayor precio', child: Text('Mayor precio')),
+                    DropdownMenuItem(value: 'Nombre A-Z', child: Text('Nombre A-Z')),
+                  ],
+                  onChanged: (valor) {
+                    if (valor != null) setState(() => _ordenCatalogo = valor);
+                  },
+                ),
               ),
               if (_search.isNotEmpty ||
                   _category != 'Todos' ||
