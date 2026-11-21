@@ -14,6 +14,10 @@ void main() {
         telefonoAndroid: false), 'https://mi-servidor.test/dorada_api');
     expect(ApiServerAddress.normalizar('http://10.0.2.2/dorada_api',
         telefonoAndroid: true), 'http://10.0.2.2/dorada_api');
+    expect(ApiServerAddress.normalizar('https://servidor.pe/tec/dorada_api',
+        telefonoAndroid: true), 'https://servidor.pe/tec/dorada_api');
+    expect(ApiServerAddress.normalizar('https://servidor.pe/tec',
+        telefonoAndroid: true), 'https://servidor.pe/tec/dorada_api');
   });
 
   test('Un celular físico no debe apuntar a localhost', () {
