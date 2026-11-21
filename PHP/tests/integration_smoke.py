@@ -496,6 +496,41 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert destinos["numero_plin"] == "977654321", destinos
     assert "CCI" in destinos["cuenta_transferencia"], destinos
     assert float(destinos["costo_delivery"]) == 5.0, destinos
+
+    # Admin y Flutter deben usar la misma tarifa para un pedido con Delivery.
+    direcciones_cliente = api(f"direcciones.php?id_usuario={id_usuario}", token=token)
+    assert direcciones_cliente, "El cliente no tiene dirección para el pedido manual"
+    direccion_manual = int(direcciones_cliente[0]["id_direccion"])
+    producto_manual = api(f"productos.php?id={id_producto}")
+    precio_base = float(producto_manual["precio"])
+    oferta = float(producto_manual["precio_oferta"] or 0)
+    precio_aplicable = oferta if 0 < oferta < precio_base else precio_base
+    stock_antes_manual = int(producto_manual["stock"])
+    respuesta_manual = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "registrar_pedido_manual": "1",
+        "id_usuario_pedido": str(id_usuario),
+        "id_direccion_pedido": str(direccion_manual),
+        "id_producto_pedido[]": [id_producto],
+        "cantidad_pedido[]": [1],
+        "tipo_entrega_pedido": "Delivery",
+        "metodo_pago_pedido": "Efectivo",
+    })
+    creado_manual = re.search(r"Pedido #(\d+) registrado", respuesta_manual)
+    assert creado_manual, "El administrador no pudo registrar un pedido Delivery"
+    id_manual = int(creado_manual.group(1))
+    pedidos_cliente = api(f"pedidos.php?id_usuario={id_usuario}", token=token)
+    pedido_manual = next(p for p in pedidos_cliente if int(p["id_pedido"]) == id_manual)
+    assert abs(float(pedido_manual["total"]) -
+               (precio_aplicable + float(destinos["costo_delivery"]))) < 0.01, pedido_manual
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_manual - 1
+    anulado_manual = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "actualizar_estado_pedido": "1",
+        "id_pedido": str(id_manual), "estado_pedido": "Cancelado",
+    })
+    assert "Estado del pedido actualizado" in anulado_manual
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_manual
+    print("OK: Delivery manual del administrador coincide con Flutter y repone stock al anular.")
+
     assert "Producto" in creada and "Pedidos" in creada, (
         "No se abrió el dashboard tras crear el administrador"
     )
