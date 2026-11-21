@@ -3719,6 +3719,20 @@ function aplicarClasesEstado(){
  });
 }
 
+// Métricas en vivo y listados PHP deben corresponder a la misma base MySQL.
+// Recargar las tablas al detectar registros nuevos de Flutter, siempre que
+// el administrador no tenga un formulario con datos sin guardar.
+const filasIniciales = {
+ productos: <?= (int)$totalProductos ?>,
+ usuarios: <?= (int)$totalUsuarios ?>,
+ pedidos: <?= (int)$totalPedidos ?>
+};
+let formularioAdminModificado = false;
+document.querySelectorAll('form').forEach(form=>{
+ form.addEventListener('input',()=>{formularioAdminModificado=true;});
+ form.addEventListener('change',()=>{formularioAdminModificado=true;});
+});
+
 async function actualizarDashboardEnVivo(manual=false){
  const refreshBtn=document.getElementById('liveRefreshBtn');
  if(manual){
@@ -3730,6 +3744,22 @@ async function actualizarDashboardEnVivo(manual=false){
   if(!respuesta.ok) throw new Error('HTTP '+respuesta.status);
   const data=await respuesta.json();
   if(!data.estado) throw new Error(data.mensaje||'API no disponible');
+
+  const llegaronRegistrosNuevos = ['productos','usuarios','pedidos'].some(
+    campo=>Number(data[campo])!==Number(filasIniciales[campo])
+  );
+  if(llegaronRegistrosNuevos){
+   // Evitar perder información cuando el administrador está editando.
+   if(!formularioAdminModificado && document.visibilityState==='visible'){
+    window.location.reload();
+    return;
+   }
+   const aviso=document.getElementById('liveStatus');
+   if(aviso){
+    aviso.textContent='● Registros nuevos · pulsa ↻ para actualizar tablas';
+    aviso.style.opacity='1';
+   }
+  }
 
   const poner=(id,valor)=>{
    const el=document.getElementById(id);
@@ -3779,7 +3809,7 @@ async function actualizarDashboardEnVivo(manual=false){
   renderPagosRecientes(data.pagos_recientes);
 
   const estado=document.getElementById('liveStatus');
-  if(estado){
+  if(estado && !llegaronRegistrosNuevos){
    estado.textContent='● Datos en vivo · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
    estado.style.opacity='1';
   }
