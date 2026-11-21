@@ -51,11 +51,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Conectar con Dorada Motors'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).last, 'no-es-una-direccion-valida');
+    await tester.enterText(find.byType(TextField).last, 'http://192.168.1.10/login.php');
     await tester.tap(find.text('Probar conexión'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Usa una URL válida terminada en /dorada_api.'), findsOneWidget);
+    expect(find.text('La dirección debe terminar en /dorada_api, no en una página PHP.'), findsOneWidget);
   });
 
   testWidgets('Las tarjetas de repuestos caben en un celular estrecho',
