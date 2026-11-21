@@ -400,19 +400,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $stmt->execute();
                 if (!$stmt->get_result()->fetch_assoc()) throw new RuntimeException("Producto no encontrado");
 
+                // Un producto con compras, ventas o Kardex no puede borrarse:
+                // conservar su historial es indispensable para la auditoría.
                 $stmt = $conexion->prepare("
                     SELECT
                         (SELECT COUNT(*) FROM detalle_pedido WHERE id_producto=?) +
-                        (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) AS total
+                        (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) +
+                        (SELECT COUNT(*) FROM movimiento_stock WHERE id_producto=?) AS total
                 ");
-                $stmt->bind_param("ii", $idProducto, $idProducto);
+                $stmt->bind_param("iii", $idProducto, $idProducto, $idProducto);
                 $stmt->execute();
                 if ((int)$stmt->get_result()->fetch_assoc()["total"] > 0) {
-                    throw new RuntimeException("No se puede eliminar: el producto ya tiene movimientos registrados");
+                    throw new RuntimeException("No se puede eliminar: el producto tiene movimientos de inventario, compras o ventas");
                 }
-                $stmt = $conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
-                $stmt->bind_param("i", $idProducto);
-                $stmt->execute();
                 $stmt = $conexion->prepare("DELETE FROM producto WHERE id_producto=?");
                 $stmt->bind_param("i", $idProducto);
                 $stmt->execute();
