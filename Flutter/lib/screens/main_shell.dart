@@ -466,7 +466,10 @@ class _MainShellState extends State<MainShell> {
     final personalizada = await LocalStore.getApiBaseUrl();
     if (!mounted) return;
     var direccionIngresada = personalizada?.isNotEmpty == true
-        ? personalizada! : ApiService.baseUrl;
+        ? personalizada!
+        : (ApiService.requiereConfigurarServidorEnAndroid
+            ? ''
+            : ApiService.baseUrl);
     final nuevaUrl = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -475,7 +478,9 @@ class _MainShellState extends State<MainShell> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Escribe la IP Wi-Fi de tu computadora para conectarte al sistema PHP/MySQL. Ejemplo: 192.168.1.10. En Chrome de la PC también sirve localhost.',
+              'Escribe la IP Wi-Fi de tu PC con XAMPP (ej. 192.168.1.10) '
+              'o la URL HTTPS de la instalación de Dorada Motors '
+              '(ej. https://tu-dominio.com/tec/dorada_api).',
               style: TextStyle(color: AppColors.muted, fontSize: 13),
             ),
             const SizedBox(height: 15),
@@ -520,6 +525,7 @@ class _MainShellState extends State<MainShell> {
     final servidorAnterior = await LocalStore.getApiBaseUrl();
     ApiService.configurarServidor(valor);
     try {
+      await ApiService.comprobarConexionBackend();
       await ApiService.obtenerProductos();
       await LocalStore.saveApiBaseUrl(valor);
       if (!mounted) return;
