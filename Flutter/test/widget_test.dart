@@ -113,10 +113,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 850));
     await tester.tap(find.text('Productos'));
     await tester.pump(const Duration(milliseconds: 850));
-    final iconoCarrito = find.byIcon(Icons.shopping_cart_outlined).first;
-    final botonCarrito = find.ancestor(
-      of: iconoCarrito, matching: find.byType(InkWell),
-    ).first;
+    final botonCarrito = find.byKey(const ValueKey('catalog_cart_button'));
+    expect(botonCarrito, findsOneWidget);
     await tester.tap(botonCarrito);
     await tester.pump(const Duration(milliseconds: 850));
     expect(find.text('Mi carrito'), findsOneWidget);
