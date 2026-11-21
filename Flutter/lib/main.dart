@@ -87,6 +87,9 @@ class _AppRootState extends State<AppRoot> {
     } catch (_) {
       // Nunca bloquear el cierre de sesión por una falla de red.
     }
+    final session = await LocalStore.getSession();
+    final userId = int.tryParse(session?['id'] ?? '') ?? 0;
+    await LocalStore.clearUserShoppingCache(userId);
     await LocalStore.logout();
     await LocalStore.clearCart();
     await LocalStore.saveFavorites(<int>{});
