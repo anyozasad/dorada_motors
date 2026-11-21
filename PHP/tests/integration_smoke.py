@@ -1245,12 +1245,29 @@ def main():
     # Petición duplicada por pérdida de conexión: un pedido y un movimiento de stock.
     stock_antes_reintento = int(api(f"productos.php?id={id_producto}")["stock"])
     clave = f"checkout-{uuid4().hex[:32]}"
+    producto_actual = api(f"productos.php?id={id_producto}")
+    precio_base = float(producto_actual["precio"])
+    oferta = float(producto_actual["precio_oferta"] or 0)
+    precio_real = oferta if 0 < oferta < precio_base else precio_base
     datos_compra = {
         "id_usuario": id_usuario, "tipo_entrega": "Recojo en tienda",
         "metodo_pago": "Efectivo",
         "clave_operacion": clave,
+        "total_esperado": round(precio_real, 2),
         "items": [{"id_producto": id_producto, "cantidad": 1}],
     }
+    # Entre mostrar y confirmar, el administrador puede variar precios.
+    # Un total desactualizado NO crea pedidos ni descuenta stock.
+    antes_precio = len(api(f"pedidos.php?id_usuario={id_usuario}", token=token))
+    discrepancia = api("pedidos.php", method="POST", token=token,
+                      status=409,
+                      body={**datos_compra, "total_esperado":0.01})
+    assert discrepancia["estado"] is False
+    assert "total de la compra cambió" in discrepancia["mensaje"]
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_reintento
+    assert len(api(f"pedidos.php?id_usuario={id_usuario}", token=token)) == antes_precio
+    print("OK: precio cambiado entre pantalla y MySQL no crea compra ni altera stock.")
+
     primera = api("pedidos.php", method="POST", token=token,
                   status=201, body=datos_compra)
     assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_antes_reintento - 1
