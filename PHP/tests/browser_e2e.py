@@ -103,6 +103,11 @@ def main():
         formulario.locator('input[name="precio_oferta"]').fill("79.90")
         formulario.locator('input[name="stock"]').fill("6")
         formulario.locator('input[name="stock_minimo"]').fill("2")
+        # Una foto real cargada en el formulario debe guardarse en el
+        # servidor, conservar su ruta en MySQL y visualizarse en el panel.
+        formulario.locator('input[name="imagen_archivo"]').set_input_files(
+            "PHP/dorada_api/assets/imagenes/01_kit_transmision_dtiex.png"
+        )
         formulario.get_by_role("button", name="Agregar producto").click()
         expect(page.locator(".alert.ok")).to_contain_text("Producto registrado correctamente")
         expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
@@ -112,6 +117,19 @@ def main():
         fila = page.locator("#tablaProductos tbody tr").filter(has_text=NOMBRE)
         expect(fila).to_be_visible()
         expect(fila.locator("td").nth(4)).to_contain_text("6")
+        foto = fila.locator("img.product-thumb")
+        expect(foto).to_be_visible()
+        ruta_foto = foto.get_attribute("src")
+        assert ruta_foto and ruta_foto.startswith("uploads/productos/"), ruta_foto
+        respuesta_foto = page.request.get(BASE + "/" + ruta_foto)
+        assert respuesta_foto.status == 200, "El servidor no publicó la foto del producto"
+        assert "image/" in respuesta_foto.headers.get("content-type", ""), (
+            "La imagen guardada no tiene un MIME correcto"
+        )
+        assert foto.evaluate("(img) => img.complete && img.naturalWidth > 0"), (
+            "La fotografía no se visualiza realmente desde el navegador"
+        )
+        print("OK BROWSER: fotografía subida desde PHP, ruta MySQL y visualización")
         page.locator("#buscador").fill("texto-que-no-existe-9999")
         expect(fila).to_be_hidden()
         page.locator("#buscador").fill("")
