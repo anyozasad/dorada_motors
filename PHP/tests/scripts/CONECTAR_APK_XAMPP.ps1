@@ -38,50 +38,31 @@ if ($respuesta.estado -ne $true -or $respuesta.api -ne "dorada_motors" -or [int]
 }
 Write-Host "Conectado: PHP, MySQL y $($respuesta.tablas_verificadas) tablas verificadas." -ForegroundColor Green
 
-# Comprobar que el catálogo que verá Flutter coincide con el de MySQL
-# y que las fotos guardadas en la BD siguen existiendo en htdocs.
+# Comprobar los registros que consume la aplicacion del cliente.
 try {
     $productos = @(Invoke-RestMethod -Uri "http://localhost/dorada_api/productos.php" -Method Get -TimeoutSec 20)
 } catch {
-    throw "El catálogo de usuario no responde. Detalle: $($_.Exception.Message)"
+    throw "No se pudo leer el catalogo de productos del cliente."
 }
-$imagenesOk = 0
+Write-Host "Catalogo de cliente: $($productos.Count) productos encontrados." -ForegroundColor Green
 $fotosFaltantes = @()
 foreach ($producto in $productos) {
     $ruta = [string]$producto.imagen_url
-    if ($ruta -match '^(assets/imagenes|uploads/productos)/[A-Za-z0-9_.-]+
-
-Write-Host "[3/3] Direccion para conectar el Samsung..." -ForegroundColor Cyan
-$interfaces = @(Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-    Where-Object { $_.IPv4DefaultGateway -and $_.IPv4Address })
-foreach ($interfaz in $interfaces) {
-    $ip = $interfaz.IPv4Address.IPAddress
-    Write-Host "$($interfaz.InterfaceAlias): http://$ip/dorada_api" -ForegroundColor Green
-}
-if ($interfaces.Count -eq 0) {
-    Write-Warning "No se detecto IP de la red. Ejecuta ipconfig y busca IPv4 de Wi-Fi."
-}
-Write-Host "Samsung: Configurar conexion con PHP > escribir IP > Probar conexion." -ForegroundColor Yellow
-Write-Host "Si no conecta, usa la misma Wi-Fi y permite Apache en el Firewall." -ForegroundColor Yellow
-) {
-        $archivoImagen = Join-Path $destino ($ruta.Replace('/', '\'))
-        if (Test-Path -LiteralPath $archivoImagen -PathType Leaf) {
-            $imagenesOk++
-        } else {
-            $fotosFaltantes += "$($producto.nombre_producto) ($ruta)"
+    if ([string]::IsNullOrWhiteSpace($ruta)) {
+        $fotosFaltantes += $producto.nombre_producto
+    } elseif ($ruta.StartsWith("assets/imagenes/") -or $ruta.StartsWith("uploads/productos/")) {
+        $rutaArchivo = $ruta.Replace("/", [IO.Path]::DirectorySeparatorChar)
+        $archivo = Join-Path $destino $rutaArchivo
+        if (!(Test-Path -LiteralPath $archivo -PathType Leaf)) {
+            $fotosFaltantes += $producto.nombre_producto
         }
-    } elseif ([string]::IsNullOrWhiteSpace($ruta)) {
-        $fotosFaltantes += "$($producto.nombre_producto) (sin fotografía)"
     }
 }
-Write-Host "Catálogo de cliente: $($productos.Count) productos, $imagenesOk fotos locales comprobadas." -ForegroundColor Green
-if ($productos.Count -eq 0) {
-    Write-Warning 'La tabla producto está vacía: registra productos en el dashboard antes de presentar.'
-}
 if ($fotosFaltantes.Count -gt 0) {
-    Write-Warning "Hay $($fotosFaltantes.Count) producto(s) con fotografía faltante en PHP: "
+    Write-Warning "Productos sin foto local: $($fotosFaltantes.Count)"
     $fotosFaltantes | Select-Object -First 10 | ForEach-Object { Write-Warning $_ }
 }
+
 
 
 Write-Host "[3/3] Direccion para conectar el Samsung..." -ForegroundColor Cyan
