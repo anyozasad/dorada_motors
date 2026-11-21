@@ -163,21 +163,19 @@ if ($metodo === "DELETE") {
         $stmt=$conexion->prepare(
             "SELECT
                (SELECT COUNT(*) FROM detalle_pedido WHERE id_producto=?) +
-               (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) AS total"
+               (SELECT COUNT(*) FROM detalle_compra WHERE id_producto=?) +
+               (SELECT COUNT(*) FROM movimiento_stock WHERE id_producto=?) AS total"
         );
-        $stmt->bind_param("ii",$idProducto,$idProducto);
+        $stmt->bind_param("iii",$idProducto,$idProducto,$idProducto);
         $stmt->execute();
         if ((int)$stmt->get_result()->fetch_assoc()["total"]>0) {
             $conexion->rollback();
             responderProducto([
                 "estado"=>false,
-                "mensaje"=>"No se puede eliminar un producto ligado a pedidos o compras"
+                "mensaje"=>"No se puede eliminar: el producto tiene movimientos de inventario, compras o ventas"
             ],409);
         }
 
-        $stmt=$conexion->prepare("DELETE FROM movimiento_stock WHERE id_producto=?");
-        $stmt->bind_param("i",$idProducto);
-        $stmt->execute();
         $stmt=$conexion->prepare("DELETE FROM producto WHERE id_producto=?");
         $stmt->bind_param("i",$idProducto);
         $stmt->execute();
