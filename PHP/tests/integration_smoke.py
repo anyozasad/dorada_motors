@@ -150,7 +150,7 @@ def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token
     print("OK: API pagos rechaza CSRF, sobrepagos y cancelados; suma abonos parciales.")
 
 
-def probar_productos_api(navegador, csrf):
+def probar_productos_api(navegador, csrf, id_cliente, token_cliente):
     categorias = api("categorias.php")
     marcas = api("marcas.php")
     assert categorias and marcas
@@ -196,6 +196,33 @@ def probar_productos_api(navegador, csrf):
     actual = api(f"productos.php?id={id_producto}")
     assert float(actual["precio"]) == 31.50
     assert int(actual["stock"]) == 7
+
+    # El usuario no puede quedarse atrapado en un carrito antiguo cuando
+    # administración baja el inventario. Reducir siempre debe funcionar.
+    api("carrito.php",method="POST",token=token_cliente,body={
+        "id_usuario":id_cliente,"id_producto":id_producto,"cantidad":5,
+    })
+    bajado = admin_api(navegador,"productos.php",method="PUT",csrf=csrf,
+                       body={**base,"id_producto":id_producto,"precio":31.50,"stock":1})
+    assert bajado["estado"] is True
+    mayor = api("carrito.php",method="POST",token=token_cliente,status=409,body={
+        "id_usuario":id_cliente,"id_producto":id_producto,"cantidad":6,
+    })
+    assert mayor["estado"] is False
+    for cantidad in (4,3,2,1):
+        respuesta = api("carrito.php",method="POST",token=token_cliente,body={
+            "id_usuario":id_cliente,"id_producto":id_producto,"cantidad":cantidad,
+        })
+        assert respuesta["estado"] is True
+    carrito = api(f"carrito.php?id_usuario={id_cliente}",token=token_cliente)
+    item = next(x for x in carrito["items"] if int(x["id_producto"])==id_producto)
+    assert int(item["cantidad"]) == 1
+    api(f"carrito.php?id_usuario={id_cliente}&id_producto={id_producto}",
+        method="DELETE",token=token_cliente)
+    restaurar = admin_api(navegador,"productos.php",method="PUT",csrf=csrf,
+                          body={**base,"id_producto":id_producto,"precio":31.50,"stock":7})
+    assert restaurar["estado"] is True
+    print("OK: botón reducir carrito funciona tras bajar stock y no permite aumentos.")
 
     # Requisito 020: el Kardex conserva el registro de altas y ajustes.
     protegido = admin_api(navegador,"productos.php",method="DELETE",csrf=csrf,
@@ -493,7 +520,7 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     })
     assert "YP-45678123" in creada, "No se muestra la referencia en pagos administrativos"
     probar_revocacion_de_personal(navegador, csrf)
-    probar_productos_api(navegador, csrf)
+    probar_productos_api(navegador, csrf, id_usuario, token)
     instalar_get = admin_page(navegador, "instalar.php")
     assert "Verificar / importar base de datos" in instalar_get
     assert "Acceso administrativo comprobado" in instalar_get
