@@ -395,10 +395,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($idProducto <= 0) redir("Producto inválido", "error", "gestion-productos");
             $conexion->begin_transaction();
             try {
-                $stmt = $conexion->prepare("SELECT id_producto FROM producto WHERE id_producto=? FOR UPDATE");
+                $stmt = $conexion->prepare("SELECT id_producto,stock FROM producto WHERE id_producto=? FOR UPDATE");
                 $stmt->bind_param("i", $idProducto);
                 $stmt->execute();
-                if (!$stmt->get_result()->fetch_assoc()) throw new RuntimeException("Producto no encontrado");
+                $productoEliminar = $stmt->get_result()->fetch_assoc();
+                if (!$productoEliminar) throw new RuntimeException("Producto no encontrado");
+                if ((int)$productoEliminar["stock"] > 0) {
+                    throw new RuntimeException("No se puede eliminar: primero debe quedar sin existencias.");
+                }
 
                 // Un producto con compras, ventas o Kardex no puede borrarse:
                 // conservar su historial es indispensable para la auditoría.
