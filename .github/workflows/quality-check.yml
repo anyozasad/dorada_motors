@@ -1,5 +1,10 @@
 name: Dorada Motors Quality Check
 
+# Conservar únicamente los resultados de la revisión más reciente.
+concurrency:
+  group: dorada-quality-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
