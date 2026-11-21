@@ -1,9 +1,26 @@
 # Dorada Motors — Compilar UN APK instalable para telefono Android.
 # No genera ZIP del proyecto ni copia datos personales.
+param(
+  # Solo usar esta opción si se quiere construir el APK sin actualizar XAMPP.
+  [switch]$SoloApk
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 $flutterDir = Join-Path $repo 'Flutter'
 $pubspec = Join-Path $flutterDir 'pubspec.yaml'
+if (-not $SoloApk) {
+  # Evitar que el celular muestre la versión nueva mientras el administrador
+  # continúa sirviendo el PHP y las fotografías antiguos desde htdocs.
+  $syncPhp = Join-Path $PSScriptRoot 'CONECTAR_APK_XAMPP.ps1'
+  if (!(Test-Path -LiteralPath $syncPhp)) {
+    throw "Falta el script de conexión PHP/MySQL: $syncPhp"
+  }
+  Write-Host 'Primero: sincronizando dashboard PHP, imagenes y API con XAMPP...' -ForegroundColor Cyan
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $syncPhp
+  if ($LASTEXITCODE -ne 0) {
+    throw 'No se pudo sincronizar PHP/MySQL; enciende Apache y MySQL en XAMPP.'
+  }
+}
 if (!(Test-Path -LiteralPath $pubspec)) {
   throw "No se encontro Flutter/pubspec.yaml en: $flutterDir"
 }
