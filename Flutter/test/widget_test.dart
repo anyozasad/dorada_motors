@@ -58,6 +58,58 @@ void main() {
     expect(find.text('La dirección debe terminar en /dorada_api, no en una página PHP.'), findsOneWidget);
   });
 
+  testWidgets('Los botones Favoritos y Perfil de invitado llevan al inicio de sesión',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    var abrirLogin = false;
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light,
+      home: MainShell(
+        isGuest: true,
+        onLoginRequested: () => abrirLogin = true,
+        onLogout: () {},
+        onProfileUpdated: () {},
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 850));
+    await tester.tap(find.text('Favoritos'));
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(find.text('Guarda tus favoritos'), findsOneWidget);
+    await tester.tap(find.text('Iniciar sesión / Registrarme'));
+    expect(abrirLogin, isTrue);
+
+    abrirLogin = false;
+    await tester.tap(find.text('Perfil'));
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(find.text('Tu cuenta Dorada Motors'), findsOneWidget);
+    await tester.tap(find.text('Iniciar sesión / Registrarme'));
+    expect(abrirLogin, isTrue);
+  });
+
+  testWidgets('El botón de carrito muestra el estado vacío con acción de volver',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.light,
+      home: MainShell(
+        isGuest: true,
+        onLoginRequested: () {},
+        onLogout: () {},
+        onProfileUpdated: () {},
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 850));
+    await tester.tap(find.text('Productos'));
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.tap(find.byIcon(Icons.shopping_cart_outlined).first);
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(find.text('Mi carrito'), findsOneWidget);
+    expect(find.text('Tu carrito está vacío'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(find.text('Mi carrito'), findsNothing);
+  });
+
   testWidgets('Las tarjetas de repuestos caben en un celular estrecho',
       (tester) async {
     const producto = Producto(
