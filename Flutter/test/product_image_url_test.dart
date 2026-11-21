@@ -31,6 +31,26 @@ void main() {
     );
   });
 
+  test('respeta el puerto de XAMPP al convertir URL de localhost', () {
+    expect(
+      ProductImageUrl.resolver(
+        'http://127.0.0.1/dorada_api/uploads/productos/foto.png',
+        'http://192.168.1.15:8081/dorada_api',
+      ),
+      'http://192.168.1.15:8081/dorada_api/uploads/productos/foto.png',
+    );
+  });
+
+  test('convierte localhost a una API dentro de otra carpeta', () {
+    expect(
+      ProductImageUrl.resolver(
+        'http://localhost/dorada_api/uploads/productos/foto.png',
+        'https://ejemplo.pe/tec/dorada_api',
+      ),
+      'https://ejemplo.pe/tec/dorada_api/uploads/productos/foto.png',
+    );
+  });
+
   test('admite una API en una carpeta de hosting', () {
     expect(
       ProductImageUrl.resolver(
