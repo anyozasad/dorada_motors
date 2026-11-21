@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-/// Normaliza la dirección que el cliente escribe para conectar con XAMPP.
-/// Admite únicamente http(s) y la ruta conocida de Dorada Motors.
+/// Acepta IP local de XAMPP o HTTPS público con carpeta PHP.
 class ApiServerAddress {
   static String normalizar(String valor, {bool? telefonoAndroid}) {
     final entrada = valor.trim();
     if (entrada.isEmpty) return '';
-    final candidata = entrada.contains('://') ? entrada : 'http://$entrada';
+    final candidata = entrada.contains('://') ? entrada : 'http://' + entrada;
     final uri = Uri.tryParse(candidata);
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
@@ -14,7 +13,7 @@ class ApiServerAddress {
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment) {
-      throw const FormatException('Ingresa la IP o URL válida de tu computadora.');
+      throw const FormatException('Ingresa la IP o URL válida del servidor.');
     }
     final android = telefonoAndroid ??
         (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
@@ -23,20 +22,18 @@ class ApiServerAddress {
           'En un celular debes usar la IP Wi-Fi de tu PC, no localhost.');
     }
 
-    // Compatible con instalaciones dentro de subcarpetas de hosting.
-    // Ejemplo: https://empresa.pe/tec/dorada_api
-    final ruta = uri.path.replaceAll(RegExp(r'/+
-  }
-}
-), '');
-    if (ruta.toLowerCase().endsWith('.php') ||
-        ruta.split('/').contains('..')) {
+    // Ejemplo de hosting: https://empresa.pe/tec/dorada_api
+    var ruta = uri.path;
+    while (ruta.endsWith('/')) {
+      ruta = ruta.substring(0, ruta.length - 1);
+    }
+    if (ruta.toLowerCase().endsWith('.php') || ruta.split('/').contains('..')) {
       throw const FormatException(
           'Escribe la dirección de la carpeta dorada_api, no una página PHP.');
     }
     final rutaApi = ruta.endsWith('/dorada_api')
         ? ruta
-        : '$ruta/dorada_api';
+        : ruta + '/dorada_api';
     return uri.replace(path: rutaApi, query: null, fragment: null).toString();
   }
 }
