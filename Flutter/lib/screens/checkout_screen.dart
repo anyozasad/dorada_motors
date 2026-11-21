@@ -221,6 +221,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: itemsApi,
         idDireccion: idDireccion,
         costoEntrega: _deliveryCost,
+        totalEsperado: _total,
         claveOperacion: _claveOperacion,
       );
 
