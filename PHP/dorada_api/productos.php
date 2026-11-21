@@ -151,13 +151,19 @@ if ($metodo === "DELETE") {
     $conexion->begin_transaction();
     try {
         $stmt=$conexion->prepare(
-            "SELECT id_producto FROM producto WHERE id_producto=? FOR UPDATE"
+            "SELECT id_producto,stock FROM producto WHERE id_producto=? FOR UPDATE"
         );
         $stmt->bind_param("i",$idProducto);
         $stmt->execute();
-        if (!$stmt->get_result()->fetch_assoc()) {
+        $productoEliminar = $stmt->get_result()->fetch_assoc();
+        if (!$productoEliminar) {
             $conexion->rollback();
             responderProducto(["estado"=>false,"mensaje"=>"Producto no encontrado"],404);
+        }
+        if ((int)$productoEliminar["stock"] > 0) {
+            $conexion->rollback();
+            responderProducto(["estado"=>false,
+                "mensaje"=>"No se puede eliminar: primero debe quedar sin existencias."],409);
         }
 
         $stmt=$conexion->prepare(
