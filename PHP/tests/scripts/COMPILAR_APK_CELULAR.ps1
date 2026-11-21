@@ -16,7 +16,8 @@ Push-Location $flutterDir
 try {
   & flutter pub get
   if ($LASTEXITCODE -ne 0) { throw 'Fallo flutter pub get.' }
-  & flutter analyze
+  # Flutter reciente puede emitir avisos informativos de API obsoleta; no son errores de compilacion.
+  & flutter analyze --no-fatal-infos
   if ($LASTEXITCODE -ne 0) { throw 'Hay errores de Flutter analyze.' }
   & flutter test
   if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas Flutter.' }
