@@ -28,7 +28,31 @@ class ApiService {
       return 'http://localhost/dorada_api';
     }
 
+    // Solo funciona en el emulador, NO en un teléfono físico.
+    // En Samsung se solicita el servidor antes del primer registro/login.
     return 'http://10.0.2.2/dorada_api';
+  }
+
+  static bool get requiereConfigurarServidorEnAndroid {
+    const apiCompilada = String.fromEnvironment('API_BASE_URL');
+    return !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        _urlPersonalizada == null &&
+        apiCompilada.isEmpty;
+  }
+
+  /// Comprueba la API correcta Y las tablas de MySQL, no solamente que
+  /// exista una página de catálogo o que Apache responda.
+  static Future<void> comprobarConexionBackend() async {
+    final data = await _getJson('conexion_estado.php');
+    if (data is! Map ||
+        data['estado'] != true ||
+        data['api'] != 'dorada_motors' ||
+        (int.tryParse(data['tablas_verificadas']?.toString() ?? '') ?? 0) < 10) {
+      throw Exception(
+        'La dirección no corresponde a una instalación completa de Dorada Motors.',
+      );
+    }
   }
 
   /// Comprueba la sesión persistida contra PHP/MySQL.
