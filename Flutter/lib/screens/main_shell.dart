@@ -1979,7 +1979,27 @@ class _MainShellState extends State<MainShell> {
                 const SizedBox(height: 8),
                 Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted, height: 1.45)),
                 const SizedBox(height: 20),
-                SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: widget.onLoginRequested, icon: const Icon(Icons.login_rounded), label: const Text('Iniciar sesión / Registrarme'))),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: widget.onLoginRequested,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.login_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Iniciar sesión / Registrarme',
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            softWrap: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
