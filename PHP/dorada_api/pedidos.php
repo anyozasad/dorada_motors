@@ -61,6 +61,19 @@ if ($metodo === "POST") {
     $tipoEntrega = trim((string)($datos["tipo_entrega"] ?? "Recojo en tienda"));
     $items = $datos["items"] ?? [];
     $metodoPago = trim((string)($datos["metodo_pago"] ?? "Efectivo"));
+    // Opcional para compatibilidad con clientes antiguos. Los nuevos checkouts
+    // envían el total mostrado y MySQL lo verifica antes de descontar stock.
+    $totalEsperado = null;
+    if (array_key_exists("total_esperado", $datos)) {
+        if (!is_numeric($datos["total_esperado"])) {
+            responderPedido(["estado"=>false,"mensaje"=>"Total esperado inválido"],422);
+        }
+        $totalEsperado = (float)$datos["total_esperado"];
+        if (!is_finite($totalEsperado) || $totalEsperado < 0) {
+            responderPedido(["estado"=>false,"mensaje"=>"Total esperado inválido"],422);
+        }
+        $totalEsperado = round($totalEsperado, 2);
+    }
 
     if ($idUsuario <= 0 || !is_array($items) || count($items) === 0) {
         responderPedido(["estado"=>false,"mensaje"=>"El pedido debe incluir cliente y productos"], 400);
@@ -178,6 +191,12 @@ if ($metodo === "POST") {
         }
 
         $total = round($totalProductos + $costoEntrega, 2);
+        if ($totalEsperado !== null && abs($totalEsperado - $total) > 0.009) {
+            throw new RuntimeException(
+                "El total de la compra cambió a S/ ".number_format($total,2)
+                .". Actualiza los precios y vuelve a confirmar.", 409
+            );
+        }
         $estadoPedido = "Pendiente";
 
         if ($idDireccion !== null) {
@@ -275,7 +294,8 @@ if ($metodo === "POST") {
         if ($pedidoAnterior !== null) responderPedido($pedidoAnterior);
         error_log("Crear pedido: " . $e->getMessage());
         responderPedido(["estado"=>false,"mensaje"=>$e instanceof RuntimeException
-            ? $e->getMessage() : "No se pudo guardar el pedido"],400);
+            ? $e->getMessage() : "No se pudo guardar el pedido"],
+            $e instanceof RuntimeException && (int)$e->getCode()===409 ? 409 : 400);
     }
 }
 
