@@ -120,7 +120,6 @@ void main() {
     expect(find.text('Mi carrito'), findsOneWidget);
     expect(find.text('Tu carrito está vacío'), findsOneWidget);
     final cerrar = find.byIcon(Icons.close_rounded).last;
-    await tester.ensureVisible(cerrar);
     await tester.tap(cerrar);
     await tester.pump(const Duration(milliseconds: 850));
     expect(find.text('Mi carrito'), findsNothing);
