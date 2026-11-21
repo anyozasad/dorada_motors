@@ -1082,6 +1082,12 @@ def crear_cliente(nombre):
     assert autenticado.get("estado") is True, autenticado
     assert int(autenticado["usuario"]["id_usuario"]) == identificador
     assert len(autenticado["token"]) == 64
+    repetido = api("usuarios.php", method="POST", status=200, body={
+        "nombres": nombre, "apellidos": "Pruebas",
+        "correo": correo, "contrasena": "DemoSeguro_2026",
+        "telefono": "987654321",
+    })
+    assert repetido["estado"] is False and "registrado" in repetido["mensaje"]
     return identificador, token
 
 
@@ -1197,6 +1203,38 @@ def main():
     assert reporte["referencia_pago"] == "YP-45678123", reporte
     assert reporte["estado_pago"] == "Pendiente", reporte
     print("OK: referencia Yape privada, visible y pendiente de validación.")
+
+    # PRUEBA DE PERSISTENCIA REAL: acceder de nuevo con otro token,
+    # sin reutilizar datos locales de Flutter ni la sesión original.
+    acceso_nuevo = api("login.php", method="POST", body={
+        "correo": correo_recuperacion, "contrasena": "NuevaClave_2026",
+    })
+    assert acceso_nuevo["estado"] is True, acceso_nuevo
+    token_nuevo = acceso_nuevo["token"]
+    assert token_nuevo != token
+    perfil_bd = api("cuenta.php", token=token_nuevo)["usuario"]
+    assert int(perfil_bd["id_usuario"]) == id_usuario
+    assert perfil_bd["nombres"] == "Cliente Actualizado"
+    assert perfil_bd["telefono"] == "988776655"
+    direcciones_bd = api(f"direcciones.php?id_usuario={id_usuario}", token=token_nuevo)
+    assert any(int(d["id_direccion"]) == id_direccion and
+               d["direccion_detalle"] == "Jr. Pruebas 101" for d in direcciones_bd)
+    compras_bd = api(f"pedidos.php?id_usuario={id_usuario}", token=token_nuevo)
+    compra_bd = next(p for p in compras_bd if int(p["id_pedido"]) == id_pedido)
+    assert compra_bd["referencia_pago"] == "YP-45678123"
+    assert compra_bd["items"] and int(compra_bd["items"][0]["cantidad"]) == 2
+    solicitudes_bd = api("soporte.php", token=token_nuevo)["solicitudes"]
+    assert any(int(s["id_solicitud"]) == id_solicitud for s in solicitudes_bd)
+    api("favoritos.php", method="POST", token=token, body={
+        "id_usuario": id_usuario, "id_producto": id_producto, "accion": "agregar",
+    })
+    favoritos_bd = api(f"favoritos.php?id_usuario={id_usuario}", token=token_nuevo)
+    assert any(int(f["id_producto"]) == id_producto for f in favoritos_bd)
+    api("favoritos.php", method="POST", token=token_nuevo, body={
+        "id_usuario": id_usuario, "id_producto": id_producto, "accion": "quitar",
+    })
+    print("OK: datos del celular persistidos en MySQL; "
+          "otra sesión recupera perfil, dirección, compra, pago, favorito y soporte.")
 
     # La compra vacía el carrito del servidor.
     carrito_final = api(f"carrito.php?id_usuario={id_usuario}", token=token)
