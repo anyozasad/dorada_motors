@@ -82,6 +82,58 @@ class LocalStore {
     await prefs.remove(_sessionToken);
   }
 
+  // El respaldo móvil debe estar aislado por cuenta. Los datos confirmados
+  // se consultan siempre desde MySQL al recuperar conexión.
+  static Future<Map<int, int>> getCartForUser(int userId) async {
+    if (userId <= 0) return {};
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('cart_user_$userId');
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return {
+        for (final entry in decoded.entries)
+          if (int.tryParse(entry.key) != null &&
+              entry.value is num && (entry.value as num).toInt() > 0)
+            int.parse(entry.key): (entry.value as num).toInt(),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> saveCartForUser(int userId, Map<int, int> cart) async {
+    if (userId <= 0) return;
+    final prefs = await SharedPreferences.getInstance();
+    final data = {
+      for (final entry in cart.entries)
+        if (entry.key > 0 && entry.value > 0)
+          entry.key.toString(): entry.value,
+    };
+    await prefs.setString('cart_user_$userId', jsonEncode(data));
+  }
+
+  static Future<Set<int>> getFavoritesForUser(int userId) async {
+    if (userId <= 0) return {};
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList('favorites_user_$userId') ?? <String>[])
+        .map(int.tryParse).whereType<int>().where((id) => id > 0).toSet();
+  }
+
+  static Future<void> saveFavoritesForUser(int userId, Set<int> favorites) async {
+    if (userId <= 0) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('favorites_user_$userId',
+        favorites.where((id) => id > 0).map((id) => id.toString()).toList());
+  }
+
+  static Future<void> clearUserShoppingCache(int userId) async {
+    if (userId <= 0) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cart_user_$userId');
+    await prefs.remove('favorites_user_$userId');
+  }
+
   static Future<Set<int>> getFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final values = prefs.getStringList(_favorites) ?? <String>[];
