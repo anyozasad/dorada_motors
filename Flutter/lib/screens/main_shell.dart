@@ -140,13 +140,25 @@ class _MainShellState extends State<MainShell> {
       await LocalStore.saveCart(carrito);
       await LocalStore.saveFavorites(favoritos);
     } catch (e) {
+      // XAMPP puede estar apagado durante una demostración desde el celular.
+      // No borrar los artículos que fueron guardados tras una operación
+      // confirmada; al volver la red, MySQL vuelve a ser la fuente de verdad.
+      Map<int, int> carritoRespaldo = {};
+      Set<int> favoritosRespaldo = {};
+      try {
+        carritoRespaldo = await LocalStore.getCart();
+        favoritosRespaldo = await LocalStore.getFavorites();
+      } catch (_) {
+        // Un respaldo local dañado tampoco debe impedir abrir el catálogo.
+      }
       if (!mounted) return;
       setState(() {
         _cargandoMisDatos = false;
-        _cart = {};
-        _favorites = {};
+        if (_cart.isEmpty) _cart = carritoRespaldo;
+        if (_favorites.isEmpty) _favorites = favoritosRespaldo;
       });
-      _message('No se pudo sincronizar carrito y favoritos. Revisa la conexión.');
+      _message('Sin conexión con MySQL: se muestra tu última copia local. '
+          'No podrás confirmar compras hasta reconectar.');
     }
   }
   Future<void> _loadCatalogoApi() async {
