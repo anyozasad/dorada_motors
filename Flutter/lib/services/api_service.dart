@@ -442,6 +442,7 @@ class ApiService {
     required List<Map<String, dynamic>> items,
     int? idDireccion,
     double costoEntrega = 0,
+    double? totalEsperado,
     String? claveOperacion,
   }) async {
     final datosPedido = <String, dynamic>{
@@ -452,6 +453,7 @@ class ApiService {
       'metodo_pago': metodoPago,
       'estado_pago': 'Pendiente',
       'costo_entrega': costoEntrega,
+      if (totalEsperado != null) 'total_esperado': totalEsperado,
       'items': items,
     };
     if (claveOperacion != null) datosPedido['clave_operacion'] = claveOperacion;
