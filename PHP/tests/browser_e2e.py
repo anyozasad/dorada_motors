@@ -108,6 +108,14 @@ def main():
         formulario.locator('input[name="imagen_archivo"]').set_input_files(
             "PHP/dorada_api/assets/imagenes/01_kit_transmision_dtiex.png"
         )
+        # El administrador debe ver exactamente la fotografía seleccionada
+        # ANTES de guardar, evitando crear productos con imagen equivocada.
+        expect(formulario.locator("#previewImagenProducto")).to_have_attribute(
+            "src", re.compile(r"^blob:")
+        )
+        assert formulario.locator("#previewImagenProducto").evaluate(
+            "(img) => img.complete && img.naturalWidth > 0"
+        ), "No aparece la vista previa al cargar la foto del producto"
         formulario.get_by_role("button", name="Agregar producto").click()
         expect(page.locator(".alert.ok")).to_contain_text("Producto registrado correctamente")
         expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
@@ -129,7 +137,20 @@ def main():
         assert foto.evaluate("(img) => img.complete && img.naturalWidth > 0"), (
             "La fotografía no se visualiza realmente desde el navegador"
         )
-        print("OK BROWSER: fotografía subida desde PHP, ruta MySQL y visualización")
+        # Flutter consume la misma API pública: comprobar que recibe la URL
+        # guardada en MySQL, el nombre correcto y el stock del administrador.
+        productos_cliente = page.request.get(BASE + "/productos.php")
+        assert productos_cliente.status == 200
+        filas_cliente = productos_cliente.json()
+        producto_cliente = next(
+            (p for p in filas_cliente if p["nombre_producto"] == NOMBRE), None
+        )
+        assert producto_cliente is not None, "El producto no aparece en la API para Flutter"
+        assert producto_cliente["imagen_url"] == ruta_foto, (
+            "La fotografía del dashboard no coincide con la API del cliente"
+        )
+        assert int(producto_cliente["stock"]) == 6
+        print("OK BROWSER: foto del administrador accesible desde API del cliente")
         page.locator("#buscador").fill("texto-que-no-existe-9999")
         expect(fila).to_be_hidden()
         page.locator("#buscador").fill("")
