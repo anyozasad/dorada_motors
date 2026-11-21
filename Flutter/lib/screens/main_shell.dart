@@ -37,7 +37,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _page = 0;
   String _search = '';
   final TextEditingController _searchController = TextEditingController();
@@ -60,12 +60,25 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadLocalData();
     _loadCatalogoApi();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Al volver desde el panel PHP o tras cambiar una foto/stock en MySQL,
+      // volver a consultar el catálogo sin exigir cerrar e iniciar sesión.
+      _loadCatalogoApi();
+      if (!widget.isGuest) _loadLocalData();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -164,6 +177,7 @@ class _MainShellState extends State<MainShell> {
     }
   }
   Future<void> _loadCatalogoApi() async {
+    if (_cargandoProductosApi) return;
     if (mounted) {
       setState(() {
         _cargandoProductosApi = true;
