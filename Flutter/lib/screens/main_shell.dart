@@ -381,9 +381,15 @@ class _MainShellState extends State<MainShell> {
       });
       // La lámina del carrito puede haberse cerrado durante la petición.
       try { modalRefresh?.call(); } catch (_) {}
-      await (widget.isGuest
-          ? LocalStore.saveGuestCart(_cart)
-          : LocalStore.saveCartForUser(await _idCliente(), _cart));
+      try {
+        if (widget.isGuest) {
+          await LocalStore.saveGuestCart(_cart);
+        } else {
+          await LocalStore.saveCartForUser(await _idCliente(), _cart);
+        }
+      } catch (_) {
+        // Una escritura local fallida no invalida el cambio que confirmó MySQL.
+      }
     } catch (e) {
       if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
