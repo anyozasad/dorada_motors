@@ -1350,11 +1350,13 @@ class _MainShellState extends State<MainShell> {
     required IconData icon,
     required VoidCallback onTap,
     double size = 45,
+    Key? actionKey,
   }) {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
       child: InkWell(
+        key: actionKey,
         onTap: onTap,
         borderRadius: BorderRadius.circular(15),
         child: Container(
@@ -1667,7 +1669,11 @@ class _MainShellState extends State<MainShell> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  _roundAction(icon: Icons.shopping_cart_outlined, onTap: _openCart),
+                  _roundAction(
+                    icon: Icons.shopping_cart_outlined,
+                    onTap: _openCart,
+                    actionKey: const ValueKey('catalog_cart_button'),
+                  ),
                   if (_cartCount > 0)
                     Positioned(right: -2, top: -4, child: CircleAvatar(radius: 10, backgroundColor: AppColors.gold, child: Text('$_cartCount', style: const TextStyle(fontSize: 8, color: AppColors.ink, fontWeight: FontWeight.w900)))),
                 ],
