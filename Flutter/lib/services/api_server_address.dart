@@ -23,11 +23,20 @@ class ApiServerAddress {
           'En un celular debes usar la IP Wi-Fi de tu PC, no localhost.');
     }
 
-    final ruta = uri.path.replaceAll(RegExp(r'/+$'), '');
-    if (ruta.isNotEmpty && ruta != '/dorada_api') {
+    // Compatible con instalaciones dentro de subcarpetas de hosting.
+    // Ejemplo: https://empresa.pe/tec/dorada_api
+    final ruta = uri.path.replaceAll(RegExp(r'/+
+  }
+}
+), '');
+    if (ruta.toLowerCase().endsWith('.php') ||
+        ruta.split('/').contains('..')) {
       throw const FormatException(
-          'La dirección debe terminar en /dorada_api, no en una página PHP.');
+          'Escribe la dirección de la carpeta dorada_api, no una página PHP.');
     }
-    return uri.replace(path: '/dorada_api', query: null, fragment: null).toString();
+    final rutaApi = ruta.endsWith('/dorada_api')
+        ? ruta
+        : '$ruta/dorada_api';
+    return uri.replace(path: rutaApi, query: null, fragment: null).toString();
   }
 }
