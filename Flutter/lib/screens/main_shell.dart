@@ -1733,7 +1733,6 @@ class _MainShellState extends State<MainShell> {
                 onPressed: _cargandoProductosApi ? null : _loadCatalogoApi,
                 icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.muted),
               ),
-              const Text('Catálogo activo', style: TextStyle(fontSize: 11, color: AppColors.muted)),
             ],
           ),
           const SizedBox(height: 12),
