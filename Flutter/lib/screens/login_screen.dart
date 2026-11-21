@@ -39,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await _configurarServidor();
       if (ApiService.requiereConfigurarServidorEnAndroid) return;
     }
+    if (!mounted) return;
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa correo y contraseña.')),
