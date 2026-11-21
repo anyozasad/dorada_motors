@@ -102,7 +102,8 @@ jobs:
           $archivos = @(
             'PHP/tests/scripts/INICIAR_DEMO.ps1',
             'PHP/tests/scripts/VERIFICAR_SISTEMA.ps1',
-            'PHP/tests/scripts/PREPARAR_ENTREGA_INDICADOR_IV.ps1'
+            'PHP/tests/scripts/PREPARAR_ENTREGA_INDICADOR_IV.ps1',
+            'PHP/tests/scripts/COMPILAR_APK_CELULAR.ps1'
           )
           foreach ($archivo in $archivos) {
             $tokens = $null
