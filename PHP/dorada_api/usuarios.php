@@ -94,35 +94,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $contrasena = password_hash($contrasenaPlano, PASSWORD_DEFAULT);
 
-    $stmt = $conexion->prepare("
-        INSERT INTO usuario
-        (nombres, apellidos, correo, contrasena, telefono)
-        VALUES (?, ?, ?, ?, ?)
-    ");
-
-    $stmt->bind_param(
-        "sssss",
-        $nombres,
-        $apellidos,
-        $correo,
-        $contrasena,
-        $telefono
-    );
-
-    if ($stmt->execute()) {
+    // La cuenta y su sesión deben guardarse juntas en MySQL.
+    // Preparar sesion_cliente ANTES de comenzar: CREATE TABLE provoca
+    // un COMMIT implícito incluso si la tabla ya existe.
+    asegurarSesionesCliente($conexion);
+    try {
+        $conexion->begin_transaction();
+        $stmt = $conexion->prepare("
+            INSERT INTO usuario
+            (nombres, apellidos, correo, contrasena, telefono, rol_sistema)
+            VALUES (?, ?, ?, ?, ?, 'Cliente')
+        ");
+        $stmt->bind_param(
+            "sssss",
+            $nombres,
+            $apellidos,
+            $correo,
+            $contrasena,
+            $telefono
+        );
+        $stmt->execute();
         $idNuevo = (int)$conexion->insert_id;
+        if ($idNuevo <= 0) {
+            throw new RuntimeException("No se obtuvo un identificador de cliente");
+        }
         $token = emitirTokenCliente($conexion, $idNuevo);
+        $conexion->commit();
+
         echo json_encode([
             "estado" => true,
             "token" => $token,
             "mensaje" => "Usuario registrado",
             "id_usuario" => $idNuevo
-        ]);
-    } else {
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        $conexion->rollback();
+        error_log("Registro cliente Dorada Motors: " . $e->getMessage());
+        http_response_code((int)$e->getCode() === 1062 ? 409 : 500);
         echo json_encode([
             "estado" => false,
-            "mensaje" => "No se pudo registrar el usuario"
-        ]);
+            "mensaje" => (int)$e->getCode() === 1062
+                ? "Ese correo ya está registrado"
+                : "No se pudo guardar la cuenta. Intenta de nuevo."
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     exit;
