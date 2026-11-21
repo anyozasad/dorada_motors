@@ -200,8 +200,15 @@ def probar_productos_api(navegador, csrf):
     # Requisito 020: el Kardex conserva el registro de altas y ajustes.
     protegido = admin_api(navegador,"productos.php",method="DELETE",csrf=csrf,
                            body={"id_producto":id_producto},status=409)
-    assert protegido["estado"] is False
+    assert "sin existencias" in protegido["mensaje"]
     assert int(api(f"productos.php?id={id_producto}")["stock"]) == 7
+    ajustado_cero = admin_api(navegador,"productos.php",method="PUT",csrf=csrf,
+                             body={**base,"id_producto":id_producto,"stock":0})
+    assert ajustado_cero["estado"] is True
+    conservado = admin_api(navegador,"productos.php",method="DELETE",csrf=csrf,
+                          body={"id_producto":id_producto},status=409)
+    assert "movimientos de inventario" in conservado["mensaje"]
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == 0
 
     # Requisito 019: un producto con stock cero y sin historial sí se elimina.
     sin_movimientos = admin_api(navegador,"productos.php",method="POST",
@@ -641,8 +648,19 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "csrf_token": csrf, "eliminar_producto": "1",
         "id_producto": str(id_nuevo),
     })
-    assert "movimientos de inventario" in bloqueado
+    assert "sin existencias" in bloqueado
     assert int(api(f"productos.php?id={id_nuevo}")["stock"]) == 12
+    stock_a_cero = admin_page(navegador, "dashboard.php", form={
+        **formulario, "actualizar_producto": "1", "id_producto": str(id_nuevo),
+        "stock_original": "12", "stock": "0",
+    })
+    assert "Producto actualizado correctamente" in stock_a_cero
+    bloqueado_kardex = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "eliminar_producto": "1",
+        "id_producto": str(id_nuevo),
+    })
+    assert "movimientos de inventario" in bloqueado_kardex
+    assert int(api(f"productos.php?id={id_nuevo}")["stock"]) == 0
 
     nuevo_sin_movimientos = f"Producto eliminable {uuid4().hex[:8]}"
     creado = admin_page(navegador, "dashboard.php", form={
