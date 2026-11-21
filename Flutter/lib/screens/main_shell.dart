@@ -89,6 +89,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Future<void> _loadLocalData() async {
+    // Evita mezclar dos respuestas de MySQL y duplicar la migración del
+    // carrito de invitado si el teléfono vuelve de segundo plano.
+    if (_cargandoMisDatos) return;
     // Invitados mantienen únicamente un carrito local. Para clientes,
     // MySQL es la fuente de verdad, incluso al cambiar de dispositivo.
     if (widget.isGuest) {
@@ -535,16 +538,43 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       return;
     }
 
-    // No dejar la aplicación apuntando a un servidor que no responde.
+    // Primero comprobar la API y el usuario ANTES de guardar el cambio:
+    // dos servidores Dorada Motors pueden tener cuentas y carritos distintos.
     final servidorAnterior = await LocalStore.getApiBaseUrl();
+    final direccionAnterior = ApiService.baseUrl;
+    final cambioDeServidor = valor != direccionAnterior;
     ApiService.configurarServidor(valor);
     try {
       await ApiService.comprobarConexionBackend();
       await ApiService.obtenerProductos();
+
+      if (cambioDeServidor && !widget.isGuest) {
+        final sesionVigente = await ApiService.verificarSesion();
+        if (sesionVigente == null) {
+          throw Exception('No se pudo validar tu cuenta en el nuevo servidor. '
+              'Comprueba la conexión e inténtalo otra vez.');
+        }
+        if (sesionVigente == false) {
+          // El servidor nuevo es válido pero no reconoce la sesión anterior.
+          // No mostrar compras o favoritos de otra base de datos.
+          final idAnterior = await _idCliente();
+          await LocalStore.clearUserShoppingCache(idAnterior);
+          await LocalStore.logout();
+          await LocalStore.clearCart();
+          await LocalStore.saveFavorites(<int>{});
+          await LocalStore.saveApiBaseUrl(valor);
+          if (!mounted) return;
+          _message('Servidor actualizado. Inicia sesión con tu cuenta '
+              'de este servidor para ver tus compras.');
+          widget.onLoginRequested();
+          return;
+        }
+      }
       await LocalStore.saveApiBaseUrl(valor);
       if (!mounted) return;
       _message('Conexión verificada. Catálogo sincronizado con MySQL.');
       await _loadCatalogoApi();
+      if (!widget.isGuest) await _loadLocalData();
     } catch (e) {
       ApiService.configurarServidor(servidorAnterior);
       if (!mounted) return;
