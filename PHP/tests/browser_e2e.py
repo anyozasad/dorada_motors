@@ -113,9 +113,10 @@ def main():
         expect(formulario.locator("#previewImagenProducto")).to_have_attribute(
             "src", re.compile(r"^blob:")
         )
-        assert formulario.locator("#previewImagenProducto").evaluate(
-            "(img) => img.complete && img.naturalWidth > 0"
-        ), "No aparece la vista previa al cargar la foto del producto"
+        page.wait_for_function(
+            "() => { const img = document.getElementById('previewImagenProducto'); "
+            "return img && img.complete && img.naturalWidth > 0; }"
+        )
         formulario.get_by_role("button", name="Agregar producto").click()
         expect(page.locator(".alert.ok")).to_contain_text("Producto registrado correctamente")
         expect(page.locator("#gestion-productos")).to_have_class(re.compile("active"))
