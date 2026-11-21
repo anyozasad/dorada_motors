@@ -61,6 +61,12 @@ void main() {
   testWidgets('Los botones Favoritos y Perfil de invitado llevan al inicio de sesión',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
     var abrirLogin = false;
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.light,
@@ -73,22 +79,28 @@ void main() {
     ));
     await tester.pump(const Duration(milliseconds: 850));
     await tester.tap(find.text('Favoritos'));
-    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 850));
     expect(find.text('Guarda tus favoritos'), findsOneWidget);
-    await tester.tap(find.text('Iniciar sesión / Registrarme'));
+    await tester.tap(find.text('Iniciar sesión / Registrarme').last);
     expect(abrirLogin, isTrue);
 
     abrirLogin = false;
     await tester.tap(find.text('Perfil'));
-    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 850));
     expect(find.text('Tu cuenta Dorada Motors'), findsOneWidget);
-    await tester.tap(find.text('Iniciar sesión / Registrarme'));
+    await tester.tap(find.text('Iniciar sesión / Registrarme').last);
     expect(abrirLogin, isTrue);
   });
 
   testWidgets('El botón de carrito muestra el estado vacío con acción de volver',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.light,
       home: MainShell(
@@ -100,13 +112,17 @@ void main() {
     ));
     await tester.pump(const Duration(milliseconds: 850));
     await tester.tap(find.text('Productos'));
-    await tester.pump(const Duration(milliseconds: 450));
-    await tester.tap(find.byIcon(Icons.shopping_cart_outlined).first);
-    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 850));
+    final carrito = find.byIcon(Icons.shopping_cart_outlined).first;
+    await tester.ensureVisible(carrito);
+    await tester.tap(carrito);
+    await tester.pump(const Duration(milliseconds: 850));
     expect(find.text('Mi carrito'), findsOneWidget);
     expect(find.text('Tu carrito está vacío'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.close_rounded).first);
-    await tester.pump(const Duration(milliseconds: 450));
+    final cerrar = find.byIcon(Icons.close_rounded).last;
+    await tester.ensureVisible(cerrar);
+    await tester.tap(cerrar);
+    await tester.pump(const Duration(milliseconds: 850));
     expect(find.text('Mi carrito'), findsNothing);
   });
 
