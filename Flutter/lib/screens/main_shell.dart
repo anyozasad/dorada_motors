@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/producto.dart';
 import '../services/api_service.dart';
+import '../services/api_server_address.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
@@ -454,7 +455,7 @@ class _MainShellState extends State<MainShell> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Indica la dirección de la API PHP. En esta PC normalmente es http://localhost/dorada_api.',
+              'Escribe la IP Wi-Fi de tu computadora para conectarte al sistema PHP/MySQL. Ejemplo: 192.168.1.10. En Chrome de la PC también sirve localhost.',
               style: TextStyle(color: AppColors.muted, fontSize: 13),
             ),
             const SizedBox(height: 15),
@@ -487,15 +488,12 @@ class _MainShellState extends State<MainShell> {
     );
 
     if (!mounted || nuevaUrl == null) return;
-    final valor = nuevaUrl.trim();
-    if (valor.isNotEmpty) {
-      final uri = Uri.tryParse(valor);
-      if (uri == null ||
-          (uri.scheme != 'http' && uri.scheme != 'https') ||
-          uri.host.isEmpty) {
-        _message('Ingresa una dirección HTTP o HTTPS válida.');
-        return;
-      }
+    late final String valor;
+    try {
+      valor = ApiServerAddress.normalizar(nuevaUrl);
+    } on FormatException catch (e) {
+      _message(e.message);
+      return;
     }
 
     // No dejar la aplicación apuntando a un servidor que no responde.
