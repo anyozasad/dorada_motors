@@ -1248,39 +1248,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $conexion->begin_transaction();
+            try {
+                $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
+                $stmt->bind_param("i", $idProducto);
+                $stmt->execute();
+                $filaStock = $stmt->get_result()->fetch_assoc();
+                if (!$filaStock) {
+                    throw new RuntimeException("Producto no encontrado");
+                }
 
-            $stmt = $conexion->prepare("SELECT stock FROM producto WHERE id_producto=? FOR UPDATE");
-            $stmt->bind_param("i", $idProducto);
-            $stmt->execute();
-            $filaStock = $stmt->get_result()->fetch_assoc();
+                $stockActual = (int)$filaStock["stock"];
+                $nuevoStock = $tipo === "Entrada" ? $stockActual + $cantidad : $stockActual - $cantidad;
+                if ($nuevoStock < 0) {
+                    throw new RuntimeException("No hay stock suficiente para registrar esa salida");
+                }
 
-            if (!$filaStock) {
+                $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
+                $stmt->bind_param("ii", $nuevoStock, $idProducto);
+                $stmt->execute();
+
+                $stmt = $conexion->prepare("
+                    INSERT INTO movimiento_stock
+                    (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento, stock_anterior, stock_nuevo)
+                    VALUES (?, ?, ?, ?, NOW(), ?, ?)
+                ");
+                $stmt->bind_param("isisii", $idProducto, $tipo, $cantidad, $motivo, $stockActual, $nuevoStock);
+                $stmt->execute();
+
+                $conexion->commit();
+                redir("Movimiento de stock registrado correctamente", "ok", "inventario");
+            } catch (Throwable $e) {
                 $conexion->rollback();
-                redir("Producto no encontrado", "error", "inventario");
+                error_log("Movimiento de inventario: ".$e->getMessage());
+                redir($e instanceof RuntimeException
+                    ? $e->getMessage()
+                    : "No se pudo guardar el movimiento. El inventario no se modificó.",
+                    "error", "inventario");
             }
-
-            $stockActual = (int)$filaStock["stock"];
-            $nuevoStock = $tipo === "Entrada" ? $stockActual + $cantidad : $stockActual - $cantidad;
-
-            if ($nuevoStock < 0) {
-                $conexion->rollback();
-                redir("No hay stock suficiente para registrar esa salida", "error", "inventario");
-            }
-
-            $stmt = $conexion->prepare("UPDATE producto SET stock=? WHERE id_producto=?");
-            $stmt->bind_param("ii", $nuevoStock, $idProducto);
-            $stmt->execute();
-
-            $stmt = $conexion->prepare("
-                INSERT INTO movimiento_stock
-                (id_producto, tipo_movimiento, cantidad, motivo, fecha_movimiento, stock_anterior, stock_nuevo)
-                VALUES (?, ?, ?, ?, NOW(), ?, ?)
-            ");
-            $stmt->bind_param("isisii", $idProducto, $tipo, $cantidad, $motivo, $stockActual, $nuevoStock);
-            $stmt->execute();
-
-            $conexion->commit();
-            redir("Movimiento de stock registrado correctamente", "ok", "inventario");
         }
 
         /* ================= COMPRAS ================= */
