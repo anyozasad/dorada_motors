@@ -35,6 +35,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (ApiService.requiereConfigurarServidorEnAndroid) {
+      await _configurarServidor();
+      if (ApiService.requiereConfigurarServidorEnAndroid) return;
+    }
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa correo y contraseña.')),
@@ -78,6 +82,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _openRegister() async {
+    // En un teléfono real no debe registrarse contra 10.0.2.2
+    // (dirección exclusiva del emulador Android).
+    if (ApiService.requiereConfigurarServidorEnAndroid) {
+      await _configurarServidor();
+      if (ApiService.requiereConfigurarServidorEnAndroid || !mounted) return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RegisterScreen(
@@ -94,7 +104,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final guardada = await LocalStore.getApiBaseUrl();
     if (!mounted) return;
     final actual = guardada?.trim().isNotEmpty == true
-        ? guardada! : ApiService.baseUrl;
+        ? guardada!
+        : (ApiService.requiereConfigurarServidorEnAndroid
+            ? ''
+            : ApiService.baseUrl);
     var direccionIngresada = actual;
 
     final nueva = await showDialog<String>(
@@ -108,10 +121,11 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
               const Text(
-                'En Chrome de la PC: http://localhost/dorada_api. '
-                'En el emulador Android: http://10.0.2.2/dorada_api. '
-                'En un teléfono real conectado al mismo Wi-Fi, '
-                'escribe la IP de tu PC (ej. 192.168.1.10).',
+                'Para XAMPP: conecta tu Samsung al mismo Wi-Fi que la PC '
+                'y escribe su IP (ej. 192.168.1.10). '
+                'Para un servidor público, escribe su URL HTTPS, por ejemplo '
+                'https://tu-dominio.com/tec/dorada_api. '
+                'Los datos se guardarán en MySQL del servidor elegido.',
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -158,6 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final anterior = await LocalStore.getApiBaseUrl();
     ApiService.configurarServidor(normalizada);
     try {
+      await ApiService.comprobarConexionBackend();
       await ApiService.obtenerProductos();
       await LocalStore.saveApiBaseUrl(normalizada);
       if (!mounted) return;
