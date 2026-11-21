@@ -53,6 +53,8 @@ class _AppRootState extends State<AppRoot> {
       // apagado se conserva la sesión y las pantallas muestran el error de red.
       final vigente = await ApiService.verificarSesion();
       if (vigente == false) {
+        final userId = int.tryParse(session['id'] ?? '') ?? 0;
+        await LocalStore.clearUserShoppingCache(userId);
         await LocalStore.logout();
         await LocalStore.clearCart();
         await LocalStore.saveFavorites(<int>{});
