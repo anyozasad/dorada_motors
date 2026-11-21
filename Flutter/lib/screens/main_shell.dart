@@ -301,22 +301,22 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  Future<void> _addCart(int id) async {
-    if (_cargandoMisDatos || _carritoEnProceso.contains(id)) return;
+  Future<bool> _addCart(int id) async {
+    if (_cargandoMisDatos || _carritoEnProceso.contains(id)) return false;
     final product = _productById(id);
     final current = _cart[id] ?? 0;
     if (!product.disponible) {
       _message('Este producto está agotado.');
-      return;
+      return false;
     }
     if (current >= product.stock) {
       _message('No hay más unidades disponibles de ${product.nombre}.');
-      return;
+      return false;
     }
     _carritoEnProceso.add(id);
     try {
+      final idUsuario = widget.isGuest ? 0 : await _idCliente();
       if (!widget.isGuest) {
-        final idUsuario = await _idCliente();
         if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
         await ApiService.guardarCantidadCarrito(
           idUsuario: idUsuario,
@@ -324,14 +324,26 @@ class _MainShellState extends State<MainShell> {
           cantidad: current + 1,
         );
       }
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _cart[id] = current + 1);
-      await (widget.isGuest
-          ? LocalStore.saveGuestCart(_cart)
-          : LocalStore.saveCartForUser(await _idCliente(), _cart));
+      try {
+        if (widget.isGuest) {
+          await LocalStore.saveGuestCart(_cart);
+        } else {
+          await LocalStore.saveCartForUser(idUsuario, _cart);
+        }
+      } catch (_) {
+        // El servidor ya confirmó la operación. No indicar falsamente
+        // que falló la compra solo porque no se guardó la copia local.
+      }
       if (mounted) _message('${product.nombre} agregado al carrito.');
+      return true;
     } catch (e) {
-      if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
+      if (mounted) {
+        _message('No se pudo actualizar el carrito: '
+            '${e.toString().replaceFirst('Exception: ', '')}');
+      }
+      return false;
     } finally {
       _carritoEnProceso.remove(id);
     }
@@ -342,7 +354,9 @@ class _MainShellState extends State<MainShell> {
     final product = _productById(id);
     final current = _cart[id] ?? 0;
     final next = current + delta;
-    if (next > product.stock) {
+    // Si el administrador redujo el stock, permitir quitar unidades
+    // del carrito aunque la cantidad restante aún supere el nuevo stock.
+    if (delta > 0 && next > product.stock) {
       _message('Stock máximo disponible: ${product.stock}.');
       return;
     }
@@ -691,8 +705,11 @@ class _MainShellState extends State<MainShell> {
                           FilledButton.icon(
                             onPressed: product.disponible
                                 ? () async {
-                                    await _addCart(product.id);
-                                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                                    final agregado = await _addCart(product.id);
+                                    // Mantener abierto el detalle si la API falló o no hay stock.
+                                    if (agregado && sheetContext.mounted) {
+                                      Navigator.pop(sheetContext);
+                                    }
                                   }
                                 : null,
                             style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.ink),
