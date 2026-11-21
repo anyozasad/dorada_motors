@@ -116,12 +116,15 @@ void main() {
     final botonCarrito = find.byKey(const ValueKey('catalog_cart_button'));
     expect(botonCarrito, findsOneWidget);
     await tester.tap(botonCarrito);
+    // Primer frame monta la ruta; el segundo termina el desplazamiento.
     await tester.pump(const Duration(milliseconds: 850));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Mi carrito'), findsOneWidget);
     expect(find.text('Tu carrito está vacío'), findsOneWidget);
     final cerrar = find.byIcon(Icons.close_rounded).last;
     await tester.tap(cerrar);
     await tester.pump(const Duration(milliseconds: 850));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.text('Mi carrito'), findsNothing);
   });
 
