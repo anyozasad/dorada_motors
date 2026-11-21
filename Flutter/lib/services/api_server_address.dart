@@ -5,7 +5,7 @@ class ApiServerAddress {
   static String normalizar(String valor, {bool? telefonoAndroid}) {
     final entrada = valor.trim();
     if (entrada.isEmpty) return '';
-    final candidata = entrada.contains('://') ? entrada : 'http://' + entrada;
+    final candidata = entrada.contains('://') ? entrada : 'http://$entrada';
     final uri = Uri.tryParse(candidata);
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
@@ -33,7 +33,7 @@ class ApiServerAddress {
     }
     final rutaApi = ruta.endsWith('/dorada_api')
         ? ruta
-        : ruta + '/dorada_api';
+        : '$ruta/dorada_api';
     return uri.replace(path: rutaApi, query: null, fragment: null).toString();
   }
 }
