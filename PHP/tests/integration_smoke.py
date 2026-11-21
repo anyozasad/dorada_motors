@@ -197,11 +197,24 @@ def probar_productos_api(navegador, csrf):
     assert float(actual["precio"]) == 31.50
     assert int(actual["stock"]) == 7
 
+    # Requisito 020: el Kardex conserva el registro de altas y ajustes.
+    protegido = admin_api(navegador,"productos.php",method="DELETE",csrf=csrf,
+                           body={"id_producto":id_producto},status=409)
+    assert protegido["estado"] is False
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == 7
+
+    # Requisito 019: un producto con stock cero y sin historial sí se elimina.
+    sin_movimientos = admin_api(navegador,"productos.php",method="POST",
+        csrf=csrf,body={
+            **base, "nombre_producto":f"Sin historial API {uuid4().hex[:8]}",
+            "stock":0,
+        },status=201)
+    id_vacio = int(sin_movimientos["id_producto"])
     eliminado = admin_api(navegador,"productos.php",method="DELETE",csrf=csrf,
-                         body={"id_producto":id_producto})
+                          body={"id_producto":id_vacio})
     assert eliminado["estado"] is True
-    assert api(f"productos.php?id={id_producto}",status=404)["estado"] is False
-    print("OK: API productos con stock transaccional, límites, referencias y CRUD.")
+    assert api(f"productos.php?id={id_vacio}",status=404)["estado"] is False
+    print("OK: API conserva Kardex; solo borra producto sin movimientos.")
 
 
 def probar_revocacion_de_personal(navegador_admin, csrf):
@@ -624,13 +637,28 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
         "Editar stock no registró movimiento de Kardex"
     )
 
-    borrado = admin_page(
-        navegador, "dashboard.php",
-        form={"csrf_token": csrf, "eliminar_producto": "1",
-              "id_producto": str(id_nuevo)},
-    )
+    bloqueado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "eliminar_producto": "1",
+        "id_producto": str(id_nuevo),
+    })
+    assert "movimientos de inventario" in bloqueado
+    assert int(api(f"productos.php?id={id_nuevo}")["stock"]) == 12
+
+    nuevo_sin_movimientos = f"Producto eliminable {uuid4().hex[:8]}"
+    creado = admin_page(navegador, "dashboard.php", form={
+        **formulario, "nombre_producto": nuevo_sin_movimientos,
+        "stock": "0", "registrar_producto": "1",
+    })
+    assert "Producto registrado correctamente" in creado
+    id_vacio = next(int(p["id_producto"]) for p in api("productos.php")
+                    if p["nombre_producto"] == nuevo_sin_movimientos)
+    borrado = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "eliminar_producto": "1",
+        "id_producto": str(id_vacio),
+    })
     assert "Producto eliminado correctamente" in borrado
-    assert api(f"productos.php?id={id_nuevo}", status=404)["estado"] is False
+    assert api(f"productos.php?id={id_vacio}", status=404)["estado"] is False
+    print("OK: requisitos 019 y 020; eliminar sin historial y conservar Kardex.")
 
     # Cancelar desde el dashboard revierte el stock descontado por Flutter.
     cancelado = admin_page(
