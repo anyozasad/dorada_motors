@@ -171,14 +171,6 @@ void main() {
   testWidgets('La portada y navegación se adaptan a 320 píxeles',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final anteriorError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) {
-        debugPrint('DIAGNOSTICO_320: ${details.toString()}');
-      }
-      anteriorError?.call(details);
-    };
-    addTearDown(() => FlutterError.onError = anteriorError);
     tester.view.physicalSize = const Size(320, 740);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
