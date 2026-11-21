@@ -814,6 +814,36 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert enlaces, "No se encontró enlace de impresión de comprobante"
     impresion = admin_page(navegador, f"comprobante_print.php?id={enlaces[0]}")
     assert "BOLETA" in impresion and "S/ " in impresion
+
+    # Comprobar también Factura, numeración F001, impresión y eliminación
+    # (estos requisitos no estaban cubiertos por la prueba anterior).
+    factura = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "registrar_comprobante": "1",
+        "id_pedido_comprobante": str(id_contraentrega),
+        "tipo_comprobante": "Factura", "numero_comprobante": "",
+    })
+    assert "Comprobante F001-" in factura, factura[:400]
+    factura_cliente = api(
+        f"cliente_comprobante.php?id_pedido={id_contraentrega}",
+        token=otro_token,
+    )
+    assert factura_cliente["comprobante"]["tipo_comprobante"] == "Factura"
+    id_factura = int(factura_cliente["comprobante"]["id_comprobante"])
+    impresion_factura = admin_page(
+        navegador, f"comprobante_print.php?id={id_factura}"
+    )
+    assert "FACTURA" in impresion_factura and "S/ " in impresion_factura
+    borrado_factura = admin_page(navegador, "dashboard.php", form={
+        "csrf_token": csrf, "eliminar_comprobante": "1",
+        "id_comprobante": str(id_factura),
+    })
+    assert "Comprobante eliminado" in borrado_factura
+    assert api(
+        f"cliente_comprobante.php?id_pedido={id_contraentrega}",
+        token=otro_token, status=404,
+    )["estado"] is False
+    print("OK: factura de demostración, numeración, impresión y eliminación")
+
     probar_administracion_integral(navegador, csrf, id_producto)
     probar_pagos_api_administrativa(navegador, csrf, id_producto, otro_id, otro_token)
 
