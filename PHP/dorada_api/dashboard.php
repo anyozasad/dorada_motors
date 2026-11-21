@@ -3539,6 +3539,13 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
  });
 });
 
+// Navegación del navegador: cambios de #módulo, enlaces compartidos
+// y atrás/adelante deben mostrar el panel correcto en lugar del anterior.
+window.addEventListener('hashchange',()=>{
+ const id=decodeURIComponent(location.hash.replace(/^#/,'')) || 'inicio';
+ mostrarPanel(id,false);
+});
+
 menuBtn?.addEventListener('click',()=>{
  sidebar?.classList.toggle('open');
  overlay?.classList.toggle('show');
