@@ -57,10 +57,21 @@ jobs:
         run: flutter pub get
       - name: Compilar APK de prueba
         run: flutter build apk --debug
-      - name: Publicar APK de prueba
+      - name: Publicar APK de prueba para instalación física
         uses: actions/upload-artifact@v4
         with:
-          name: Dorada-Motors-Android-debug
+          name: Dorada-Motors-APK-Respaldo-Debug
           path: Flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
+
+      - name: Compilar APK instalable para el teléfono
+        run: flutter build apk --release
+
+      - name: Publicar APK para celular Android
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dorada-Motors-APK-Para-Celular
+          path: Flutter/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
