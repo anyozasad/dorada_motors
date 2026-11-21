@@ -21,7 +21,10 @@ void main() {
   });
 
   testWidgets('El formulario Flutter valida nombre, correo y contraseña', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    // En Android real se configura el servidor antes de registrar usuarios.
+    SharedPreferences.setMockInitialValues({
+      'api_base_url': 'http://192.168.1.10/dorada_api',
+    });
     await tester.pumpWidget(const DoradaMotorsApp());
     await tester.pumpAndSettle();
 
