@@ -1246,6 +1246,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($idProducto <= 0 || $cantidad <= 0 || !in_array($tipo, ["Entrada","Salida"], true)) {
                 redir("Completa correctamente el movimiento de stock", "error", "inventario");
             }
+            if (strlen($motivo) > 255) {
+                redir("El motivo del movimiento no puede superar 255 caracteres", "error", "inventario");
+            }
 
             $conexion->begin_transaction();
             try {
