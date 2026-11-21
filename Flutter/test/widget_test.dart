@@ -55,7 +55,7 @@ void main() {
     await tester.tap(find.text('Probar conexión'));
     await tester.pumpAndSettle();
 
-    expect(find.text('La dirección debe terminar en /dorada_api, no en una página PHP.'), findsOneWidget);
+    expect(find.text('Escribe la dirección de la carpeta dorada_api, no una página PHP.'), findsOneWidget);
   });
 
   testWidgets('Los botones Favoritos y Perfil de invitado llevan al inicio de sesión',
