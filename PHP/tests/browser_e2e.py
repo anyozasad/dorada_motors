@@ -212,6 +212,30 @@ def main():
         page.screenshot(path="artifacts/ui/05_movil.png", full_page=True)
         print("OK BROWSER: navegación responsive del dashboard")
 
+        # Integración real: el cliente se registra desde la API de Flutter
+        # mientras el dashboard está abierto; el panel debe mostrarlo solo,
+        # sin que el administrador tenga que cerrar sesión.
+        page.set_viewport_size({"width": 1366, "height": 900})
+        page.goto(BASE + "/dashboard.php#clientes")
+        expect(page.locator("#clientes")).to_have_class(re.compile("active"))
+        correo_cliente = "cliente-ui-" + uuid.uuid4().hex[:10] + "@example.test"
+        respuesta_cliente = page.request.post(BASE + "/usuarios.php", data={
+            "nombres": "Cliente desde Flutter",
+            "apellidos": "Sincronizado",
+            "correo": correo_cliente,
+            "contrasena": "ClienteSeguro2026",
+            "telefono": "999888777",
+        })
+        assert respuesta_cliente.status == 200, respuesta_cliente.text()
+        assert respuesta_cliente.json()["estado"] is True
+        assert page.locator("#tablaClientes").get_by_text(correo_cliente).count() == 0
+        page.evaluate("() => { void actualizarDashboardEnVivo(false); }")
+        expect(page.locator("#tablaClientes")).to_contain_text(
+            correo_cliente, timeout=20000
+        )
+        expect(page.locator("#clientes")).to_have_class(re.compile("active"))
+        print("OK BROWSER: nuevo cliente de Flutter aparece en el dashboard sin recarga manual")
+
         assert not errores_js, "Errores Javascript del dashboard: " + "; ".join(errores_js)
         print("OK BROWSER: sin errores Javascript no manejados")
         browser.close()
