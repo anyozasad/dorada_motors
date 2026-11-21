@@ -771,7 +771,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     ];
                 }
 
-                $total = round($total, 2);
+                // El administrador usa el mismo costo de delivery de la
+                // configuración empresarial que el checkout de Flutter.
+                $costoEntregaPedido = $tipoEntrega === "Delivery"
+                    ? max(0, (float)($configEmpresa["costo_delivery"] ?? 0))
+                    : 0.0;
+                $total = round($total + $costoEntregaPedido, 2);
                 $estadoPedido = "Pendiente";
 
                 if ($idDireccion > 0) {
