@@ -11,6 +11,32 @@ function h($valor) {
     return htmlspecialchars((string)$valor, ENT_QUOTES, "UTF-8");
 }
 
+/**
+ * Usa una misma fotografía del producto en las tablas y el formulario PHP.
+ * Las imágenes locales solo se publican desde assets/imagenes y uploads/productos.
+ * No ocultar los errores: si falta una foto, mostrar el logo y la alerta "Sin foto".
+ */
+function fotoProductoDashboard(string $origen): string {
+    $ruta = trim(str_replace("\\", "/", $origen));
+    if ($ruta === "") return "";
+
+    if (preg_match("~^https?://~i", $ruta)) {
+        $url = parse_url($ruta);
+        $host = strtolower((string)($url["host"] ?? ""));
+        if (!in_array($host, ["localhost", "127.0.0.1", "10.0.2.2"], true)) {
+            return filter_var($ruta, FILTER_VALIDATE_URL) ? $ruta : "";
+        }
+        $ruta = ltrim((string)($url["path"] ?? ""), "/");
+    }
+
+    $ruta = preg_replace("~^(?:PHP/)?dorada_api/~", "", ltrim($ruta, "/"));
+    $ruta = preg_replace("~^\\./~", "", $ruta);
+    if (!preg_match("~^(assets/imagenes|uploads/productos)/[a-zA-Z0-9_.-]+$~D", $ruta)) {
+        return "";
+    }
+    return is_file(__DIR__ . "/" . $ruta) ? $ruta : "";
+}
+
 function sincronizarEstadoFinancieroPedido(mysqli $conexion, int $idPedido): void {
     $stmt = $conexion->prepare("
         SELECT
@@ -2479,7 +2505,17 @@ th{font-size:11px;line-height:1.45;letter-spacing:.35px;padding:12px}
 td{font-size:12px;line-height:1.5;padding:13px 11px;overflow-wrap:anywhere}
 tbody tr:nth-child(even){background:#fcfdff}
 tbody tr:hover{background:#fff6ef}
-.product-thumb{object-fit:contain;padding:3px;background:#f8fafc}
+.product-thumb{object-fit:contain;padding:3px;background:#f8fafc;width:74px;height:74px;border-radius:10px;flex-shrink:0}
+.product-photo-pending{font-size:10px;font-weight:700;color:#a94c13;white-space:nowrap}
+.product-photo-editor{display:flex;align-items:center;gap:17px;padding:14px;background:#fff;border:1px solid #e5eaf1;border-radius:15px}
+.product-photo-editor img{display:block;width:112px;height:100px;flex-shrink:0;object-fit:contain;border-radius:12px;background:#f7f9fc}
+.product-photo-editor>div{flex:1;min-width:0}
+.product-photo-editor input{width:100%;max-width:100%;margin-bottom:7px}
+.product-photo-editor small{display:block;font-size:11px;line-height:1.5;color:#66758a}
+.product-photo-advanced{border:1px solid #e4e9f0;border-radius:12px;background:#fff;padding:10px 13px}
+.product-photo-advanced summary{font-size:12px;font-weight:700;cursor:pointer;color:#526278}
+.product-photo-advanced input{width:100%;margin-top:10px}
+@media(max-width:520px){.product-photo-editor{align-items:stretch;flex-direction:column}.product-photo-editor img{width:100%;height:145px}}
 .product-placeholder{background:linear-gradient(135deg,#292d35,#434a55)}
 .price{font-size:13px;color:#c74b12}
 .empty-cell{font-size:13px;padding:30px 20px!important}
@@ -2802,8 +2838,25 @@ select:focus-visible,textarea:focus-visible{
 <div class="field"><label>PRECIO OFERTA</label><input type="number" step="0.01" min="0" name="precio_oferta" value="<?= h($productoEditar["precio_oferta"]??"") ?>" placeholder="Opcional"></div>
   <div class="field"><label>STOCK ACTUAL</label><input type="number" min="0" name="stock" required value="<?= h($productoEditar["stock"]??"") ?>" placeholder="0"></div>
   <div class="field"><label>STOCK MÍNIMO</label><input type="number" min="0" name="stock_minimo" required value="<?= h($productoEditar["stock_minimo"]??5) ?>" placeholder="5"></div>
-  <div class="field"><label>SUBIR IMAGEN</label><input type="file" name="imagen_archivo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></div>
-  <div class="field"><label>RUTA / URL DE IMAGEN</label><input type="text" name="imagen_url" value="<?= h($productoEditar["imagen_url"]??"") ?>" placeholder="Opcional: uploads/productos/..."></div>
+  <div class="field full">
+   <label>FOTOGRAFÍA DEL PRODUCTO (TAMBIÉN VISIBLE EN LA APP DEL CLIENTE)</label>
+   <div class="product-photo-editor">
+    <img id="previewImagenProducto" alt="Vista previa de fotografía del producto"
+         src="<?= h(fotoProductoDashboard((string)($productoEditar["imagen_url"]??"")) ?: "assets/imagenes/logo_adn_imports.png") ?>"
+         onerror="this.onerror=null;this.src='assets/imagenes/logo_adn_imports.png'">
+    <div>
+     <input id="archivoImagenProducto" type="file" name="imagen_archivo"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+     <small>Elige una foto JPG, PNG o WEBP (hasta 3 MB). Al guardar, se conserva en PHP/MySQL y el cliente la verá al actualizar el catálogo.</small>
+    </div>
+   </div>
+  </div>
+  <div class="field full">
+   <details class="product-photo-advanced">
+    <summary>Opcional: usar ruta o URL de una foto existente</summary>
+    <input type="text" name="imagen_url" value="<?= h($productoEditar["imagen_url"]??"") ?>" placeholder="Ej. uploads/productos/foto.jpg">
+   </details>
+  </div>
   <div class="field full"><label>DESCRIPCIÓN</label><textarea name="descripcion" placeholder="Describe compatibilidad, modelo, medida o características."><?= h($productoEditar["descripcion"]??"") ?></textarea></div>
 
   <div class="form-actions">
@@ -2827,7 +2880,11 @@ select:focus-visible,textarea:focus-visible{
   <tr data-category="<?= h(strtolower($p["nombre_categoria"])) ?>" data-stock="<?= h($sc) ?>">
    <td>
     <div class="product-cell">
-     <?php if(trim((string)($p["imagen_url"]??""))!==""): ?><img src="<?= h($p["imagen_url"]) ?>" alt="" class="product-thumb" onerror="this.style.display='none'"><?php else: ?><span class="product-placeholder">DM</span><?php endif; ?>
+     <?php $rutaFoto = fotoProductoDashboard((string)($p["imagen_url"]??"")); ?>
+     <img src="<?= h($rutaFoto !== "" ? $rutaFoto : "assets/imagenes/logo_adn_imports.png") ?>"
+          alt="Foto de <?= h($p["nombre_producto"]) ?>" class="product-thumb" loading="lazy"
+          onerror="this.onerror=null;this.src='assets/imagenes/logo_adn_imports.png'">
+     <?php if($rutaFoto===""): ?><span class="product-photo-pending">Sin foto</span><?php endif; ?>
      <div><strong><?= h($p["nombre_producto"]) ?></strong><small>#P<?= str_pad((string)$p["id_producto"],3,"0",STR_PAD_LEFT) ?> · <?= h($p["descripcion"]) ?></small></div>
     </div>
    </td>
@@ -3495,6 +3552,28 @@ document.getElementById('refreshAllBtn')?.addEventListener('click',()=>{
   if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); }
   window.location.reload();
 });
+
+// Vista previa inmediata sin subir todavía el archivo al servidor.
+const fotoInput=document.getElementById('archivoImagenProducto');
+const fotoPreview=document.getElementById('previewImagenProducto');
+if(fotoInput && fotoPreview){
+ const fotoAnterior=fotoPreview.getAttribute('src') || 'assets/imagenes/logo_adn_imports.png';
+ let urlTemporal=null;
+ fotoInput.addEventListener('change',()=>{
+  if(urlTemporal){ URL.revokeObjectURL(urlTemporal); urlTemporal=null; }
+  const archivo=fotoInput.files?.[0];
+  if(!archivo){ fotoPreview.src=fotoAnterior;return; }
+  if(archivo.size>3*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(archivo.type)){
+   alert('Selecciona una imagen JPG, PNG o WEBP de máximo 3 MB.');
+   fotoInput.value='';
+   fotoPreview.src=fotoAnterior;
+   return;
+  }
+  urlTemporal=URL.createObjectURL(archivo);
+  fotoPreview.src=urlTemporal;
+ });
+ window.addEventListener('pagehide',()=>{if(urlTemporal) URL.revokeObjectURL(urlTemporal);});
+}
 
 const notiBtn=document.getElementById('notiBtn');
 const notifyMenu=document.getElementById('notifyMenu');
