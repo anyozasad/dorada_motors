@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/api_server_address.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui_motion.dart';
@@ -110,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 'En Chrome de la PC: http://localhost/dorada_api. '
                 'En el emulador Android: http://10.0.2.2/dorada_api. '
                 'En un teléfono real conectado al mismo Wi-Fi, '
-                'usa http://IP_DE_TU_PC/dorada_api.',
+                'escribe la IP de tu PC (ej. 192.168.1.10).',
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -141,15 +142,15 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (!mounted || nueva == null) return;
 
-    final normalizada = nueva.endsWith('/')
-        ? nueva.substring(0, nueva.length - 1) : nueva;
-    final direccion = Uri.tryParse(normalizada);
-    if (direccion == null ||
-        !['http', 'https'].contains(direccion.scheme) ||
-        direccion.host.isEmpty ||
-        !direccion.path.endsWith('/dorada_api')) {
+    late final String normalizada;
+    try {
+      normalizada = ApiServerAddress.normalizar(nueva);
+      if (normalizada.isEmpty) {
+        throw const FormatException('Escribe la IP Wi-Fi de tu computadora.');
+      }
+    } on FormatException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usa una URL válida terminada en /dorada_api.')),
+        SnackBar(content: Text(e.message)),
       );
       return;
     }
