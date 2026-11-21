@@ -203,5 +203,22 @@ void main() {
     await tester.pump();
     expect(find.text('Limpiar filtros'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    // Comprobar TODAS las pestañas en un teléfono de solo 320 px:
+    // botones legibles, acciones táctiles y ausencia de RenderFlex overflow.
+    await tester.tap(find.text('Favoritos'));
+    await tester.pump(const Duration(milliseconds: 850));
+    expect(find.text('Guarda tus favoritos'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pump(const Duration(milliseconds: 850));
+    expect(find.text('Tu cuenta Dorada Motors'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Inicio'));
+    await tester.pump(const Duration(milliseconds: 850));
+    expect(find.text('DORADA MOTORS'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
