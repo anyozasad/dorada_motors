@@ -383,6 +383,13 @@ def probar_administracion_integral(navegador, csrf, id_producto):
         "motivo_movimiento": "Salida excedida debe fallar",
     }, "No hay stock suficiente")
     assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 5
+    # Un dato inválido del formulario NO debe cambiar stock ni crear Kardex.
+    enviar("registrar_movimiento", {
+        "id_producto_stock": id_producto, "tipo_movimiento": "Entrada",
+        "cantidad_movimiento": 5,
+        "motivo_movimiento": "A" * 350,
+    }, "El motivo del movimiento no puede superar 255 caracteres")
+    assert int(api(f"productos.php?id={id_producto}")["stock"]) == stock_base + 5
 
     # Compra de varios artículos y anulación/rehabilitación de mercadería.
     id_segundo = next(
