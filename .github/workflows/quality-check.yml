@@ -33,6 +33,7 @@ jobs:
           regla = (base / ".htaccess").read_text(encoding="utf-8")
           privada = (base / "data/.htaccess").read_text(encoding="utf-8")
           assert "FilesMatch" in regla and "sql" in regla and "Require all denied" in regla
+          assert "SetEnvIfNoCase Authorization" in regla, "Apache no conserva el token de Flutter"
           assert "Require all denied" in privada
           manifest = json.loads(Path("Flutter/web/manifest.json").read_text(encoding="utf-8"))
           assert "Dorada Motors" in manifest["name"]
@@ -94,6 +95,41 @@ jobs:
           if ! python3 PHP/tests/integration_smoke.py; then
             echo "=== Registro del servidor PHP ==="
             tail -n 100 /tmp/dorada-php.log
+            exit 1
+          fi
+
+  mariadb-integration:
+    name: PHP + MariaDB (XAMPP)
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: testpass
+          MARIADB_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -uroot -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli
+      - name: Probar los flujos de cliente y administrador con MariaDB
+        run: |
+          mkdir -p PHP/dorada_api/data
+          printf '{"costo_delivery":5}' > PHP/dorada_api/data/config_empresa.json
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php -S 127.0.0.1:8090 -t PHP/dorada_api > /tmp/dorada-mariadb-php.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          if ! python3 PHP/tests/integration_smoke.py; then
+            echo "=== Registro PHP/MariaDB ==="
+            tail -n 100 /tmp/dorada-mariadb-php.log
             exit 1
           fi
 
