@@ -1,5 +1,10 @@
 name: Flutter CI
 
+# Solo compilar la revisión vigente para no acumular APK de commits antiguos.
+concurrency:
+  group: dorada-flutter-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -57,16 +62,6 @@ jobs:
           cache: true
       - name: Instalar paquetes
         run: flutter pub get
-      - name: Compilar APK de prueba
-        run: flutter build apk --debug
-      - name: Publicar APK de prueba para instalación física
-        uses: actions/upload-artifact@v4
-        with:
-          name: Dorada-Motors-APK-Respaldo-Debug
-          path: Flutter/build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-          retention-days: 30
-
       - name: Compilar APK instalable para el teléfono
         run: flutter build apk --release
 
