@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/pedido.dart';
 import '../models/producto.dart';
 import '../services/api_service.dart';
+import '../services/checkout_validator.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_image.dart';
@@ -160,6 +161,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _saving = true);
 
     try {
+      // La foto, precio y stock pueden haber cambiado en el dashboard PHP
+      // mientras el cliente elegía los productos. Validar contra MySQL
+      // antes de modificar el teléfono o crear la compra.
+      final catalogoActual = await ApiService.obtenerProductos();
+      final advertencia = CheckoutValidator.verificar(
+        carrito: widget.cart,
+        productosMostrados: widget.products,
+        catalogoServidor: catalogoActual,
+      );
+      if (advertencia != null) throw Exception(advertencia);
+      if (_delivery == 'Delivery') {
+        final configActual = await ApiService.obtenerConfiguracionPublica();
+        final costoActual = double.tryParse(
+              configActual['costo_delivery']?.toString() ?? '',
+            ) ??
+            -1;
+        if (costoActual < 0) {
+          throw Exception('No se pudo validar el delivery en MySQL.');
+        }
+        if ((costoActual - _costoDeliveryServidor).abs() >= 0.01) {
+          if (mounted) setState(() => _costoDeliveryServidor = costoActual);
+          throw Exception('La tarifa de delivery cambió a S/ '
+              '${costoActual.toStringAsFixed(2)}. '
+              'Revisa el total y vuelve a confirmar.');
+        }
+      }
+
       await ApiService.actualizarTelefonoUsuario(
         idUsuario: idUsuario,
         telefono: _phoneController.text.trim(),
