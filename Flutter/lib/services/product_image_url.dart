@@ -37,13 +37,19 @@ class ProductImageUrl {
       // pero en Android localhost es el propio teléfono, no el servidor PHP.
       if (_servidorLocal(absoluta.host) &&
           !_servidorLocal(servidor.host)) {
-        return absoluta
-            .replace(
-              scheme: servidor.scheme,
-              host: servidor.host,
-              port: servidor.port,
-            )
-            .toString();
+        // Mantener la carpeta del servidor PHP configurado, que puede vivir
+        // bajo /tec/dorada_api; no copiar la IP/puerto/localhost de la foto.
+        var relativa = absoluta.path;
+        final carpetaApi = relativa.lastIndexOf('/dorada_api/');
+        if (carpetaApi >= 0) {
+          relativa = relativa.substring(carpetaApi + '/dorada_api/'.length);
+        } else {
+          relativa = relativa.startsWith('/')
+              ? relativa.substring(1)
+              : relativa;
+        }
+        if (relativa.split('/').contains('..')) return fallbackAsset;
+        return servidor.resolve(relativa).toString();
       }
       return absoluta.toString();
     }
