@@ -137,8 +137,8 @@ class _MainShellState extends State<MainShell> {
         _favorites = favoritos;
         _cargandoMisDatos = false;
       });
-      await LocalStore.saveCart(carrito);
-      await LocalStore.saveFavorites(favoritos);
+      await LocalStore.saveCartForUser(idUsuario, carrito);
+      await LocalStore.saveFavoritesForUser(idUsuario, favoritos);
     } catch (e) {
       // XAMPP puede estar apagado durante una demostración desde el celular.
       // No borrar los artículos que fueron guardados tras una operación
@@ -146,8 +146,8 @@ class _MainShellState extends State<MainShell> {
       Map<int, int> carritoRespaldo = {};
       Set<int> favoritosRespaldo = {};
       try {
-        carritoRespaldo = await LocalStore.getCart();
-        favoritosRespaldo = await LocalStore.getFavorites();
+        carritoRespaldo = await LocalStore.getCartForUser(await _idCliente());
+        favoritosRespaldo = await LocalStore.getFavoritesForUser(await _idCliente());
       } catch (_) {
         // Un respaldo local dañado tampoco debe impedir abrir el catálogo.
       }
@@ -292,7 +292,7 @@ class _MainShellState extends State<MainShell> {
           _favorites.remove(id);
         }
       });
-      await LocalStore.saveFavorites(_favorites);
+      await LocalStore.saveFavoritesForUser(idUsuario, _favorites);
     } catch (e) {
       if (mounted) _message('No se pudo actualizar Favoritos: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
@@ -327,7 +327,7 @@ class _MainShellState extends State<MainShell> {
       setState(() => _cart[id] = current + 1);
       await (widget.isGuest
           ? LocalStore.saveGuestCart(_cart)
-          : LocalStore.saveCart(_cart));
+          : LocalStore.saveCartForUser(await _idCliente(), _cart));
       if (mounted) _message('${product.nombre} agregado al carrito.');
     } catch (e) {
       if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
@@ -368,7 +368,7 @@ class _MainShellState extends State<MainShell> {
       try { modalRefresh?.call(); } catch (_) {}
       await (widget.isGuest
           ? LocalStore.saveGuestCart(_cart)
-          : LocalStore.saveCart(_cart));
+          : LocalStore.saveCartForUser(await _idCliente(), _cart));
     } catch (e) {
       if (mounted) _message('No se pudo actualizar el carrito: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
