@@ -453,9 +453,9 @@ class ApiService {
       'metodo_pago': metodoPago,
       'estado_pago': 'Pendiente',
       'costo_entrega': costoEntrega,
-      if (totalEsperado != null) 'total_esperado': totalEsperado,
       'items': items,
     };
+    if (totalEsperado != null) datosPedido['total_esperado'] = totalEsperado;
     if (claveOperacion != null) datosPedido['clave_operacion'] = claveOperacion;
     final decoded = await _postJson('pedidos.php', datosPedido);
 
