@@ -1099,12 +1099,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                                   _requireAccount('Inicia sesión para confirmar tu compra y guardar el pedido.');
                                   return;
                                 }
-                                if (_catalogoLocal) {
-                                  _message('Tu carrito está guardado sin internet. '
-                                      'Reconecta con MySQL para validar el precio y stock '
-                                      'antes de confirmar un pedido.');
-                                  return;
-                                }
+                                // El checkout ofrece un borrador SQLite aun sin red.
+                                // Solo "Confirmar pedido" crea una venta real en MySQL.
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => CheckoutScreen(
