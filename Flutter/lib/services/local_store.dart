@@ -22,6 +22,10 @@ class LocalStore {
     required String email,
     required String token,
   }) async {
+    if (userId <= 0 || token.trim().isEmpty || email.trim().isEmpty) {
+      throw ArgumentError('No se puede abrir una sesión sin identidad '
+          'y token válidos confirmados por el servidor.');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_sessionUserId, userId.toString());
     await prefs.setString(_sessionName, name.trim());
