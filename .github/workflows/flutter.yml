@@ -62,6 +62,18 @@ jobs:
           cache: true
       - name: Instalar paquetes
         run: flutter pub get
+      - name: Configurar Maven Central para Gradle y plugins de Flutter
+        run: |
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/maven-central.gradle" <<'GRADLE'
+          gradle.beforeSettings { settings ->
+              settings.pluginManagement.repositories {
+                  mavenCentral()
+                  google()
+                  gradlePluginPortal()
+              }
+          }
+          GRADLE
       - name: Compilar APK instalable para el teléfono
         run: flutter build apk --release
 
