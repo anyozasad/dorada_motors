@@ -236,6 +236,76 @@ def main():
         expect(page.locator("#clientes")).to_have_class(re.compile("active"))
         print("OK BROWSER: nuevo cliente de Flutter aparece en el dashboard sin recarga manual")
 
+        # Flujo completo entre el cliente del APK y el dashboard PHP:
+        # compra autenticada -> MySQL -> nuevo pedido visible -> stock menor.
+        token_cliente = respuesta_cliente.json()["token"]
+        id_cliente = int(respuesta_cliente.json()["id_usuario"])
+        auth_cliente = {"Authorization": "Bearer " + token_cliente}
+        productos_antes = page.request.get(BASE + "/productos.php").json()
+        disponible = next(
+            p for p in productos_antes if p["nombre_producto"] == NOMBRE
+        )
+        id_producto = int(disponible["id_producto"])
+        stock_antes = int(disponible["stock"])
+        assert stock_antes >= 1
+        clave_compra = "e2e_" + uuid.uuid4().hex
+        datos_compra = {
+            "id_usuario": id_cliente,
+            "tipo_entrega": "Recojo en tienda",
+            "metodo_pago": "Efectivo",
+            "items": [{"id_producto": id_producto, "cantidad": 1}],
+            "clave_operacion": clave_compra,
+        }
+
+        page.goto(BASE + "/dashboard.php#pedidos")
+        expect(page.locator("#pedidos")).to_have_class(re.compile("active"))
+        compra = page.request.post(
+            BASE + "/pedidos.php", headers=auth_cliente, data=datos_compra
+        )
+        assert compra.status in (200, 201), compra.text()
+        assert compra.json()["estado"] is True, compra.text()
+        id_pedido = int(compra.json()["id_pedido"])
+
+        # Repetir la misma compra durante una reconexión no debe descontar
+        # stock dos veces ni generar otro pedido.
+        repetida = page.request.post(
+            BASE + "/pedidos.php", headers=auth_cliente, data=datos_compra
+        )
+        assert repetida.status in (200, 201), repetida.text()
+        assert int(repetida.json()["id_pedido"]) == id_pedido
+        assert repetida.json().get("reutilizado") is True
+
+        productos_despues = page.request.get(BASE + "/productos.php").json()
+        actualizado = next(
+            p for p in productos_despues if int(p["id_producto"]) == id_producto
+        )
+        assert int(actualizado["stock"]) == stock_antes - 1, (
+            "La compra del cliente debe descontar exactamente una unidad"
+        )
+        historial_cliente = page.request.get(
+            BASE + f"/pedidos.php?id_usuario={id_cliente}",
+            headers=auth_cliente,
+        )
+        assert historial_cliente.status == 200, historial_cliente.text()
+        assert any(
+            int(p["id_pedido"]) == id_pedido
+            for p in historial_cliente.json()
+        ), "El cliente debe ver su compra en Mis pedidos"
+
+        # El dashboard abierto debe reflejar el pedido real creado por la API
+        # del APK, no un registro ilustrativo ni una tabla estática.
+        page.evaluate("() => { void actualizarDashboardEnVivo(false); }")
+        expect(page.locator("#tablaPedidos")).to_contain_text(
+            str(id_pedido), timeout=20000
+        )
+        expect(page.locator("#pedidos")).to_have_class(re.compile("active"))
+        page.screenshot(
+            path="artifacts/ui/06_pedido_del_cliente_en_dashboard.png",
+            full_page=True,
+        )
+        print("OK BROWSER: compra del APK visible en PHP, stock -1, "
+              "pedido de cliente, reintento sin venta duplicada")
+
         assert not errores_js, "Errores Javascript del dashboard: " + "; ".join(errores_js)
         print("OK BROWSER: sin errores Javascript no manejados")
         browser.close()
