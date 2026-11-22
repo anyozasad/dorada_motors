@@ -13,6 +13,7 @@ import 'local_store.dart';
 /// Una acción offline se guarda en SQLite; MySQL solo cambia tras confirmarse.
 class OfflineActions {
   static bool _sincronizacionEnCurso = false;
+  static final Set<String> _clavesEnEnvio = <String>{};
   static bool get disponible =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -63,6 +64,9 @@ class OfflineActions {
     await OfflineDatabase.encolar(
       clave: clavePrivada, scope: scope, accion: accion, datos: datos,
     );
+    // Una edición nueva espera a que el envío anterior de la MISMA clave
+    // termine; jamás llegarán fuera de orden al servidor.
+    if (!_clavesEnEnvio.add(clavePrivada)) return false;
     try {
       await ApiService.comprobarConexionBackend()
           .timeout(const Duration(seconds: 4));
@@ -75,6 +79,8 @@ class OfflineActions {
         clavePrivada, version, e.toString(),
       );
       rethrow;
+    } finally {
+      _clavesEnEnvio.remove(clavePrivada);
     }
   }
 
@@ -170,6 +176,7 @@ class OfflineActions {
       var completadas = 0;
       for (final fila in operaciones) {
         final clave = fila['clave'] as String;
+        if (!_clavesEnEnvio.add(clave)) continue;
         final version = fila['payload'] as String;
         try {
           await _enviar(
@@ -186,6 +193,8 @@ class OfflineActions {
           await OfflineDatabase.registrarErrorVersion(
             clave, version, e.toString(),
           );
+        } finally {
+          _clavesEnEnvio.remove(clave);
         }
       }
       return completadas;
@@ -203,6 +212,10 @@ class OfflineActions {
     ).toList();
     if (coincidencias.isEmpty) return false;
     final fila = coincidencias.first;
+    if (!_clavesEnEnvio.add(clave)) {
+      throw StateError('Esta operación ya se está enviando. '
+          'Revisa su estado cuando termine.');
+    }
     final version = fila['payload'] as String;
     try {
       await ApiService.comprobarConexionBackend()
@@ -220,6 +233,8 @@ class OfflineActions {
         );
       }
       rethrow;
+    } finally {
+      _clavesEnEnvio.remove(clave);
     }
   }
 
