@@ -55,8 +55,17 @@ class _LoginScreenState extends State<LoginScreen> {
         contrasena: _passwordController.text,
       );
 
-      final usuario = Map<String, dynamic>.from(response['usuario'] as Map);
-      final id = int.tryParse(usuario['id_usuario'].toString()) ?? 0;
+      final datosUsuario = response['usuario'];
+      if (response['estado'] != true || datosUsuario is! Map) {
+        throw StateError('No se pudo verificar la cuenta en MySQL.');
+      }
+      final usuario = Map<String, dynamic>.from(datosUsuario);
+      final id = int.tryParse(usuario['id_usuario']?.toString() ?? '') ?? 0;
+      final token = response['token']?.toString() ?? '';
+      if (id <= 0 || token.isEmpty) {
+        throw StateError('Inicio de sesión incompleto. '
+            'Verifica la conexión con PHP/MySQL.');
+      }
       final nombre = [
         usuario['nombres']?.toString() ?? '',
         usuario['apellidos']?.toString() ?? '',
@@ -66,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
         userId: id,
         name: nombre.isEmpty ? 'Usuario' : nombre,
         email: usuario['correo']?.toString() ?? _emailController.text.trim(),
-        token: response['token']?.toString() ?? '',
+        token: token,
       );
 
       if (!mounted) return;
