@@ -144,6 +144,20 @@ class OfflineDatabase {
     );
   }
 
+  /// Nunca borrar una edición MÁS RECIENTE mientras se enviaba la anterior.
+  /// La clave es estable para perfil/direcciones y se reutiliza al editar.
+  static Future<bool> confirmarVersion(
+    String clave, String payload,
+  ) async {
+    final db = await _db();
+    final borradas = await db.delete(
+      'operaciones',
+      where: 'clave=? AND payload=?',
+      whereArgs: [clave, payload],
+    );
+    return borradas == 1;
+  }
+
   static Future<void> registrarError(String clave, String mensaje) async {
     final db = await _db();
     await db.update(
@@ -151,6 +165,19 @@ class OfflineDatabase {
       {'estado': 'error', 'error': mensaje},
       where: 'clave=?',
       whereArgs: [clave],
+    );
+  }
+
+  /// Un error de respuesta antigua no debe marcar la edición nueva como fallida.
+  static Future<void> registrarErrorVersion(
+    String clave, String payload, String mensaje,
+  ) async {
+    final db = await _db();
+    await db.update(
+      'operaciones',
+      {'estado': 'error', 'error': mensaje},
+      where: 'clave=? AND payload=?',
+      whereArgs: [clave, payload],
     );
   }
 
