@@ -39,6 +39,23 @@ void main() {
     expect(await OfflineStore.carritoPendiente(9), {16: 0});
   });
 
+  test('Carrito invitado pasa a MySQL una sola vez aunque falle la red', () {
+    expect(OfflineStore.cantidadAlVincularInvitado(
+      cantidadServidor: 2, cantidadInvitado: 3,
+    ), 5);
+    // Si MySQL recibió 5 unidades pero la respuesta no llegó,
+    // reanudar con el objetivo local no debe sumar otras 3 unidades.
+    expect(OfflineStore.cantidadAlVincularInvitado(
+      cantidadServidor: 5, cantidadInvitado: 3,
+      cantidadPendiente: 5,
+    ), 5);
+    // Si MySQL todavía tiene 2, conservar el mismo objetivo de 5.
+    expect(OfflineStore.cantidadAlVincularInvitado(
+      cantidadServidor: 2, cantidadInvitado: 3,
+      cantidadPendiente: 5,
+    ), 5);
+  });
+
   test('Favoritos offline guardan la última acción sin duplicarla', () async {
     await OfflineStore.marcarFavorito(4, 8, true);
     await OfflineStore.marcarFavorito(4, 8, false);
