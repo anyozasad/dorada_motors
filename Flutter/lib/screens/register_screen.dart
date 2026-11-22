@@ -17,6 +17,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _surnameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
@@ -25,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _surnameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -35,22 +37,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
 
     try {
-      final nombreCompleto = _nameController.text.trim();
+      final nombres = _nameController.text.trim();
+      final apellidos = _surnameController.text.trim();
 
       final response = await ApiService.registrarUsuario(
-        nombres: nombreCompleto,
-        apellidos: '',
+        nombres: nombres,
+        apellidos: apellidos,
         correo: _emailController.text,
         contrasena: _passwordController.text,
       );
 
-      final id = int.tryParse(response['id_usuario'].toString()) ?? 0;
+      final id = int.tryParse(response['id_usuario']?.toString() ?? '') ?? 0;
+      final token = response['token']?.toString() ?? '';
+      if (response['estado'] != true || id <= 0 || token.isEmpty) {
+        throw StateError('El servidor no confirmó la cuenta. '
+            'Comprueba la conexión PHP/MySQL e inténtalo de nuevo.');
+      }
 
       await LocalStore.saveSession(
         userId: id,
-        name: nombreCompleto,
+        name: '$nombres $apellidos',
         email: _emailController.text,
-        token: response['token']?.toString() ?? '',
+        token: token,
       );
 
       if (!mounted) return;
@@ -175,11 +183,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 textInputAction: TextInputAction.next,
                                 textCapitalization: TextCapitalization.words,
                                 decoration: const InputDecoration(
-                                  labelText: 'Nombre completo',
+                                  labelText: 'Nombres',
                                   prefixIcon: Icon(Icons.person_outline_rounded),
                                 ),
                                 validator: (value) => (value == null || value.trim().length < 3)
-                                    ? 'Ingresa tu nombre completo.'
+                                    ? 'Ingresa tus nombres.'
+                                    : null,
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _surnameController,
+                                textInputAction: TextInputAction.next,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: const InputDecoration(
+                                  labelText: 'Apellidos',
+                                  prefixIcon: Icon(Icons.badge_outlined),
+                                ),
+                                validator: (value) => (value == null || value.trim().length < 2)
+                                    ? 'Ingresa tus apellidos.'
                                     : null,
                               ),
                               const SizedBox(height: 14),
