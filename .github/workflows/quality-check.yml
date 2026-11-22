@@ -97,6 +97,7 @@ jobs:
             tail -n 100 /tmp/dorada-php.log
             exit 1
           fi
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php PHP/tests/dashboard_revision_smoke.php
 
   mariadb-integration:
     name: PHP + MariaDB (XAMPP)
@@ -132,6 +133,7 @@ jobs:
             tail -n 100 /tmp/dorada-mariadb-php.log
             exit 1
           fi
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php PHP/tests/dashboard_revision_smoke.php
 
   windows-scripts:
     name: PowerShell scripts syntax
