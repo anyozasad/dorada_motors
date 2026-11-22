@@ -56,9 +56,11 @@ class _AppRootState extends State<AppRoot> {
       final vigente = await ApiService.verificarSesion();
       if (vigente == false) {
         final userId = int.tryParse(session['id'] ?? '') ?? 0;
-        // Sesión revocada: eliminar los datos privados asociados al token.
-        await OfflineActions.limpiarCuentaLocal();
-        await LocalStore.clearUserShoppingCache(userId);
+        // Una sesión expirada NO debe eliminar los borradores ni ediciones
+        // pendientes: podrán sincronizarse al iniciar sesión otra vez.
+        await LocalStore.clearUserShoppingCache(
+          userId, conservarPendientes: true,
+        );
         await LocalStore.logout();
         await LocalStore.clearCart();
         await LocalStore.saveFavorites(<int>{});
@@ -87,36 +89,42 @@ class _AppRootState extends State<AppRoot> {
     final session = await LocalStore.getSession();
     final userId = int.tryParse(session?['id'] ?? '') ?? 0;
 
-    // Cerrar sesión con datos SIN ENVIAR implicaría perderlos. Solicitar una
-    // decisión explícita en lugar de descartar silenciosamente el trabajo.
+    // El cliente puede cerrar sesión sin perder sus cambios pendientes:
+    // se conservan en SQLite, separados por cuenta y servidor.
     final pendientes = await OfflineActions.pendientes();
     final carrito = await OfflineStore.carritoPendiente(userId);
     final favoritos = await OfflineStore.favoritosPendientes(userId);
     final total = pendientes + carrito.length + favoritos.length;
+    var descartarPendientes = false;
     if (total > 0 && mounted) {
-      final descartar = await showDialog<bool>(
+      final seleccion = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Hay cambios sin sincronizar'),
+          title: const Text('Tienes cambios sin enviar'),
           content: Text(
-            'Tienes $total cambio(s) guardados solo en el celular. '
-            'Si cierras sesión se descartarán, incluidos los borradores '
-            'de compras sin confirmar. Se borrarán para proteger tus datos. '
-            'Si quieres conservarlos, vuelve a Perfil → Sincronización.',
+            'Hay $total registro(s) guardados solo en este celular. '
+            'Puedes salir conservándolos en SQLite para tu próximo inicio '
+            'de sesión, o descartarlos definitivamente. '
+            'Ninguno se guardará en MySQL hasta recuperar la conexión.',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Conservar y volver'),
+              onPressed: () => Navigator.pop(ctx, 'volver'),
+              child: const Text('Volver'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'descartar'),
+              child: const Text('Salir y descartar'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Cerrar y descartar'),
+              onPressed: () => Navigator.pop(ctx, 'conservar'),
+              child: const Text('Salir y conservar'),
             ),
           ],
         ),
       );
-      if (descartar != true) return;
+      if (seleccion == null || seleccion == 'volver') return;
+      descartarPendientes = seleccion == 'descartar';
     }
 
     // El usuario puede salir incluso si Apache está apagado.
@@ -125,8 +133,13 @@ class _AppRootState extends State<AppRoot> {
     } catch (_) {
       // Nunca bloquear el cierre de sesión por una falla de red.
     }
-    await OfflineActions.limpiarCuentaLocal();
-    await LocalStore.clearUserShoppingCache(userId);
+    if (descartarPendientes || total == 0) {
+      await OfflineActions.limpiarCuentaLocal();
+    }
+    await LocalStore.clearUserShoppingCache(
+      userId,
+      conservarPendientes: total > 0 && !descartarPendientes,
+    );
     await LocalStore.logout();
     await LocalStore.clearCart();
     await LocalStore.saveFavorites(<int>{});
