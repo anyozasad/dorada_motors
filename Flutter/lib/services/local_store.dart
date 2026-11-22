@@ -128,16 +128,24 @@ class LocalStore {
         favorites.where((id) => id > 0).map((id) => id.toString()).toList());
   }
 
-  static Future<void> clearUserShoppingCache(int userId) async {
+  static Future<void> clearUserShoppingCache(
+    int userId, {
+    bool conservarPendientes = false,
+  }) async {
     if (userId <= 0) return;
     final prefs = await SharedPreferences.getInstance();
+    // Quitar los datos que quedarían expuestos en las vistas de invitado.
     await prefs.remove('cart_user_$userId');
     await prefs.remove('favorites_user_$userId');
+    if (conservarPendientes) {
+      // Una sesión vencida NO significa que el cliente haya elegido borrar
+      // su trabajo. SQLite guarda las colas por usuario y servidor y solo
+      // volverán a mostrarse cuando inicie sesión con la misma cuenta.
+      return;
+    }
     await prefs.remove('offline_cart_pending_$userId');
     await prefs.remove('offline_fav_pending_$userId');
     await prefs.remove('offline_orders_user_$userId');
-    // Limpia también las copias SQLite y operaciones del cliente en este
-    // servidor. Las colas privadas nuevas se limpian desde OfflineActions.
     await OfflineStore.limpiarCuenta(userId);
   }
 
