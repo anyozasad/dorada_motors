@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/offline_actions.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 
@@ -31,16 +32,48 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
       final sesion = await LocalStore.getSession();
       _idUsuario = int.tryParse(sesion?['id'] ?? '') ?? 0;
       if (_idUsuario <= 0) throw Exception('Inicia sesión para ver tus direcciones.');
-
-      final data = await ApiService.obtenerDireccionesUsuario(_idUsuario);
+      List<Map<String, dynamic>> datos;
+      try {
+        final respuesta = await ApiService.obtenerDireccionesUsuario(_idUsuario);
+        datos = respuesta.whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item)).toList();
+        await OfflineActions.guardarCopia('direcciones', datos);
+      } catch (e) {
+        if (!ApiService.esErrorConexion(e)) rethrow;
+        final cache = await OfflineActions.leerCopia('direcciones');
+        datos = cache is List
+            ? cache.whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item)).toList()
+            : [];
+      }
+      final operaciones = await OfflineActions.operacionesPendientes();
+      for (final op in operaciones) {
+        final accion = op['accion']?.toString() ?? '';
+        if (!accion.startsWith('direccion_')) continue;
+        final valores = Map<String, dynamic>.from(op['datos'] as Map);
+        final id = int.tryParse(valores['id_direccion']?.toString() ?? '') ?? 0;
+        if (accion == 'direccion_crear') {
+          datos.insert(0, {
+            'id_direccion': 0, 'clave_local': op['clave'],
+            'direccion_detalle': valores['direccion'],
+            'referencia': valores['referencia'] ?? '',
+            'sincronizacion': 'Pendiente de sincronizar',
+          });
+        } else if (accion == 'direccion_eliminar') {
+          datos.removeWhere((d) => int.tryParse(
+              d['id_direccion']?.toString() ?? '') == id);
+        } else if (accion == 'direccion_editar') {
+          for (final dir in datos) {
+            if (int.tryParse(dir['id_direccion']?.toString() ?? '') == id) {
+              dir['direccion_detalle'] = valores['direccion'];
+              dir['referencia'] = valores['referencia'] ?? '';
+              dir['sincronizacion'] = 'Pendiente de sincronizar';
+            }
+          }
+        }
+      }
       if (!mounted) return;
-      setState(() {
-        _direcciones = data
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
-        _cargando = false;
-      });
+      setState(() { _direcciones = datos; _cargando = false; });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -121,22 +154,18 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
     if (confirmar == true && mounted) {
       setState(() => _guardando = true);
       try {
-        if (actual == null) {
-          await ApiService.registrarDireccion(
-            idUsuario: _idUsuario,
-            direccion: direccionEditada.trim(),
-            referencia: referenciaEditada.trim(),
-          );
-        } else {
-          final id = int.tryParse(actual['id_direccion']?.toString() ?? '') ?? 0;
-          await ApiService.actualizarDireccion(
-            idUsuario: _idUsuario,
-            idDireccion: id,
-            direccion: direccionEditada.trim(),
-            referencia: referenciaEditada.trim(),
-          );
-        }
-        _mensaje('Dirección guardada correctamente.');
+        final id = actual == null ? 0
+            : (int.tryParse(actual['id_direccion']?.toString() ?? '') ?? 0);
+        final guardada = await OfflineActions.registrar(
+          accion: actual == null ? 'direccion_crear' : 'direccion_editar',
+          clave: actual == null ? OfflineActions.nuevaClave() : 'direccion_$id',
+          datos: {
+            'id_direccion': id, 'direccion': direccionEditada.trim(),
+            'referencia': referenciaEditada.trim(),
+          },
+        );
+        _mensaje(guardada ? 'Dirección guardada en MySQL.'
+            : 'Dirección guardada en SQLite. Pendiente de sincronizar.');
         await _cargar();
       } catch (e) {
         _mensaje(e.toString().replaceFirst('Exception: ', ''));
@@ -162,12 +191,20 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
     );
     if (confirmado != true || !mounted) return;
     final id = int.tryParse(actual['id_direccion']?.toString() ?? '') ?? 0;
-    if (id <= 0) return;
-
     setState(() => _guardando = true);
     try {
-      await ApiService.eliminarDireccion(id);
-      _mensaje('Dirección eliminada.');
+      if (id <= 0 && actual['clave_local'] != null) {
+        await OfflineActions.descartarOperacion(actual['clave_local'].toString());
+        _mensaje('Borrador local descartado.');
+      } else {
+        final eliminado = await OfflineActions.registrar(
+          accion: 'direccion_eliminar',
+          clave: 'direccion_$id',
+          datos: {'id_direccion': id},
+        );
+        _mensaje(eliminado ? 'Dirección eliminada en MySQL.'
+            : 'Eliminación guardada en SQLite. Se aplicará al reconectar.');
+      }
       await _cargar();
     } catch (e) {
       _mensaje(e.toString().replaceFirst('Exception: ', ''));
@@ -249,11 +286,15 @@ class _DireccionesScreenState extends State<DireccionesScreen> {
                                     const SizedBox(height: 5),
                                     Text(referencia, style: const TextStyle(color: AppColors.muted)),
                                   ],
+                                  if (direccion['sincronizacion'] != null)
+                                    Text(direccion['sincronizacion'].toString(),
+                                        style: const TextStyle(color: AppColors.goldDark, fontSize: 12)),
                                   const SizedBox(height: 10),
                                   Row(
                                     children: [
                                       TextButton.icon(
-                                        onPressed: _guardando ? null : () => _editar(direccion),
+                                        onPressed: _guardando || (int.tryParse(direccion['id_direccion']?.toString() ?? '') ?? 0) <= 0
+                                            ? null : () => _editar(direccion),
                                         icon: const Icon(Icons.edit_outlined),
                                         label: const Text('Editar'),
                                       ),
