@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
 import 'offline_database.dart';
+import 'offline_store.dart';
 import 'local_store.dart';
 
 /// Una acción offline se guarda en SQLite; MySQL solo cambia tras confirmarse.
@@ -291,6 +292,16 @@ class OfflineActions {
         claveOperacion: clave,
       );
       await eliminarBorrador(clave);
+      // MySQL eliminó el carrito al confirmar el pedido. Evitar que una
+      // copia local o cambios antiguos vuelvan a insertar sus artículos.
+      try {
+        final usuario = await usuarioActual();
+        await OfflineStore.guardarCarritoPendiente(usuario, <int, int>{});
+        await LocalStore.saveCartForUser(usuario, <int, int>{});
+      } catch (_) {
+        // La compra ya fue aceptada por MySQL; nunca ofrecer comprarla
+        // nuevamente solo porque falló una operación en la caché local.
+      }
       return resultado;
     } catch (e) {
       if (disponible) await OfflineDatabase.registrarError(clave, e.toString());
