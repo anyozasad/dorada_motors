@@ -55,8 +55,10 @@ class _CuentaScreenState extends State<CuentaScreen> {
       } catch (e) {
         if (!ApiService.esErrorConexion(e)) rethrow;
         final copia = await OfflineActions.leerCopia('cuenta');
-        if (copia is! Map) throw Exception(
-            'No hay datos de perfil guardados. Conéctate una vez para cargarlos.');
+        if (copia is! Map) {
+          throw Exception('No hay datos de perfil guardados. '
+              'Conéctate una vez para cargarlos.');
+        }
         cuenta = Map<String, dynamic>.from(copia);
       }
       final operaciones = await OfflineActions.operacionesPendientes(accion: 'perfil');
