@@ -11,6 +11,7 @@ import 'local_store.dart';
 
 /// Una acción offline se guarda en SQLite; MySQL solo cambia tras confirmarse.
 class OfflineActions {
+  static bool _sincronizacionEnCurso = false;
   static bool get disponible =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -57,6 +58,7 @@ class OfflineActions {
     final clavePrivada = sha256.convert(
       utf8.encode('$scope|$clave'),
     ).toString().substring(0, 48);
+    final version = jsonEncode(datos);
     await OfflineDatabase.encolar(
       clave: clavePrivada, scope: scope, accion: accion, datos: datos,
     );
@@ -64,11 +66,13 @@ class OfflineActions {
       await ApiService.comprobarConexionBackend()
           .timeout(const Duration(seconds: 4));
       await _enviar(accion, clavePrivada, datos);
-      await OfflineDatabase.confirmar(clavePrivada);
+      await OfflineDatabase.confirmarVersion(clavePrivada, version);
       return true;
     } catch (e) {
       if (ApiService.esErrorConexion(e)) return false;
-      await OfflineDatabase.registrarError(clavePrivada, e.toString());
+      await OfflineDatabase.registrarErrorVersion(
+        clavePrivada, version, e.toString(),
+      );
       rethrow;
     }
   }
@@ -141,33 +145,88 @@ class OfflineActions {
     return OfflineDatabase.contarPendientes(await _scope());
   }
 
-  static Future<int> sincronizar() async {
-    if (!disponible) return 0;
-    final operaciones = (await OfflineDatabase.pendientes(await _scope()))
-        .where((e) => e['accion'] != 'pedido_borrador').toList();
-    if (operaciones.isEmpty) return 0;
+  /// En segundo plano solo se reintentan operaciones pendientes.
+  /// Un rechazo de MySQL necesita una decisión explícita del usuario.
+  static Future<int> sincronizar({
+    bool incluirRechazados = false,
+  }) async {
+    if (!disponible || _sincronizacionEnCurso) return 0;
+    _sincronizacionEnCurso = true;
+    try {
+      final operaciones = (await OfflineDatabase.pendientes(await _scope()))
+          .where((fila) =>
+              fila['accion'] != 'pedido_borrador' &&
+              (incluirRechazados || fila['estado'] == 'pendiente'))
+          .toList();
+      if (operaciones.isEmpty) return 0;
+      try {
+        await ApiService.comprobarConexionBackend()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        return 0;
+      }
+
+      var completadas = 0;
+      for (final fila in operaciones) {
+        final clave = fila['clave'] as String;
+        final version = fila['payload'] as String;
+        try {
+          await _enviar(
+            fila['accion'] as String,
+            clave,
+            Map<String, dynamic>.from(fila['datos'] as Map),
+          );
+          // Una edición realizada durante el envío no se elimina.
+          if (await OfflineDatabase.confirmarVersion(clave, version)) {
+            completadas++;
+          }
+        } catch (e) {
+          if (ApiService.esErrorConexion(e)) break;
+          await OfflineDatabase.registrarErrorVersion(
+            clave, version, e.toString(),
+          );
+        }
+      }
+      return completadas;
+    } finally {
+      _sincronizacionEnCurso = false;
+    }
+  }
+
+  /// Reintentar una operación concreta, conservando sus datos si MySQL falla.
+  static Future<bool> reintentarOperacion(String clave) async {
+    if (!disponible) return false;
+    final operaciones = await OfflineDatabase.pendientes(await _scope());
+    final coincidencias = operaciones.where(
+      (fila) => fila['clave'] == clave && fila['accion'] != 'pedido_borrador',
+    ).toList();
+    if (coincidencias.isEmpty) return false;
+    final fila = coincidencias.first;
+    final version = fila['payload'] as String;
     try {
       await ApiService.comprobarConexionBackend()
           .timeout(const Duration(seconds: 5));
-    } catch (_) {
-      return 0;
-    }
-    var completadas = 0;
-    for (final fila in operaciones) {
-      final clave = fila['clave'] as String;
-      try {
-        await _enviar(
-          fila['accion'] as String, clave,
-          Map<String, dynamic>.from(fila['datos'] as Map),
+      await _enviar(
+        fila['accion'] as String,
+        clave,
+        Map<String, dynamic>.from(fila['datos'] as Map),
+      );
+      return OfflineDatabase.confirmarVersion(clave, version);
+    } catch (e) {
+      if (!ApiService.esErrorConexion(e)) {
+        await OfflineDatabase.registrarErrorVersion(
+          clave, version, e.toString(),
         );
-        await OfflineDatabase.confirmar(clave);
-        completadas++;
-      } catch (e) {
-        if (ApiService.esErrorConexion(e)) break;
-        await OfflineDatabase.registrarError(clave, e.toString());
       }
+      rethrow;
     }
-    return completadas;
+  }
+
+  /// Tras cerrar sesión, no dejar datos privados visibles a otra persona.
+  /// La interfaz debe pedir confirmación si hay pendientes sin enviar.
+  static Future<void> limpiarCuentaLocal() async {
+    if (!disponible) return;
+    await OfflineDatabase.limpiarScope(await _scope());
   }
 
   static Future<void> guardarBorradorPedido({
