@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/offline_actions.dart';
 import '../services/offline_store.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'orders_screen.dart';
 
@@ -18,8 +19,9 @@ class SyncCenterScreen extends StatefulWidget {
 
 class _SyncCenterScreenState extends State<SyncCenterScreen> {
   List<Map<String, dynamic>> _operaciones = [];
-  int _carrito = 0;
-  int _favoritos = 0;
+  Map<int, int> _carritoItems = {};
+  Map<int, bool> _favoritosItems = {};
+  Map<int, String> _nombresProducto = {};
   bool _cargando = true;
   bool _enviando = false;
   String? _error;
@@ -36,11 +38,23 @@ class _SyncCenterScreenState extends State<SyncCenterScreen> {
       final operaciones = await OfflineActions.operacionesPendientes();
       final carrito = await OfflineStore.carritoPendiente(usuario);
       final favoritos = await OfflineStore.favoritosPendientes(usuario);
+      final catalogo = await OfflineStore.obtenerCatalogo(ApiService.baseUrl);
+      final nombres = <int, String>{};
+      for (final producto in catalogo ?? const []) {
+        if (producto is! Map) continue;
+        final id = int.tryParse(producto['id_producto']?.toString()
+            ?? producto['id']?.toString() ?? '') ?? 0;
+        if (id > 0) {
+          nombres[id] = producto['nombre']?.toString()
+              ?? producto['nombre_producto']?.toString() ?? 'Producto #$id';
+        }
+      }
       if (!mounted) return;
       setState(() {
         _operaciones = operaciones;
-        _carrito = carrito.length;
-        _favoritos = favoritos.length;
+        _carritoItems = carrito;
+        _favoritosItems = favoritos;
+        _nombresProducto = nombres;
         _cargando = false;
         _error = null;
       });
@@ -129,6 +143,52 @@ class _SyncCenterScreenState extends State<SyncCenterScreen> {
     }
   }
 
+  Future<void> _descartarCompraLocal({
+    required int producto,
+    required bool favorito,
+  }) async {
+    if (_enviando) return;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(favorito
+            ? 'Descartar favorito pendiente' : 'Descartar cambio del carrito'),
+        content: const Text(
+          'Se cancelará únicamente el cambio local que no llegó a MySQL. '
+          'El servidor conservará su estado actual. '
+          'No se eliminará ningún pedido o venta confirmada.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Descartar cambio'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmar != true) return;
+    final usuario = await OfflineActions.usuarioActual();
+    if (favorito) {
+      final estado = _favoritosItems[producto];
+      if (estado != null) {
+        await OfflineStore.confirmarFavoritoSiIgual(
+            usuario, producto, estado);
+      }
+    } else {
+      final cantidad = _carritoItems[producto];
+      if (cantidad != null) {
+        await OfflineStore.confirmarCarritoSiIgual(
+            usuario, producto, cantidad);
+      }
+    }
+    await _cargar();
+    _aviso('Cambio local descartado. Actualiza tu carrito al reconectar.');
+  }
+
   String _titulo(Map<String, dynamic> fila) {
     switch (fila['accion']) {
       case 'perfil':
@@ -182,6 +242,8 @@ class _SyncCenterScreenState extends State<SyncCenterScreen> {
         .where((op) => op['accion'] != 'pedido_borrador').toList();
     final rechazados = cambios.where((op) => op['estado'] == 'error').length;
     final sinEnviar = cambios.where((op) => op['estado'] == 'pendiente').length;
+    final cambiosCarrito = _carritoItems.entries.toList();
+    final cambiosFavoritos = _favoritosItems.entries.toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -236,16 +298,52 @@ class _SyncCenterScreenState extends State<SyncCenterScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      if (_carrito + _favoritos > 0)
-                        Card(
+                      if (cambiosCarrito.isNotEmpty ||
+                          cambiosFavoritos.isNotEmpty) ...[
+                        const Text('Cambios de compras pendientes',
+                            style: TextStyle(fontWeight: FontWeight.w900,
+                                fontSize: 16)),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Si MySQL rechaza un producto por stock, puedes '
+                          'corregir el carrito o descartar aquí su cambio local.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 12),
+                        ),
+                        ...cambiosCarrito.map((item) => Card(
                           child: ListTile(
                             leading: const Icon(Icons.shopping_cart_outlined,
                                 color: AppColors.goldDark),
-                            title: const Text('Carrito y favoritos'),
-                            subtitle: Text('$_carrito producto(s) del carrito '
-                                'y $_favoritos favorito(s) pendientes de MySQL.'),
+                            title: Text(_nombresProducto[item.key]
+                                ?? 'Producto #${item.key}'),
+                            subtitle: Text('Cantidad pendiente: ${item.value}'),
+                            trailing: IconButton(
+                              onPressed: _enviando ? null : () =>
+                                  _descartarCompraLocal(
+                                    producto: item.key, favorito: false),
+                              icon: const Icon(Icons.delete_outline),
+                              tooltip: 'Descartar cambio local',
+                            ),
                           ),
-                        ),
+                        )),
+                        ...cambiosFavoritos.map((item) => Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.favorite_outline,
+                                color: AppColors.goldDark),
+                            title: Text(_nombresProducto[item.key]
+                                ?? 'Producto #${item.key}'),
+                            subtitle: Text(item.value
+                                ? 'Agregar a favoritos pendiente'
+                                : 'Quitar de favoritos pendiente'),
+                            trailing: IconButton(
+                              onPressed: _enviando ? null : () =>
+                                  _descartarCompraLocal(
+                                    producto: item.key, favorito: true),
+                              icon: const Icon(Icons.delete_outline),
+                              tooltip: 'Descartar cambio local',
+                            ),
+                          ),
+                        )),
+                      ],
                       if (borradores > 0)
                         Card(
                           child: ListTile(
