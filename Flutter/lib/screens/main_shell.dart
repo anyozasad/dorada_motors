@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/producto.dart';
+import '../data/productos_data.dart';
+import '../services/offline_store.dart';
 import '../services/api_service.dart';
 import '../services/api_server_address.dart';
 import '../services/local_store.dart';
@@ -48,9 +50,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   bool _soloDisponibles = false;
   Set<int> _favorites = {};
   Map<int, int> _cart = {};
-  List<Producto> _productos = [];
-  List<String> _categorias = [];
-  List<String> _marcas = [];
+  // Catálogo ilustrativo inicial hasta que se recuperen datos reales de MySQL.
+  List<Producto> _productos = List<Producto>.from(productosData);
+  List<String> _categorias = productosData.map((p) => p.categoria).toSet().toList();
+  List<String> _marcas = productosData.map((p) => p.marca).toSet().toList();
+  bool _catalogoLocal = true;
   bool _cargandoProductosApi = false;
   bool _cargandoMisDatos = false;
   final Set<int> _carritoEnProceso = <int>{};
@@ -62,6 +66,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadLocalData();
+    _cargarCatalogoOffline();
     _loadCatalogoApi();
   }
 
@@ -200,7 +205,55 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       final categoriasData = resultados[1];
       final marcasData = resultados[2];
 
-      final productosApi = data.map((raw) {
+      final productosApi = _convertirCatalogo(data);
+
+      if (!mounted) return;
+      setState(() {
+        _productos = productosApi;
+        _catalogoLocal = false;
+        _errorProductosApi = null;
+        _categorias = categoriasData
+            .map((e) => e is Map ? (e['nombre_categoria']?.toString() ?? '') : '')
+            .where((e) => e.isNotEmpty)
+            .toList();
+        _marcas = marcasData
+            .map((e) => e is Map ? (e['nombre_marca']?.toString() ?? '') : '')
+            .where((e) => e.isNotEmpty)
+            .toList();
+        // Mostrar los filtros reales aun si categorías/marcas no responden.
+        if (_categorias.isEmpty) {
+          _categorias = productosApi.map((p) => p.categoria).toSet().toList();
+        }
+        if (_marcas.isEmpty) {
+          _marcas = productosApi.map((p) => p.marca).toSet().toList();
+        }
+
+        if (_category != 'Todos' && !_categorias.contains(_category)) {
+          _category = 'Todos';
+        }
+        if (_brand != 'Todas' && !_marcas.contains(_brand)) {
+          _brand = 'Todas';
+        }
+
+        _cargandoProductosApi = false;
+      });
+      try {
+        await OfflineStore.guardarCatalogo(ApiService.baseUrl, data);
+      } catch (_) {
+        // La copia local no debe impedir el funcionamiento online.
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cargandoProductosApi = false;
+        _catalogoLocal = true;
+        _errorProductosApi = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  List<Producto> _convertirCatalogo(List<dynamic> data) {
+    return data.map((raw) {
         final row = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
         final id = int.tryParse(row['id_producto']?.toString() ?? '') ?? 0;
         final precio = double.tryParse(row['precio']?.toString() ?? '0') ?? 0;
@@ -229,42 +282,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           imagen: imagen,
         );
       }).where((p) => p.id > 0).toList();
+  }
 
-      if (!mounted) return;
-      setState(() {
-        _productos = productosApi;
-        _categorias = categoriasData
-            .map((e) => e is Map ? (e['nombre_categoria']?.toString() ?? '') : '')
-            .where((e) => e.isNotEmpty)
-            .toList();
-        _marcas = marcasData
-            .map((e) => e is Map ? (e['nombre_marca']?.toString() ?? '') : '')
-            .where((e) => e.isNotEmpty)
-            .toList();
-        // Mostrar los filtros reales aun si categorías/marcas no responden.
-        if (_categorias.isEmpty) {
-          _categorias = productosApi.map((p) => p.categoria).toSet().toList();
-        }
-        if (_marcas.isEmpty) {
-          _marcas = productosApi.map((p) => p.marca).toSet().toList();
-        }
-
-        if (_category != 'Todos' && !_categorias.contains(_category)) {
-          _category = 'Todos';
-        }
-        if (_brand != 'Todas' && !_marcas.contains(_brand)) {
-          _brand = 'Todas';
-        }
-
-        _cargandoProductosApi = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _cargandoProductosApi = false;
-        _errorProductosApi = e.toString().replaceFirst('Exception: ', '');
-      });
-    }
+  Future<void> _cargarCatalogoOffline() async {
+    final servidor = ApiService.baseUrl;
+    final guardado = await OfflineStore.obtenerCatalogo(servidor);
+    if (!mounted || guardado == null || !_catalogoLocal) return;
+    final productos = _convertirCatalogo(guardado);
+    setState(() {
+      _productos = productos;
+      _categorias = productos.map((p) => p.categoria).toSet().toList();
+      _marcas = productos.map((p) => p.marca).toSet().toList();
+    });
   }
 
   IconData _iconoCategoria(String nombre) {
@@ -1132,6 +1161,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RevealOnMount(child: _header()),
+          if (_catalogoLocal)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Material(
+                color: AppColors.goldSoft,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    const Icon(Icons.cloud_off_outlined, color: AppColors.goldDark, size: 20),
+                    const SizedBox(width: 9),
+                    const Expanded(child: Text(
+                      'Modo sin conexión · puedes ver productos, preparar el carrito y favoritos. '
+                      'Precios, existencias y pedidos se confirman al reconectar.',
+                      style: TextStyle(color: AppColors.ink, fontSize: 11, fontWeight: FontWeight.w600),
+                    )),
+                    IconButton(
+                      tooltip: 'Reintentar conexión',
+                      onPressed: _cargandoProductosApi ? null : _loadCatalogoApi,
+                      icon: const Icon(Icons.refresh_rounded, size: 19),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
           const SizedBox(height: 20),
           RevealOnMount(
             delay: const Duration(milliseconds: 70),
@@ -1762,7 +1816,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Sin conexión con la API. Revisa Apache y MySQL.',
+                      'Modo sin conexión: catálogo guardado. Stock y precios por verificar.',
                       style: const TextStyle(fontSize: 10, color: AppColors.muted),
                     ),
                   ),
