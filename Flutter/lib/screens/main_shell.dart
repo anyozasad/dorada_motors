@@ -440,12 +440,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       final idUsuario = await _idCliente();
       if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
       final agregar = !_favorites.contains(id);
-      await ApiService.guardarFavorito(
-        idUsuario: idUsuario,
-        idProducto: id,
-        agregar: agregar,
-      );
+      final confirmado = await _guardarFavoritoOCola(idUsuario, id, agregar);
       if (!mounted) return;
+      if (!confirmado) {
+        setState(() => _pendientesDeSincronizar = true);
+        _message('Favorito guardado sin internet. Se sincronizará al reconectar.');
+      }
       setState(() {
         if (agregar) {
           _favorites.add(id);
@@ -478,11 +478,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       final idUsuario = widget.isGuest ? 0 : await _idCliente();
       if (!widget.isGuest) {
         if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
-        await ApiService.guardarCantidadCarrito(
-          idUsuario: idUsuario,
-          idProducto: id,
-          cantidad: current + 1,
-        );
+        final confirmado =
+            await _guardarCantidadCarritoOCola(idUsuario, id, current + 1);
+        if (!confirmado && mounted) {
+          setState(() => _pendientesDeSincronizar = true);
+        }
       }
       if (!mounted) return false;
       setState(() => _cart[id] = current + 1);
@@ -496,7 +496,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         // El servidor ya confirmó la operación. No indicar falsamente
         // que falló la compra solo porque no se guardó la copia local.
       }
-      if (mounted) _message('${product.nombre} agregado al carrito.');
+      if (mounted) _message(_pendientesDeSincronizar
+          ? '${product.nombre} guardado en este celular. Pendiente de sincronizar.'
+          : '${product.nombre} agregado al carrito.');
       return true;
     } catch (e) {
       if (mounted) {
@@ -525,11 +527,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       if (!widget.isGuest) {
         final idUsuario = await _idCliente();
         if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
-        await ApiService.guardarCantidadCarrito(
-          idUsuario: idUsuario,
-          idProducto: id,
-          cantidad: next,
+        final confirmado = await _guardarCantidadCarritoOCola(
+          idUsuario, id, next,
         );
+        if (!confirmado && mounted) {
+          setState(() => _pendientesDeSincronizar = true);
+          _message('Cambio guardado sin internet. Se sincronizará al reconectar.');
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -1916,6 +1920,26 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               ],
             ),
           const SizedBox(height: 15),
+          if (_pendientesDeSincronizar && !widget.isGuest)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                const Icon(Icons.sync_problem_rounded,
+                    size: 17, color: AppColors.goldDark),
+                const SizedBox(width: 8),
+                const Expanded(child: Text(
+                  'Hay cambios offline pendientes de sincronización con MySQL.',
+                  style: TextStyle(fontSize: 11, color: AppColors.ink),
+                )),
+                TextButton(
+                  onPressed: () async {
+                    await _loadLocalData();
+                    await _loadCatalogoApi();
+                  },
+                  child: const Text('Sincronizar'),
+                ),
+              ]),
+            ),
           if (_cargandoProductosApi)
             const Padding(
               padding: EdgeInsets.only(bottom: 14),
