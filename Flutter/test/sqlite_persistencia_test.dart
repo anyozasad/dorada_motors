@@ -94,6 +94,68 @@ void main() {
     await OfflineDatabase.limpiarScope('servidorA:usuario42');
   });
 
+  test('Dos cambios simultáneos no se pisan en el carrito SQLite', () async {
+    const scope = 'test:carrito:simultaneo52';
+    await Future.wait([
+      OfflineDatabase.cambiarEntradaMapa(
+        scope: scope, nombre: 'carrito_pendiente',
+        clave: '15', valor: 2,
+      ),
+      OfflineDatabase.cambiarEntradaMapa(
+        scope: scope, nombre: 'carrito_pendiente',
+        clave: '29', valor: 4,
+      ),
+    ]);
+    final carrito = await OfflineDatabase.leer(scope, 'carrito_pendiente');
+    expect((carrito as Map)['15'], 2);
+    expect(carrito['29'], 4);
+    await OfflineDatabase.limpiarScope(scope);
+  });
+
+  test('Respuesta vieja de MySQL no elimina edición posterior', () async {
+    const scope = 'test:carrito:version53';
+    const nombre = 'carrito_pendiente';
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: nombre, clave: '7', valor: 2,
+    );
+    // El envío de 2 unidades está en curso y el usuario cambia a 5.
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: nombre, clave: '7', valor: 5,
+    );
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: nombre, clave: '7',
+      confirmar: true, valorEsperado: 2,
+    );
+    final pendiente = await OfflineDatabase.leer(scope, nombre);
+    expect((pendiente as Map)['7'], 5);
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: nombre, clave: '7',
+      confirmar: true, valorEsperado: 5,
+    );
+    expect((await OfflineDatabase.leer(scope, nombre) as Map)
+        .containsKey('7'), isFalse);
+    await OfflineDatabase.limpiarScope(scope);
+  });
+
+  test('No se mezclan favoritos y carrito al sincronizar', () async {
+    const scope = 'test:cliente:carritoFavoritos54';
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: 'favoritos_pendientes',
+      clave: '3', valor: true,
+    );
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: 'carrito_pendiente',
+      clave: '3', valor: 1,
+    );
+    await OfflineDatabase.cambiarEntradaMapa(
+      scope: scope, nombre: 'carrito_pendiente',
+      clave: '3', confirmar: true, valorEsperado: 1,
+    );
+    expect((await OfflineDatabase.leer(scope, 'favoritos_pendientes')
+        as Map)['3'], isTrue);
+    await OfflineDatabase.limpiarScope(scope);
+  });
+
   test('SQLite mantiene errores y borradores sin perder el contenido', () async {
     const scope = 'test:pedidos:cliente30';
     await OfflineDatabase.encolar(
