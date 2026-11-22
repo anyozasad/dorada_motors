@@ -132,6 +132,9 @@ class LocalStore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('cart_user_$userId');
     await prefs.remove('favorites_user_$userId');
+    await prefs.remove('offline_cart_pending_$userId');
+    await prefs.remove('offline_fav_pending_$userId');
+    await prefs.remove('offline_orders_user_$userId');
   }
 
   static Future<Set<int>> getFavorites() async {
