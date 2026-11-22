@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/producto.dart';
 import '../data/productos_data.dart';
 import '../services/offline_store.dart';
+import '../services/offline_actions.dart';
 import '../services/api_service.dart';
 import '../services/api_server_address.dart';
 import '../services/local_store.dart';
@@ -59,6 +60,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   List<String> _marcas = productosData.map((p) => p.marca).toSet().toList();
   bool _catalogoLocal = true;
   bool _pendientesDeSincronizar = false;
+  bool _sincronizandoAcciones = false;
+  int _accionesOfflinePendientes = 0;
   bool _cargandoProductosApi = false;
   bool _cargandoMisDatos = false;
   final Set<int> _carritoEnProceso = <int>{};
@@ -70,6 +73,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadLocalData();
+    unawaited(_sincronizarAcciones());
     _cargarCatalogoOffline();
     _loadCatalogoApi();
   }
@@ -81,7 +85,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       // Al volver desde el panel PHP o tras cambiar una foto/stock en MySQL,
       // volver a consultar el catálogo sin exigir cerrar e iniciar sesión.
       _loadCatalogoApi();
-      if (!widget.isGuest) _loadLocalData();
+      if (!widget.isGuest) {
+        _loadLocalData();
+        unawaited(_sincronizarAcciones());
+      }
     }
   }
 
@@ -90,6 +97,20 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sincronizarAcciones() async {
+    if (widget.isGuest || _sincronizandoAcciones) return;
+    _sincronizandoAcciones = true;
+    try {
+      await OfflineActions.sincronizar();
+      final pendientes = await OfflineActions.pendientes();
+      if (mounted) setState(() => _accionesOfflinePendientes = pendientes);
+    } catch (_) {
+      // Se conserva la cola SQLite ante fallos de red o token expirado.
+    } finally {
+      _sincronizandoAcciones = false;
+    }
   }
 
   Future<int> _idCliente() async {
@@ -2192,6 +2213,27 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 18),
+          if (_accionesOfflinePendientes > 0)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.goldSoft,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(children: [
+                const Icon(Icons.sync_problem_rounded, color: AppColors.goldDark),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  '$_accionesOfflinePendientes registro(s) guardados en el celular. '
+                  'Los pedidos borrador se envían desde Mis pedidos.',
+                  style: const TextStyle(fontSize: 11, color: AppColors.ink),
+                )),
+                TextButton(onPressed: _sincronizarAcciones,
+                    child: const Text('Sincronizar')),
+              ]),
+            ),
           _profileOption(Icons.person_outline_rounded, 'Mis datos', 'Edita tu perfil y contraseña', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => CuentaScreen(onUpdated: widget.onProfileUpdated)));
           }),
