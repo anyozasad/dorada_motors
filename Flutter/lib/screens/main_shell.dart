@@ -784,6 +784,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           // El servidor nuevo es válido pero no reconoce la sesión anterior.
           // No mostrar compras o favoritos de otra base de datos.
           final idAnterior = await _idCliente();
+          // Limpiar la cuenta del servidor ANTIGUO, no la misma ID
+          // numérica que pudiera existir en el servidor nuevo.
+          ApiService.configurarServidor(direccionAnterior);
+          await OfflineActions.limpiarCuentaLocal();
+          ApiService.configurarServidor(valor);
           await LocalStore.clearUserShoppingCache(idAnterior);
           await LocalStore.logout();
           await LocalStore.clearCart();
@@ -2235,7 +2240,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           }),
           _profileOption(Icons.receipt_long_outlined, 'Mis pedidos', 'Revisa compras, totales y estados', () async {
             await Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
-            if (mounted) _loadCatalogoApi();
+            if (mounted) {
+              await _loadCatalogoApi();
+              await _loadLocalData();
+            }
           }),
           _profileOption(
             Icons.sync_outlined,
