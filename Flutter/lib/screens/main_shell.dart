@@ -17,6 +17,7 @@ import '../widgets/product_image.dart';
 import '../widgets/ui_motion.dart';
 import 'checkout_screen.dart';
 import 'orders_screen.dart';
+import 'sync_center_screen.dart';
 import 'direcciones_screen.dart';
 import 'cuenta_screen.dart';
 import 'soporte_screen.dart';
@@ -745,6 +746,22 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     } on FormatException catch (e) {
       _message(e.message);
       return;
+    }
+
+    // Evitar cambiar de servidor dejando registros locales sin destino.
+    if (!widget.isGuest && valor != ApiService.baseUrl) {
+      final usuario = await _idCliente();
+      final restantes = await OfflineActions.pendientes();
+      final carrito = await OfflineStore.carritoPendiente(usuario);
+      final favoritos = await OfflineStore.favoritosPendientes(usuario);
+      if (restantes > 0 || carrito.isNotEmpty || favoritos.isNotEmpty) {
+        if (mounted) {
+          _message('Hay datos pendientes del servidor actual. '
+              'Entra en Perfil → Sincronización para enviarlos o revisarlos '
+              'antes de cambiar de servidor.');
+        }
+        return;
+      }
     }
 
     // Primero comprobar la API y el usuario ANTES de guardar el cambio:
@@ -2213,27 +2230,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 18),
-          if (_accionesOfflinePendientes > 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: AppColors.goldSoft,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(children: [
-                const Icon(Icons.sync_problem_rounded, color: AppColors.goldDark),
-                const SizedBox(width: 10),
-                Expanded(child: Text(
-                  '$_accionesOfflinePendientes registro(s) guardados en el celular. '
-                  'Los pedidos borrador se envían desde Mis pedidos.',
-                  style: const TextStyle(fontSize: 11, color: AppColors.ink),
-                )),
-                TextButton(onPressed: _sincronizarAcciones,
-                    child: const Text('Sincronizar')),
-              ]),
-            ),
           _profileOption(Icons.person_outline_rounded, 'Mis datos', 'Edita tu perfil y contraseña', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => CuentaScreen(onUpdated: widget.onProfileUpdated)));
           }),
@@ -2241,6 +2237,26 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             await Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
             if (mounted) _loadCatalogoApi();
           }),
+          _profileOption(
+            Icons.sync_outlined,
+            'Sincronización',
+            _accionesOfflinePendientes > 0
+                ? '$_accionesOfflinePendientes cambio(s) de formularios por revisar'
+                : 'Consulta los datos pendientes y los errores',
+            () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SyncCenterScreen(
+                    onSyncShopping: () async {
+                      await _loadLocalData();
+                    },
+                  ),
+                ),
+              );
+              if (mounted) await _sincronizarAcciones();
+            },
+          ),
           _profileOption(Icons.location_on_outlined, 'Direcciones', 'Administra tus direcciones de entrega', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const DireccionesScreen()));
           }),
