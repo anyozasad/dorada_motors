@@ -101,6 +101,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   // por lo que reintentar la sincronización no duplica cantidades.
   Future<bool> _sincronizarPendientes(int usuario) async {
     final carrito = await OfflineStore.carritoPendiente(usuario);
+    final favoritos = await OfflineStore.favoritosPendientes(usuario);
+    if (carrito.isEmpty && favoritos.isEmpty) return false;
+
+    // Sin red, no intentar veinte peticiones de 10 segundos: conservarlas
+    // todas y permitir que la interfaz use el respaldo del celular.
+    try {
+      await ApiService.comprobarConexionBackend()
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      return true;
+    }
+
     for (final operacion in carrito.entries.toList()) {
       try {
         await ApiService.guardarCantidadCarrito(
@@ -116,7 +128,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       }
     }
 
-    final favoritos = await OfflineStore.favoritosPendientes(usuario);
     for (final operacion in favoritos.entries.toList()) {
       try {
         await ApiService.guardarFavorito(
@@ -1076,6 +1087,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                                 Navigator.pop(sheetContext);
                                 if (widget.isGuest) {
                                   _requireAccount('Inicia sesión para confirmar tu compra y guardar el pedido.');
+                                  return;
+                                }
+                                if (_catalogoLocal) {
+                                  _message('Tu carrito está guardado sin internet. '
+                                      'Reconecta con MySQL para validar el precio y stock '
+                                      'antes de confirmar un pedido.');
                                   return;
                                 }
                                 Navigator.of(context).push(
