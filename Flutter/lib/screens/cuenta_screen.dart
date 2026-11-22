@@ -55,11 +55,23 @@ class _CuentaScreenState extends State<CuentaScreen> {
       } catch (e) {
         if (!ApiService.esErrorConexion(e)) rethrow;
         final copia = await OfflineActions.leerCopia('cuenta');
-        if (copia is! Map) {
-          throw Exception('No hay datos de perfil guardados. '
-              'Conéctate una vez para cargarlos.');
+        if (copia is Map) {
+          cuenta = Map<String, dynamic>.from(copia);
+        } else {
+          // La sesión ya validada anteriormente aporta nombre y correo
+          // para editar el perfil offline en la primera apertura.
+          final sesion = await LocalStore.getSession();
+          if (sesion == null) {
+            throw Exception('No hay una sesión local para editar tu perfil.');
+          }
+          final nombre = (sesion['name'] ?? '').trim().split(' ');
+          cuenta = <String, dynamic>{
+            'nombres': nombre.isEmpty ? '' : nombre.first,
+            'apellidos': nombre.length > 1 ? nombre.skip(1).join(' ') : '',
+            'correo': sesion['email'] ?? '',
+            'telefono': '',
+          };
         }
-        cuenta = Map<String, dynamic>.from(copia);
       }
       final operaciones = await OfflineActions.operacionesPendientes(accion: 'perfil');
       if (operaciones.isNotEmpty) {
