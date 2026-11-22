@@ -356,7 +356,7 @@ class ApiService {
     await _postJson('soporte.php', {
       'asunto': asunto.trim(),
       'mensaje': mensaje.trim(),
-      if (claveOperacion != null) 'clave_operacion': claveOperacion,
+      ...? (claveOperacion == null ? null : {'clave_operacion': claveOperacion}),
     });
   }
 
@@ -448,7 +448,7 @@ class ApiService {
       'distrito': 'Callería',
       'direccion_detalle': direccion.trim(),
       'referencia': referencia.trim(),
-      if (claveOperacion != null) 'clave_operacion': claveOperacion,
+      ...? (claveOperacion == null ? null : {'clave_operacion': claveOperacion}),
     });
 
     if (decoded is Map) {
