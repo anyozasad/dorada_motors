@@ -67,6 +67,9 @@ class OfflineStore {
               int.parse(e.key.toString()): (e.value as num).toInt(),
         };
       }
+      // No usar las antiguas preferencias sin servidor como respaldo:
+      // el usuario #3 de otra instalación podría tener el mismo ID.
+      return {};
     }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('offline_cart_pending_$usuario');
@@ -159,6 +162,7 @@ class OfflineStore {
               int.parse(e.key.toString()): e.value as bool,
         };
       }
+      return {};
     }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('offline_fav_pending_$usuario');
@@ -264,6 +268,9 @@ class OfflineStore {
           (row) => Pedido.fromJson(Map<String, dynamic>.from(row)),
         ).toList();
       }
+      // Una copia sin servidor identificado podría mezclar el historial
+      // privado de dos sistemas MySQL con IDs de cliente iguales.
+      return [];
     }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('offline_orders_user_$usuario');
