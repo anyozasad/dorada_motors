@@ -1,12 +1,21 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+
+import 'offline_database.dart';
 
 import '../models/pedido.dart';
 
 /// Respaldo móvil persistente. Un catálogo nunca se mezcla con otra API ni
 /// los datos privados de un cliente con otra cuenta.
 class OfflineStore {
+  static Future<String> _scopeUsuario(int usuario) async {
+    final prefs = await SharedPreferences.getInstance();
+    final servidor = prefs.getString('api_base_url') ?? 'http://10.0.2.2/dorada_api';
+    return 'user:${_servidor(servidor)}:$usuario';
+  }
+
   static String _servidor(String apiUrl) =>
       base64Url.encode(utf8.encode(apiUrl.trim().toLowerCase()));
 
@@ -17,11 +26,22 @@ class OfflineStore {
     String apiUrl,
     List<dynamic> productos,
   ) async {
+    if (!kIsWeb) {
+      await OfflineDatabase.guardar(
+        'catalogo:${_servidor(apiUrl)}', 'productos', productos,
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_catalogKey(apiUrl), jsonEncode(productos));
   }
 
   static Future<List<dynamic>?> obtenerCatalogo(String apiUrl) async {
+    if (!kIsWeb) {
+      final datos = await OfflineDatabase.leer(
+        'catalogo:${_servidor(apiUrl)}', 'productos',
+      );
+      if (datos is List) return datos;
+    }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_catalogKey(apiUrl));
     if (raw == null) return null;
@@ -34,6 +54,18 @@ class OfflineStore {
   }
 
   static Future<Map<int, int>> carritoPendiente(int usuario) async {
+    if (!kIsWeb && usuario > 0) {
+      final datos = await OfflineDatabase.leer(
+        await _scopeUsuario(usuario), 'carrito_pendiente',
+      );
+      if (datos is Map) {
+        return {
+          for (final e in datos.entries)
+            if (int.tryParse(e.key.toString()) != null && e.value is num)
+              int.parse(e.key.toString()): (e.value as num).toInt(),
+        };
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('offline_cart_pending_$usuario');
     if (usuario <= 0 || raw == null) return {};
@@ -55,6 +87,12 @@ class OfflineStore {
     Map<int, int> pendientes,
   ) async {
     if (usuario <= 0) return;
+    if (!kIsWeb) {
+      final scope = await _scopeUsuario(usuario);
+      await OfflineDatabase.guardar(scope, 'carrito_pendiente', {
+        for (final e in pendientes.entries) e.key.toString(): e.value,
+      });
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'offline_cart_pending_$usuario',
@@ -76,6 +114,18 @@ class OfflineStore {
   }
 
   static Future<Map<int, bool>> favoritosPendientes(int usuario) async {
+    if (!kIsWeb && usuario > 0) {
+      final datos = await OfflineDatabase.leer(
+        await _scopeUsuario(usuario), 'favoritos_pendientes',
+      );
+      if (datos is Map) {
+        return {
+          for (final e in datos.entries)
+            if (int.tryParse(e.key.toString()) != null && e.value is bool)
+              int.parse(e.key.toString()): e.value as bool,
+        };
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('offline_fav_pending_$usuario');
     if (usuario <= 0 || raw == null) return {};
@@ -97,6 +147,13 @@ class OfflineStore {
     Map<int, bool> pendientes,
   ) async {
     if (usuario <= 0) return;
+    if (!kIsWeb) {
+      await OfflineDatabase.guardar(
+        await _scopeUsuario(usuario), 'favoritos_pendientes', {
+          for (final e in pendientes.entries) e.key.toString(): e.value,
+        },
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'offline_fav_pending_$usuario',
@@ -119,6 +176,12 @@ class OfflineStore {
 
   static Future<void> guardarPedidos(int usuario, List<Pedido> pedidos) async {
     if (usuario <= 0) return;
+    if (!kIsWeb) {
+      await OfflineDatabase.guardar(
+        await _scopeUsuario(usuario), 'pedidos',
+        pedidos.map((p) => p.toJson()).toList(),
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'offline_orders_user_$usuario',
@@ -128,6 +191,16 @@ class OfflineStore {
 
   static Future<List<Pedido>> obtenerPedidos(int usuario) async {
     if (usuario <= 0) return [];
+    if (!kIsWeb) {
+      final datos = await OfflineDatabase.leer(
+        await _scopeUsuario(usuario), 'pedidos',
+      );
+      if (datos is List) {
+        return datos.whereType<Map>().map(
+          (row) => Pedido.fromJson(Map<String, dynamic>.from(row)),
+        ).toList();
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('offline_orders_user_$usuario');
     if (raw == null) return [];
@@ -144,6 +217,9 @@ class OfflineStore {
 
   static Future<void> limpiarCuenta(int usuario) async {
     if (usuario <= 0) return;
+    if (!kIsWeb) {
+      await OfflineDatabase.limpiarScope(await _scopeUsuario(usuario));
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('offline_cart_pending_$usuario');
     await prefs.remove('offline_fav_pending_$usuario');
