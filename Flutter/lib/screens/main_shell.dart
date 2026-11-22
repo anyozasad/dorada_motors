@@ -304,8 +304,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           if (item.value <= 0) continue;
           // Si la misma migración se interrumpió, la cantidad ya preparada
           // prevalece sobre la copia remota: no sumar dos veces.
-          final objetivo = cantidadesEnCola[item.key] ??
-              ((cantidadesRemotas[item.key] ?? 0) + item.value);
+          final objetivo = OfflineStore.cantidadAlVincularInvitado(
+            cantidadServidor: cantidadesRemotas[item.key] ?? 0,
+            cantidadInvitado: item.value,
+            cantidadPendiente: cantidadesEnCola[item.key],
+          );
           await OfflineStore.marcarCarrito(idUsuario, item.key, objetivo);
           final restantes = await LocalStore.getGuestCart();
           restantes.remove(item.key);
