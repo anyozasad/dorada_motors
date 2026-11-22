@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../theme/app_theme.dart';
 
@@ -39,34 +40,31 @@ class ProductImage extends StatelessWidget {
     if (ruta.isEmpty) return _fallback();
 
     if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
-      return Image.network(
-        ruta,
+      // La primera descarga usa la API PHP; las siguientes pueden leer la
+      // foto desde el disco del teléfono aun si XAMPP/internet está apagado.
+      return CachedNetworkImage(
+        imageUrl: ruta,
         fit: fit,
-        filterQuality: FilterQuality.high,
-        isAntiAlias: true,
-        gaplessPlayback: true,
-        semanticLabel: semanticLabel,
-        loadingBuilder: (context, child, progreso) {
-          if (progreso == null) return child;
-          return Stack(
-            alignment: Alignment.center,
-            fit: StackFit.expand,
-            children: [
-              Opacity(opacity: .35, child: _fallback()),
-              const Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.goldDark,
-                  ),
+        fadeInDuration: const Duration(milliseconds: 180),
+        fadeOutDuration: const Duration(milliseconds: 80),
+        placeholder: (_, _) => Stack(
+          alignment: Alignment.center,
+          fit: StackFit.expand,
+          children: [
+            Opacity(opacity: .35, child: _fallback()),
+            const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.goldDark,
                 ),
               ),
-            ],
-          );
-        },
-        errorBuilder: (_, _, _) => _fallback(),
+            ),
+          ],
+        ),
+        errorWidget: (_, _, _) => _fallback(),
       );
     }
 
