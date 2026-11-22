@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/offline_actions.dart';
 import '../theme/app_theme.dart';
 
 class SoporteScreen extends StatefulWidget {
@@ -24,23 +25,51 @@ class _SoporteScreenState extends State<SoporteScreen> {
 
   Future<void> _actualizar() async {
     if (mounted) setState(() { _cargando = true; _error = null; });
+    List<Map<String, dynamic>> listado = [];
+    var copiaLocal = false;
     try {
       final lista = await ApiService.obtenerSolicitudesSoporte();
-      if (!mounted) return;
-      setState(() {
-        _solicitudes = lista
-            .whereType<Map>()
-            .map((x) => Map<String, dynamic>.from(x))
-            .toList();
-        _cargando = false;
-      });
+      listado = lista.whereType<Map>()
+          .map((x) => Map<String, dynamic>.from(x)).toList();
+      await OfflineActions.guardarCopia('soporte', listado);
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-        _cargando = false;
+      if (!ApiService.esErrorConexion(e)) {
+        if (mounted) {
+          setState(() {
+            _error = e.toString().replaceFirst('Exception: ', '');
+            _cargando = false;
+          });
+        }
+        return;
+      }
+      copiaLocal = true;
+      final local = await OfflineActions.leerCopia('soporte');
+      if (local is List) {
+        listado = local.whereType<Map>()
+            .map((x) => Map<String, dynamic>.from(x)).toList();
+      }
+    }
+
+    final pendientes = await OfflineActions.operacionesPendientes(accion: 'soporte');
+    for (final op in pendientes) {
+      final datos = Map<String, dynamic>.from(op['datos'] as Map);
+      listado.insert(0, {
+        'id_solicitud': 'local',
+        'asunto': datos['asunto'],
+        'mensaje': datos['mensaje'],
+        'respuesta': '',
+        'estado': op['estado'] == 'error'
+            ? 'Pendiente · revisar error' : 'Pendiente de sincronizar',
       });
     }
+    if (!mounted) return;
+    setState(() {
+      _solicitudes = listado;
+      _cargando = false;
+      _error = copiaLocal && listado.isEmpty
+          ? 'Sin internet. Puedes crear una consulta y se guardará en el teléfono.'
+          : null;
+    });
   }
 
   void _mensaje(String mensaje) {
@@ -113,11 +142,15 @@ class _SoporteScreenState extends State<SoporteScreen> {
     if (confirmar == true && mounted) {
       setState(() => _enviando = true);
       try {
-        await ApiService.registrarSolicitudSoporte(
-          asunto: asunto.text,
-          mensaje: mensaje.text,
+        final enviada = await OfflineActions.registrar(
+          accion: 'soporte',
+          clave: OfflineActions.nuevaClave(),
+          datos: {'asunto': asunto.text, 'mensaje': mensaje.text},
         );
-        _mensaje('Solicitud enviada. Puedes consultar aquí la respuesta.');
+        _mensaje(enviada
+            ? 'Solicitud registrada en MySQL. Puedes ver aquí la respuesta.'
+            : 'Consulta guardada en SQLite del celular. '
+              'Se enviará cuando vuelva la conexión.');
         await _actualizar();
       } catch (e) {
         _mensaje(e.toString().replaceFirst('Exception: ', ''));
