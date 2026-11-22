@@ -50,6 +50,37 @@ Si el teléfono no abre la URL, revisa que Windows Firewall permita a Apache rec
 
 **Alcance:** el APK de presentación usa la configuración de firma de desarrollo del proyecto; no es una versión certificada de Google Play. Los comprobantes electrónicos no se emiten a SUNAT y Yape/Plin requieren confirmación administrativa. La aplicación no se ha probado físicamente en todos los teléfonos.
 
+## Offline-first: SQLite en Android + MySQL al recuperar conexión
+
+El APK de Android guarda **copias de catálogo, pedidos anteriores y operaciones
+pendientes en SQLite**, dentro del almacenamiento privado de la aplicación.
+Las fotos de los repuestos iniciales están incluidas en el APK y las imágenes
+nuevas de PHP se mantienen en caché tras descargarlas.
+
+- **Sin internet ni Wi-Fi:** navegación, búsqueda, carrito, favoritos y el último
+  catálogo descargado funcionan en el celular. Direcciones, perfil y consultas
+  se guardan localmente como operaciones pendientes.
+- **Pedidos offline:** el cliente puede guardar un borrador de compra con
+  productos, cantidades, dirección y medio de pago. En «Mis pedidos» debe
+  pulsar «Confirmar y enviar» después de recuperar conexión. El servidor
+  comprueba de nuevo precios, tarifa de entrega y stock. Si no coinciden, el
+  borrador permanece sin registrar y el cliente debe revisar los cambios.
+- **Al reconectar:** abrir/reanudar la app o utilizar «Sincronizar» en el perfil
+  envía los cambios pendientes a MySQL. Los identificadores de operación
+  evitan duplicar direcciones, consultas y pedidos cuando se reintenta la red.
+- **Registro inicial, autenticación nueva, recuperación de contraseña, pagos
+  confirmados y stock real** requieren comunicación con PHP/MySQL. Sin red
+  no se puede escribir instantáneamente en la base MySQL de otra computadora.
+- **Dashboard en la PC:** el panel PHP y MySQL pueden ejecutarse en localhost
+  sin acceso a internet público si XAMPP está encendido. Para sincronizar con
+  el celular, ambos deben tener un enlace de red local o internet disponible.
+
+Comprobar el modo offline: conectar una vez la app al servidor, iniciar sesión,
+abrir catálogo y fotos, luego activar modo avión. Modificar carrito/favoritos,
+guardar dirección y borrador de pedido; cerrar y abrir la app. Al reconectar,
+sincronizar desde el perfil y revisar los registros en PHP/MySQL. Los borradores
+de pedido requieren confirmación separada del cliente.
+
 ## Indicador IV — avance funcional en desarrollo
 No se genera ni publica ZIP automáticamente mientras se corrigen y prueban las funciones. La entrega se preparará solamente cuando se solicite expresamente.
 
