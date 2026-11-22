@@ -1,4 +1,7 @@
 import 'dart:math';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -48,20 +51,24 @@ class OfflineActions {
       await _enviar(accion, clave, datos);
       return true;
     }
-    // Escribir ANTES de intentar la red, incluso si Android cierra la app.
+    // Aislar claves entre servidores y clientes. La misma "direccion_7"
+    // de dos cuentas nunca puede sobrescribir otra operación en SQLite.
+    final scope = await _scope();
+    final clavePrivada = sha256.convert(
+      utf8.encode('$scope|$clave'),
+    ).toString().substring(0, 48);
     await OfflineDatabase.encolar(
-      clave: clave, scope: await _scope(), accion: accion, datos: datos,
+      clave: clavePrivada, scope: scope, accion: accion, datos: datos,
     );
     try {
-      // Evita que un formulario offline espere 10 s por cada operación.
       await ApiService.comprobarConexionBackend()
           .timeout(const Duration(seconds: 4));
-      await _enviar(accion, clave, datos);
-      await OfflineDatabase.confirmar(clave);
+      await _enviar(accion, clavePrivada, datos);
+      await OfflineDatabase.confirmar(clavePrivada);
       return true;
     } catch (e) {
       if (ApiService.esErrorConexion(e)) return false;
-      await OfflineDatabase.registrarError(clave, e.toString());
+      await OfflineDatabase.registrarError(clavePrivada, e.toString());
       rethrow;
     }
   }
