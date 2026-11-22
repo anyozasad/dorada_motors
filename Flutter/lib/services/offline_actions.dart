@@ -106,6 +106,15 @@ class OfflineActions {
             rethrow;
           }
         }
+      case 'cancelacion':
+        // El stock no cambia en el celular. Solo MySQL confirma la anulación.
+        await ApiService.cancelarPedidoCliente(datos['id_pedido'] as int);
+      case 'pago_referencia':
+        // Solo informa la referencia, no registra un pago como cobrado.
+        await ApiService.reportarReferenciaPago(
+          idPedido: datos['id_pedido'] as int,
+          referencia: datos['referencia'] as String,
+        );
       case 'perfil':
         await ApiService.actualizarCuenta(
           nombres: datos['nombres'] as String,
