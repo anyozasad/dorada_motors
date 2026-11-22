@@ -2539,6 +2539,8 @@ select:focus-visible,textarea:focus-visible{
 .status-pill.warning{background:#fff0d6;color:#805500}
 .status-pill.danger{background:#ffe8ea;color:#ae1e30}
 @media(max-width:820px){
+ /* Evita pantallas semitransparentes durante la navegación móvil. */
+ .page-panel{animation:none!important;opacity:1!important;transform:none!important}
  .content{padding:15px}
  .topbar{gap:12px}
  .card{padding:16px}
