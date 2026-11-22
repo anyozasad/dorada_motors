@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/pedido.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
+import '../services/offline_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/pedido_estado_badge.dart';
 
@@ -17,6 +18,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   late Future<List<Pedido>> _orders;
   final Set<String> _cancelando = <String>{};
   final Set<String> _reportando = <String>{};
+  bool _mostrandoCopiaLocal = false;
 
   @override
   void initState() {
@@ -35,7 +37,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     try {
       final data = await ApiService.obtenerPedidosUsuario(idUsuario);
 
-      return data.map((raw) {
+      final pedidosActualizados = data.map((raw) {
         final row = raw is Map
             ? Map<String, dynamic>.from(raw)
             : <String, dynamic>{};
@@ -81,9 +83,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
           items: items,
         );
       }).toList();
-    } catch (_) {
-      // No presentar un respaldo local como si fuera el estado actual de MySQL.
-      rethrow;
+      _mostrandoCopiaLocal = false;
+      try {
+        await OfflineStore.guardarPedidos(idUsuario, pedidosActualizados);
+      } catch (_) {
+        // No bloquear una lectura válida por error de caché.
+      }
+      return pedidosActualizados;
+    } catch (e) {
+      if (!ApiService.esErrorConexion(e)) rethrow;
+      final copia = await OfflineStore.obtenerPedidos(idUsuario);
+      if (copia.isEmpty) rethrow;
+      _mostrandoCopiaLocal = true;
+      return copia;
     }
   }
 
@@ -374,6 +386,24 @@ class _OrdersScreenState extends State<OrdersScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
               children: [
+                if (_mostrandoCopiaLocal)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: AppColors.goldSoft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Row(children: [
+                      Icon(Icons.cloud_off_outlined, color: AppColors.goldDark),
+                      SizedBox(width: 9),
+                      Expanded(child: Text(
+                        'Historial guardado en el celular. Los estados de pagos '
+                        'y pedidos se actualizarán al reconectar con MySQL.',
+                        style: TextStyle(fontSize: 12, color: AppColors.ink),
+                      )),
+                    ]),
+                  ),
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
