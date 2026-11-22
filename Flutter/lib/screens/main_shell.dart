@@ -91,7 +91,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> _revisarPendientesAutomaticamente() async {
     if (!mounted || widget.isGuest ||
         _cargandoMisDatos || _sincronizandoCompras ||
-        _sincronizandoAcciones) return;
+        _sincronizandoAcciones) {
+      return;
+    }
     try {
       final usuario = await _idCliente();
       if (usuario <= 0) return;
