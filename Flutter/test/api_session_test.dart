@@ -38,6 +38,16 @@ void main() {
     client.close();
   });
 
+  test('No confunde token de otra cuenta con sesión válida', () async {
+    await guardarCliente();
+    final client = MockClient((_) async => http.Response(
+          '{"estado":true,"usuario":{"id_usuario":99,"correo":"otra@example.test"}}',
+          200,
+        ));
+    expect(await ApiService.verificarSesion(client: client), isFalse);
+    client.close();
+  });
+
   test('Token vencido devuelve false para pedir nuevo inicio de sesión', () async {
     await guardarCliente();
     final client = MockClient((_) async => http.Response(
