@@ -52,6 +52,24 @@ if (!columnaExiste($conexion, "pedido", "tipo_entrega")) {
     $conexion->query("ALTER TABLE pedido ADD COLUMN tipo_entrega VARCHAR(30) NOT NULL DEFAULT 'Recojo en tienda'");
 }
 
+// Claves idempotentes para registros offline: una petición repetida después
+// de recuperar Wi-Fi no debe crear dos direcciones o consultas de soporte.
+foreach (["direccion", "solicitud_soporte"] as $tablaOffline) {
+    if (!columnaExiste($conexion, $tablaOffline, "clave_operacion")) {
+        $conexion->query(
+            "ALTER TABLE `$tablaOffline` ADD COLUMN clave_operacion VARCHAR(64) NULL DEFAULT NULL"
+        );
+    }
+    $indiceOffline = $conexion->query(
+        "SHOW INDEX FROM `$tablaOffline` WHERE Key_name='uq_cliente_operacion'"
+    );
+    if ($indiceOffline && $indiceOffline->num_rows === 0) {
+        $conexion->query(
+            "ALTER TABLE `$tablaOffline` ADD UNIQUE KEY uq_cliente_operacion (id_usuario,clave_operacion)"
+        );
+    }
+}
+
 // Una sola compra por intento, incluso si Chrome pierde la respuesta de la API.
 if (!columnaExiste($conexion, "pedido", "clave_operacion")) {
     $conexion->query("ALTER TABLE pedido ADD COLUMN clave_operacion VARCHAR(64) NULL DEFAULT NULL");
