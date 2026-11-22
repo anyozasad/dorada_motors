@@ -38,7 +38,8 @@ void main() {
     await tester.tap(find.text('Crear mi cuenta'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ingresa tu nombre completo.'), findsOneWidget);
+    expect(find.text('Ingresa tus nombres.'), findsOneWidget);
+    expect(find.text('Ingresa tus apellidos.'), findsOneWidget);
     expect(find.text('Ingresa un correo válido.'), findsOneWidget);
     expect(find.text('Mínimo 8 caracteres.'), findsOneWidget);
   });
