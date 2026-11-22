@@ -61,6 +61,60 @@ class OfflineDatabase {
     return db;
   }
 
+  /// Cambiar una sola entrada de un mapa de caché en una transacción SQLite.
+  /// Evita que dos ediciones simultáneas de artículos distintos se pisen.
+  /// Al confirmar, solo elimina la entrada si conserva el valor enviado.
+  static Future<Map<String, dynamic>> cambiarEntradaMapa({
+    required String scope,
+    required String nombre,
+    required String clave,
+    Object? valor,
+    bool confirmar = false,
+    Object? valorEsperado,
+  }) async {
+    final db = await _db();
+    return db.transaction((txn) async {
+      final filas = await txn.query(
+        'cache',
+        columns: ['contenido'],
+        where: 'scope=? AND nombre=?',
+        whereArgs: [scope, nombre],
+        limit: 1,
+      );
+      final mapa = <String, dynamic>{};
+      if (filas.isNotEmpty) {
+        try {
+          final guardado = jsonDecode(filas.first['contenido'] as String);
+          if (guardado is Map) {
+            for (final entry in guardado.entries) {
+              mapa[entry.key.toString()] = entry.value;
+            }
+          }
+        } catch (_) {
+          // Si la copia se dañó, crear un mapa local válido.
+        }
+      }
+      if (confirmar) {
+        if (mapa.containsKey(clave) && mapa[clave] == valorEsperado) {
+          mapa.remove(clave);
+        }
+      } else {
+        mapa[clave] = valor;
+      }
+      await txn.insert(
+        'cache',
+        {
+          'scope': scope,
+          'nombre': nombre,
+          'contenido': jsonEncode(mapa),
+          'actualizado': DateTime.now().toUtc().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return mapa;
+    });
+  }
+
   static Future<void> guardar(
     String scope,
     String nombre,
