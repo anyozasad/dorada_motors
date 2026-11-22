@@ -212,7 +212,7 @@ class OfflineActions {
         clave,
         Map<String, dynamic>.from(fila['datos'] as Map),
       );
-      return OfflineDatabase.confirmarVersion(clave, version);
+      return await OfflineDatabase.confirmarVersion(clave, version);
     } catch (e) {
       if (!ApiService.esErrorConexion(e)) {
         await OfflineDatabase.registrarErrorVersion(
