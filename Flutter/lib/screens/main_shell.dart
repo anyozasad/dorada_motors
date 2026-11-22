@@ -93,6 +93,86 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     return int.tryParse(session?['id'] ?? '') ?? 0;
   }
 
+  // Cada operación pendiente fija el estado final del artículo (no un delta),
+  // por lo que reintentar la sincronización no duplica cantidades.
+  Future<bool> _sincronizarPendientes(int usuario) async {
+    final carrito = await OfflineStore.carritoPendiente(usuario);
+    for (final operacion in carrito.entries.toList()) {
+      try {
+        await ApiService.guardarCantidadCarrito(
+          idUsuario: usuario,
+          idProducto: operacion.key,
+          cantidad: operacion.value,
+        );
+        carrito.remove(operacion.key);
+        await OfflineStore.guardarCarritoPendiente(usuario, carrito);
+      } catch (_) {
+        // Puede ser caída de red, producto eliminado o stock reducido.
+        // Conservarlo local hasta resolverlo expresamente.
+      }
+    }
+
+    final favoritos = await OfflineStore.favoritosPendientes(usuario);
+    for (final operacion in favoritos.entries.toList()) {
+      try {
+        await ApiService.guardarFavorito(
+          idUsuario: usuario,
+          idProducto: operacion.key,
+          agregar: operacion.value,
+        );
+        favoritos.remove(operacion.key);
+        await OfflineStore.guardarFavoritosPendientes(usuario, favoritos);
+      } catch (_) {
+        // La operación se intentará más tarde sin perder lo elegido.
+      }
+    }
+    return carrito.isNotEmpty || favoritos.isNotEmpty;
+  }
+
+  Future<bool> _guardarCantidadCarritoOCola(
+    int usuario, int producto, int cantidad,
+  ) async {
+    try {
+      await ApiService.guardarCantidadCarrito(
+        idUsuario: usuario,
+        idProducto: producto,
+        cantidad: cantidad,
+      );
+      final pendientes = await OfflineStore.carritoPendiente(usuario);
+      if (pendientes.containsKey(producto)) {
+        pendientes.remove(producto);
+        await OfflineStore.guardarCarritoPendiente(usuario, pendientes);
+      }
+      return true;
+    } catch (e) {
+      if (!ApiService.esErrorConexion(e)) rethrow;
+      await OfflineStore.marcarCarrito(usuario, producto, cantidad);
+      return false;
+    }
+  }
+
+  Future<bool> _guardarFavoritoOCola(
+    int usuario, int producto, bool agregar,
+  ) async {
+    try {
+      await ApiService.guardarFavorito(
+        idUsuario: usuario,
+        idProducto: producto,
+        agregar: agregar,
+      );
+      final pendientes = await OfflineStore.favoritosPendientes(usuario);
+      if (pendientes.containsKey(producto)) {
+        pendientes.remove(producto);
+        await OfflineStore.guardarFavoritosPendientes(usuario, pendientes);
+      }
+      return true;
+    } catch (e) {
+      if (!ApiService.esErrorConexion(e)) rethrow;
+      await OfflineStore.marcarFavorito(usuario, producto, agregar);
+      return false;
+    }
+  }
+
   Future<void> _loadLocalData() async {
     // Evita mezclar dos respuestas de MySQL y duplicar la migración del
     // carrito de invitado si el teléfono vuelve de segundo plano.
@@ -113,6 +193,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     try {
       final idUsuario = await _idCliente();
       if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
+      final cambiosPendientes = await _sincronizarPendientes(idUsuario);
       final respuestaCarrito = await ApiService.obtenerCarritoUsuario(idUsuario);
       final respuestaFavoritos = await ApiService.obtenerFavoritosUsuario(idUsuario);
 
@@ -147,6 +228,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         _message('Algunos productos de invitado no se pudieron agregar. Revisa el stock.');
       }
 
+      // Si MySQL rechazó un cambio pendiente por stock o eliminación,
+      // no reemplazar la elección offline por la copia antigua del servidor.
+      final pendienteCarrito = await OfflineStore.carritoPendiente(idUsuario);
+      for (final item in pendienteCarrito.entries) {
+        if (item.value <= 0) {
+          carrito.remove(item.key);
+        } else {
+          carrito[item.key] = item.value;
+        }
+      }
+
       final favoritos = <int>{};
       for (final item in respuestaFavoritos) {
         if (item is! Map) continue;
@@ -154,12 +246,25 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         if (id > 0) favoritos.add(id);
       }
 
+      final pendientesFavoritos = await OfflineStore.favoritosPendientes(idUsuario);
+      for (final item in pendientesFavoritos.entries) {
+        if (item.value) {
+          favoritos.add(item.key);
+        } else {
+          favoritos.remove(item.key);
+        }
+      }
       if (!mounted) return;
       setState(() {
         _cart = carrito;
         _favorites = favoritos;
+        _pendientesDeSincronizar = cambiosPendientes;
         _cargandoMisDatos = false;
       });
+      if (cambiosPendientes) {
+        _message('Hay cambios guardados sin sincronizar. Revisa el stock y '
+            'usa Actualizar cuando se restablezca la conexión.');
+      }
       await LocalStore.saveCartForUser(idUsuario, carrito);
       await LocalStore.saveFavoritesForUser(idUsuario, favoritos);
     } catch (e) {
@@ -180,8 +285,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         if (_cart.isEmpty) _cart = carritoRespaldo;
         if (_favorites.isEmpty) _favorites = favoritosRespaldo;
       });
-      _message('Sin conexión con MySQL: se muestra tu última copia local. '
-          'No podrás confirmar compras hasta reconectar.');
+      final id = await _idCliente();
+      final cartPendiente = await OfflineStore.carritoPendiente(id);
+      final favPendiente = await OfflineStore.favoritosPendientes(id);
+      if (mounted) {
+        setState(() {
+          _pendientesDeSincronizar =
+              cartPendiente.isNotEmpty || favPendiente.isNotEmpty;
+        });
+      }
+      _message('Sin conexión: carrito y favoritos guardados en este teléfono. '
+          'Las compras se confirmarán al reconectar.');
     }
   }
   Future<void> _loadCatalogoApi() async {
