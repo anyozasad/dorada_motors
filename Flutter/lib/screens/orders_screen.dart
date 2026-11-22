@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/pedido.dart';
 import '../services/api_service.dart';
+import '../services/offline_actions.dart';
 import '../services/local_store.dart';
 import '../services/offline_store.dart';
 import '../theme/app_theme.dart';
@@ -19,11 +20,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final Set<String> _cancelando = <String>{};
   final Set<String> _reportando = <String>{};
   bool _mostrandoCopiaLocal = false;
+  List<Map<String, dynamic>> _borradores = [];
+  final Set<String> _borradoresEnviando = {};
 
   @override
   void initState() {
     super.initState();
     _orders = _loadOrders();
+    _cargarBorradores();
   }
 
   Future<List<Pedido>> _loadOrders() async {
@@ -93,10 +97,114 @@ class _OrdersScreenState extends State<OrdersScreen> {
     } catch (e) {
       if (!ApiService.esErrorConexion(e)) rethrow;
       final copia = await OfflineStore.obtenerPedidos(idUsuario);
-      if (copia.isEmpty) rethrow;
       _mostrandoCopiaLocal = true;
       return copia;
     }
+  }
+
+  Future<void> _cargarBorradores() async {
+    try {
+      final drafts = await OfflineActions.borradoresPedido();
+      if (mounted) setState(() => _borradores = drafts);
+    } catch (_) {
+      // Las consultas de MySQL deben seguir funcionando si falla SQLite.
+    }
+  }
+
+  Future<void> _confirmarBorrador(Map<String, dynamic> borrador) async {
+    final clave = borrador['clave'] as String;
+    if (_borradoresEnviando.contains(clave)) return;
+    final datos = Map<String, dynamic>.from(borrador['datos'] as Map);
+    final monto = (datos['total_esperado'] as num).toDouble();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmar envío del pedido'),
+        content: Text(
+          'Enviarás una compra real a MySQL. Total aproximado: '
+          'S/ ${monto.toStringAsFixed(2)}. '
+          'Se verificará el precio, las existencias y la tarifa actual. '
+          'Si cambió algún dato, no se registrará la compra.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Seguir revisando')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Confirmar y enviar')),
+        ],
+      ),
+    );
+    if (!mounted || confirmar != true) return;
+    setState(() => _borradoresEnviando.add(clave));
+    try {
+      final respuesta = await OfflineActions.confirmarBorrador(borrador);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Pedido #${respuesta['id_pedido']} registrado en MySQL.'),
+      ));
+      await _cargarBorradores();
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('El borrador sigue en SQLite: '
+            '${e.toString().replaceFirst('Exception: ', '')}'),
+      ));
+      await _cargarBorradores();
+    } finally {
+      if (mounted) setState(() => _borradoresEnviando.remove(clave));
+    }
+  }
+
+  Future<void> _descartarBorrador(Map<String, dynamic> borrador) async {
+    final clave = borrador['clave'] as String;
+    await OfflineActions.eliminarBorrador(clave);
+    await _cargarBorradores();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Borrador local descartado.')),
+      );
+    }
+  }
+
+  Widget _tarjetaBorrador(Map<String, dynamic> borrador) {
+    final clave = borrador['clave'] as String;
+    final datos = Map<String, dynamic>.from(borrador['datos'] as Map);
+    final items = (datos['items'] as List? ?? const []);
+    final monto = (datos['total_esperado'] as num?)?.toDouble() ?? 0;
+    return Card(
+      color: AppColors.goldSoft,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('BORRADOR LOCAL · NO ES UNA COMPRA CONFIRMADA',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12,
+                  color: AppColors.goldDark)),
+          const SizedBox(height: 8),
+          Text('${items.length} repuesto(s) · S/ ${monto.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text('${datos['tipo_entrega'] ?? ''} · ${datos['metodo_pago'] ?? ''}',
+              style: const TextStyle(color: AppColors.muted)),
+          if (borrador['error'] != null)
+            Text('Último error: ${borrador['error']}',
+                style: const TextStyle(color: AppColors.danger, fontSize: 11)),
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, children: [
+            FilledButton.icon(
+              onPressed: _borradoresEnviando.contains(clave)
+                  ? null : () => _confirmarBorrador(borrador),
+              icon: const Icon(Icons.sync_rounded, size: 18),
+              label: const Text('Confirmar y enviar'),
+            ),
+            TextButton(
+              onPressed: _borradoresEnviando.contains(clave)
+                  ? null : () => _descartarBorrador(borrador),
+              child: const Text('Descartar'),
+            ),
+          ]),
+        ]),
+      ),
+    );
   }
 
   Future<void> _refresh() async {
@@ -105,6 +213,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final nuevaConsulta = _loadOrders();
     if (!mounted) return;
     setState(() => _orders = nuevaConsulta);
+    await _cargarBorradores();
     try {
       await nuevaConsulta;
     } catch (_) {
@@ -373,9 +482,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 140),
-                  _EmptyOrders(),
+                children: [
+                  if (_borradores.isEmpty) ...[
+                    const SizedBox(height: 140),
+                    const _EmptyOrders(),
+                  ] else ...[
+                    const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: Text('Pedidos guardados sin internet',
+                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                    ),
+                    ..._borradores.map(_tarjetaBorrador),
+                  ],
                 ],
               ),
             );
@@ -386,6 +504,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
               children: [
+                if (_borradores.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text('Pendientes guardados en SQLite',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  ),
+                  ..._borradores.map(_tarjetaBorrador),
+                  const SizedBox(height: 12),
+                ],
                 if (_mostrandoCopiaLocal)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
