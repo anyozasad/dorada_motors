@@ -360,6 +360,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       } catch (_) {
         // La copia local no debe impedir el funcionamiento online.
       }
+      if (!mounted) return;
       // Descargar de antemano las fotos nuevas del dashboard para que el
       // cliente no tenga que abrir cada ficha antes de quedarse sin red.
       // Las 19 fotos iniciales ya están incluidas dentro del APK.
@@ -513,9 +514,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         // El servidor ya confirmó la operación. No indicar falsamente
         // que falló la compra solo porque no se guardó la copia local.
       }
-      if (mounted) _message(_pendientesDeSincronizar
-          ? '${product.nombre} guardado en este celular. Pendiente de sincronizar.'
-          : '${product.nombre} agregado al carrito.');
+      if (mounted) {
+        _message(_pendientesDeSincronizar
+            ? '${product.nombre} guardado en este celular. Pendiente de sincronizar.'
+            : '${product.nombre} agregado al carrito.');
+      }
       return true;
     } catch (e) {
       if (mounted) {
