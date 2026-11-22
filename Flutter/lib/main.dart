@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/local_store.dart';
+import 'services/offline_store.dart';
+import 'services/offline_actions.dart';
 import 'services/api_service.dart';
 import 'theme/app_theme.dart';
 
@@ -54,6 +56,8 @@ class _AppRootState extends State<AppRoot> {
       final vigente = await ApiService.verificarSesion();
       if (vigente == false) {
         final userId = int.tryParse(session['id'] ?? '') ?? 0;
+        // Sesión revocada: eliminar los datos privados asociados al token.
+        await OfflineActions.limpiarCuentaLocal();
         await LocalStore.clearUserShoppingCache(userId);
         await LocalStore.logout();
         await LocalStore.clearCart();
@@ -80,15 +84,48 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Future<void> _logout() async {
-    // El usuario debe poder salir del dispositivo aunque XAMPP esté apagado.
-    // El token remoto caduca automáticamente; la sesión local se elimina siempre.
+    final session = await LocalStore.getSession();
+    final userId = int.tryParse(session?['id'] ?? '') ?? 0;
+
+    // Cerrar sesión con datos SIN ENVIAR implicaría perderlos. Solicitar una
+    // decisión explícita en lugar de descartar silenciosamente el trabajo.
+    final pendientes = await OfflineActions.pendientes();
+    final carrito = await OfflineStore.carritoPendiente(userId);
+    final favoritos = await OfflineStore.favoritosPendientes(userId);
+    final total = pendientes + carrito.length + favoritos.length;
+    if (total > 0 && mounted) {
+      final descartar = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hay cambios sin sincronizar'),
+          content: Text(
+            'Tienes $total cambio(s) guardados solo en el celular. '
+            'Si cierras sesión se descartarán, incluidos los borradores '
+            'de compras sin confirmar. Se borrarán para proteger tus datos. '
+            'Si quieres conservarlos, vuelve a Perfil → Sincronización.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Conservar y volver'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cerrar y descartar'),
+            ),
+          ],
+        ),
+      );
+      if (descartar != true) return;
+    }
+
+    // El usuario puede salir incluso si Apache está apagado.
     try {
       await ApiService.cerrarSesion();
     } catch (_) {
       // Nunca bloquear el cierre de sesión por una falla de red.
     }
-    final session = await LocalStore.getSession();
-    final userId = int.tryParse(session?['id'] ?? '') ?? 0;
+    await OfflineActions.limpiarCuentaLocal();
     await LocalStore.clearUserShoppingCache(userId);
     await LocalStore.logout();
     await LocalStore.clearCart();
