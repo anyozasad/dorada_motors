@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/pedido.dart';
@@ -22,12 +24,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _mostrandoCopiaLocal = false;
   List<Map<String, dynamic>> _borradores = [];
   final Set<String> _borradoresEnviando = {};
+  Timer? _actualizacionPeriodica;
+  bool _consultandoPedidos = false;
 
   @override
   void initState() {
     super.initState();
     _orders = _loadOrders();
     _cargarBorradores();
+    // Mostrar cambios del administrador (pagos, stock, estados) sin obligar
+    // al cliente a salir y volver a entrar en Mis pedidos.
+    _actualizacionPeriodica = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        if (!mounted || _consultandoPedidos ||
+            _cancelando.isNotEmpty || _reportando.isNotEmpty ||
+            _borradoresEnviando.isNotEmpty ||
+            ModalRoute.of(context)?.isCurrent != true) {
+          return;
+        }
+        unawaited(_refresh());
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _actualizacionPeriodica?.cancel();
+    super.dispose();
   }
 
   Future<List<Pedido>> _loadOrders() async {
@@ -208,16 +232,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _refresh() async {
-    // Una caída de Apache no debe lanzar una excepción sin manejar al
-    // deslizar para actualizar: FutureBuilder mostrará el error y Reintentar.
-    final nuevaConsulta = _loadOrders();
-    if (!mounted) return;
-    setState(() => _orders = nuevaConsulta);
-    await _cargarBorradores();
+    if (_consultandoPedidos) return;
+    _consultandoPedidos = true;
     try {
-      await nuevaConsulta;
-    } catch (_) {
-      // El mensaje se presenta en la pantalla de pedidos, sin duplicarlo.
+      // Una caída de Apache no debe lanzar una excepción sin manejar al
+      // deslizar para actualizar: FutureBuilder mostrará el error y Reintentar.
+      final nuevaConsulta = _loadOrders();
+      if (!mounted) return;
+      setState(() => _orders = nuevaConsulta);
+      await _cargarBorradores();
+      try {
+        await nuevaConsulta;
+      } catch (_) {
+        // FutureBuilder presenta el error y permite reintentar.
+      }
+    } finally {
+      _consultandoPedidos = false;
     }
   }
 
