@@ -28,6 +28,11 @@ if ($metodo === "POST" || $metodo === "PUT") {
     $distrito = trim($datos["distrito"] ?? "");
     $direccion = trim($datos["direccion_detalle"] ?? "");
     $referencia = trim($datos["referencia"] ?? "");
+    $claveOperacion = trim((string)($datos["clave_operacion"] ?? ""));
+    if ($claveOperacion !== "" && !preg_match('/^[A-Za-z0-9_-]{16,64}$/', $claveOperacion)) {
+        responderDireccion(["estado"=>false,"mensaje"=>"Clave de operación inválida"],422);
+    }
+    $claveOperacion = $claveOperacion === "" ? null : $claveOperacion;
 
     if ($idUsuario <= 0 || $direccion === "") {
         responderDireccion(["estado"=>false,"mensaje"=>"Completa la dirección"], 400);
@@ -43,10 +48,11 @@ if ($metodo === "POST" || $metodo === "PUT") {
     if ($metodo === "POST") {
         $stmt = $conexion->prepare("
             INSERT INTO direccion
-            (id_usuario,departamento,provincia,distrito,direccion_detalle,referencia)
-            VALUES (?,?,?,?,?,?)
+            (id_usuario,departamento,provincia,distrito,direccion_detalle,referencia,clave_operacion)
+            VALUES (?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE id_direccion=LAST_INSERT_ID(id_direccion)
         ");
-        $stmt->bind_param("isssss",$idUsuario,$departamento,$provincia,$distrito,$direccion,$referencia);
+        $stmt->bind_param("issssss",$idUsuario,$departamento,$provincia,$distrito,$direccion,$referencia,$claveOperacion);
 
         if (!$stmt->execute()) {
             responderDireccion(["estado"=>false,"mensaje"=>"No se pudo registrar la dirección"], 500);
