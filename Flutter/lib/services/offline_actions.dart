@@ -53,6 +53,9 @@ class OfflineActions {
       clave: clave, scope: await _scope(), accion: accion, datos: datos,
     );
     try {
+      // Evita que un formulario offline espere 10 s por cada operación.
+      await ApiService.comprobarConexionBackend()
+          .timeout(const Duration(seconds: 4));
       await _enviar(accion, clave, datos);
       await OfflineDatabase.confirmar(clave);
       return true;
@@ -104,6 +107,15 @@ class OfflineActions {
       default:
         throw StateError('Acción de sincronización no admitida: $accion');
     }
+  }
+
+  static Future<List<Map<String, dynamic>>> operacionesPendientes({
+    String? accion,
+  }) async {
+    if (!disponible) return [];
+    final filas = await OfflineDatabase.pendientes(await _scope());
+    if (accion == null) return filas;
+    return filas.where((f) => f['accion'] == accion).toList();
   }
 
   static Future<int> pendientes() async {
