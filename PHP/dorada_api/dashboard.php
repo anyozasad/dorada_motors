@@ -2,6 +2,7 @@
 require_once "conexion.php";
 require_once "auth_admin.php";
 require_once "empresa_config.php";
+require_once "dashboard_revision.php";
 
 requerirAdmin();
 
@@ -3738,6 +3739,7 @@ const filasIniciales = {
  usuarios: <?= (int)$totalUsuarios ?>,
  pedidos: <?= (int)$totalPedidos ?>
 };
+const revisionInicial = <?= json_encode(revisionDatosDashboard($conexion), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 let formularioAdminModificado = false;
 document.querySelectorAll('form').forEach(form=>{
  form.addEventListener('input',()=>{formularioAdminModificado=true;});
@@ -3759,15 +3761,26 @@ async function actualizarDashboardEnVivo(manual=false){
   const llegaronRegistrosNuevos = ['productos','usuarios','pedidos'].some(
     campo=>Number(data[campo])!==Number(filasIniciales[campo])
   );
-  if(llegaronRegistrosNuevos){
-   // Evitar perder información cuando el administrador está editando.
+  const cambiaronDatos = llegaronRegistrosNuevos ||
+    (typeof data.revision==='string' && data.revision!==revisionInicial);
+  // "Actualizar" debe recargar también las TABLAS, no solo las cifras.
+  // Una edición sin guardar nunca se borra silenciosamente.
+  if(manual){
+   if(formularioAdminModificado &&
+      !window.confirm('Hay datos de un formulario sin guardar. ¿Actualizar y descartarlos?')){
+    return;
+   }
+   window.location.reload();
+   return;
+  }
+  if(cambiaronDatos){
    if(!formularioAdminModificado && document.visibilityState==='visible'){
     window.location.reload();
     return;
    }
    const aviso=document.getElementById('liveStatus');
    if(aviso){
-    aviso.textContent='● Registros nuevos · pulsa ↻ para actualizar tablas';
+    aviso.textContent='● Datos modificados en MySQL · guarda el formulario antes de actualizar';
     aviso.style.opacity='1';
    }
   }
@@ -3820,7 +3833,7 @@ async function actualizarDashboardEnVivo(manual=false){
   renderPagosRecientes(data.pagos_recientes);
 
   const estado=document.getElementById('liveStatus');
-  if(estado && !llegaronRegistrosNuevos){
+  if(estado && !cambiaronDatos){
    estado.textContent='● Datos en vivo · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
    estado.style.opacity='1';
   }
