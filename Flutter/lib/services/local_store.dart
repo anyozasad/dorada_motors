@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pedido.dart';
+import 'offline_store.dart';
 
 class LocalStore {
   static const _sessionUserId = 'session_user_id';
@@ -135,6 +136,9 @@ class LocalStore {
     await prefs.remove('offline_cart_pending_$userId');
     await prefs.remove('offline_fav_pending_$userId');
     await prefs.remove('offline_orders_user_$userId');
+    // Limpia también las copias SQLite y operaciones del cliente en este
+    // servidor. Las colas privadas nuevas se limpian desde OfflineActions.
+    await OfflineStore.limpiarCuenta(userId);
   }
 
   static Future<Set<int>> getFavorites() async {
