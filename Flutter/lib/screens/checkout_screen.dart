@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/pedido.dart';
 import '../models/producto.dart';
 import '../services/api_service.dart';
+import '../services/offline_actions.dart';
 import '../services/checkout_validator.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
@@ -128,6 +129,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   double get _deliveryCost => _delivery == 'Delivery' ? _costoDeliveryServidor : 0.0;
   double get _total => _subtotal + _deliveryCost;
+
+  Future<void> _guardarBorradorSinInternet() async {
+    if (_saving) return;
+    if (_phoneController.text.trim().length < 7) {
+      _message('Escribe un teléfono válido para el borrador.');
+      return;
+    }
+    if (_delivery == 'Delivery' &&
+        _direccionParaPedido.trim().length < 5) {
+      _message('Indica una dirección de entrega válida.');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await OfflineActions.guardarBorradorPedido(
+        clave: _claveOperacion,
+        datos: {
+          'tipo_entrega': _delivery,
+          'metodo_pago': _payment,
+          'id_direccion': _idDireccionSeleccionada > 0
+              ? _idDireccionSeleccionada : null,
+          'direccion': _direccionParaPedido,
+          'telefono': _phoneController.text.trim(),
+          'total_esperado': _total,
+          'items': widget.cart.entries.map((e) => <String, dynamic>{
+            'id_producto': e.key, 'cantidad': e.value,
+          }).toList(),
+        },
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Guardado sin internet'),
+          content: const Text(
+            'Tu pedido se guardó en la base SQLite del celular, '
+            'pero todavía NO es una venta ni se ha enviado al administrador. '
+            'Cuando tengas conexión abre Perfil → Mis pedidos, revisa el total '
+            'y presiona «Confirmar y enviar». MySQL verificará precio y stock.',
+          ),
+          actions: [FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          )],
+        ),
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _message('No se pudo guardar el borrador: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   Future<void> _confirm() async {
     if (_saving) return;
@@ -628,6 +682,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   label: Text(_saving ? 'Registrando pedido...' : 'Confirmar pedido • S/ ${_total.toStringAsFixed(2)}'),
                 ),
               ),
+              const SizedBox(height: 10),
+              if (OfflineActions.disponible)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _saving ? null : _guardarBorradorSinInternet,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Guardar borrador sin internet (SQLite)'),
+                  ),
+                ),
               const SizedBox(height: 10),
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
