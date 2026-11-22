@@ -351,10 +351,12 @@ class ApiService {
   static Future<void> registrarSolicitudSoporte({
     required String asunto,
     required String mensaje,
+    String? claveOperacion,
   }) async {
     await _postJson('soporte.php', {
       'asunto': asunto.trim(),
       'mensaje': mensaje.trim(),
+      if (claveOperacion != null) 'clave_operacion': claveOperacion,
     });
   }
 
@@ -437,6 +439,7 @@ class ApiService {
     required int idUsuario,
     required String direccion,
     String referencia = '',
+    String? claveOperacion,
   }) async {
     final decoded = await _postJson('direcciones.php', {
       'id_usuario': idUsuario,
@@ -445,6 +448,7 @@ class ApiService {
       'distrito': 'Callería',
       'direccion_detalle': direccion.trim(),
       'referencia': referencia.trim(),
+      if (claveOperacion != null) 'clave_operacion': claveOperacion,
     });
 
     if (decoded is Map) {
