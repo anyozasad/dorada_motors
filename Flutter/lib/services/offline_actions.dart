@@ -171,6 +171,10 @@ class OfflineActions {
         .where((e) => e['accion'] == 'pedido_borrador').toList();
   }
 
+  static Future<void> descartarOperacion(String clave) async {
+    if (disponible) await OfflineDatabase.confirmar(clave);
+  }
+
   static Future<void> eliminarBorrador(String clave) async {
     if (disponible) await OfflineDatabase.confirmar(clave);
   }
