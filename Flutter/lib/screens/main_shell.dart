@@ -62,6 +62,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   bool _catalogoLocal = true;
   bool _pendientesDeSincronizar = false;
   bool _sincronizandoAcciones = false;
+  bool _sincronizandoCompras = false;
+  Timer? _reintentoOffline;
   int _accionesOfflinePendientes = 0;
   bool _cargandoProductosApi = false;
   bool _cargandoMisDatos = false;
@@ -77,6 +79,35 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     unawaited(_sincronizarAcciones());
     _cargarCatalogoOffline();
     _loadCatalogoApi();
+    // Recuperar conexión sin obligar a cerrar y reabrir la app.
+    if (!widget.isGuest) {
+      _reintentoOffline = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => unawaited(_revisarPendientesAutomaticamente()),
+      );
+    }
+  }
+
+  Future<void> _revisarPendientesAutomaticamente() async {
+    if (!mounted || widget.isGuest ||
+        _cargandoMisDatos || _sincronizandoCompras ||
+        _sincronizandoAcciones) return;
+    try {
+      final usuario = await _idCliente();
+      if (usuario <= 0) return;
+      final formularios = await OfflineActions.operacionesPendientes();
+      final pendientesFormularios = formularios.any((fila) =>
+          fila['estado'] == 'pendiente' && fila['accion'] != 'pedido_borrador');
+      final carrito = await OfflineStore.carritoPendiente(usuario);
+      final favoritos = await OfflineStore.favoritosPendientes(usuario);
+      if (!mounted) return;
+      if (pendientesFormularios) await _sincronizarAcciones();
+      if (carrito.isNotEmpty || favoritos.isNotEmpty) {
+        await _loadLocalData();
+      }
+    } catch (_) {
+      // Sin servidor no se pierde la cola y no se muestra un error repetido.
+    }
   }
 
   @override
@@ -95,6 +126,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _reintentoOffline?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
@@ -122,69 +154,81 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   // Cada operación pendiente fija el estado final del artículo (no un delta),
   // por lo que reintentar la sincronización no duplica cantidades.
   Future<bool> _sincronizarPendientes(int usuario) async {
-    final carrito = await OfflineStore.carritoPendiente(usuario);
-    final favoritos = await OfflineStore.favoritosPendientes(usuario);
-    if (carrito.isEmpty && favoritos.isEmpty) return false;
-
-    // Sin red, no intentar veinte peticiones de 10 segundos: conservarlas
-    // todas y permitir que la interfaz use el respaldo del celular.
+    if (_sincronizandoCompras) return true;
+    _sincronizandoCompras = true;
     try {
-      await ApiService.comprobarConexionBackend()
-          .timeout(const Duration(seconds: 4));
-    } catch (_) {
-      return true;
-    }
+      final carrito = await OfflineStore.carritoPendiente(usuario);
+      final favoritos = await OfflineStore.favoritosPendientes(usuario);
+      if (carrito.isEmpty && favoritos.isEmpty) return false;
 
-    for (final operacion in carrito.entries.toList()) {
+      // Evita decenas de peticiones cuando XAMPP está apagado.
       try {
-        await ApiService.guardarCantidadCarrito(
-          idUsuario: usuario,
-          idProducto: operacion.key,
-          cantidad: operacion.value,
-        );
-        carrito.remove(operacion.key);
-        await OfflineStore.guardarCarritoPendiente(usuario, carrito);
+        await ApiService.comprobarConexionBackend()
+            .timeout(const Duration(seconds: 4));
       } catch (_) {
-        // Puede ser caída de red, producto eliminado o stock reducido.
-        // Conservarlo local hasta resolverlo expresamente.
+        return true;
       }
-    }
 
-    for (final operacion in favoritos.entries.toList()) {
-      try {
-        await ApiService.guardarFavorito(
-          idUsuario: usuario,
-          idProducto: operacion.key,
-          agregar: operacion.value,
-        );
-        favoritos.remove(operacion.key);
-        await OfflineStore.guardarFavoritosPendientes(usuario, favoritos);
-      } catch (_) {
-        // La operación se intentará más tarde sin perder lo elegido.
+      for (final operacion in carrito.entries) {
+        if (_carritoEnProceso.contains(operacion.key)) continue;
+        try {
+          await ApiService.guardarCantidadCarrito(
+            idUsuario: usuario,
+            idProducto: operacion.key,
+            cantidad: operacion.value,
+          );
+          // No sobrescribir el mapa completo: el usuario puede haber
+          // agregado otro producto o cambiado la cantidad entretanto.
+          await OfflineStore.confirmarCarritoSiIgual(
+              usuario, operacion.key, operacion.value);
+        } catch (_) {
+          // Stock insuficiente, producto eliminado o conexión interrumpida.
+          // Conservar el valor local y dejarlo disponible para revisión.
+        }
       }
+
+      for (final operacion in favoritos.entries) {
+        if (_favoritosEnProceso.contains(operacion.key)) continue;
+        try {
+          await ApiService.guardarFavorito(
+            idUsuario: usuario,
+            idProducto: operacion.key,
+            agregar: operacion.value,
+          );
+          await OfflineStore.confirmarFavoritoSiIgual(
+              usuario, operacion.key, operacion.value);
+        } catch (_) {
+          // La modificación permanece en SQLite.
+        }
+      }
+      final pendientesCarrito = await OfflineStore.carritoPendiente(usuario);
+      final pendientesFavoritos =
+          await OfflineStore.favoritosPendientes(usuario);
+      return pendientesCarrito.isNotEmpty || pendientesFavoritos.isNotEmpty;
+    } finally {
+      _sincronizandoCompras = false;
     }
-    return carrito.isNotEmpty || favoritos.isNotEmpty;
   }
 
   Future<bool> _guardarCantidadCarritoOCola(
     int usuario, int producto, int cantidad,
   ) async {
-    if (_catalogoLocal) {
+    if (_catalogoLocal || _sincronizandoCompras) {
+      // Una sincronización en curso no debe enviar cambios fuera de orden.
       // Ya sabemos que la API no ha respondido; no hacer esperar 10 s
       // por cada botón del carrito cuando el dispositivo está offline.
       await OfflineStore.marcarCarrito(usuario, producto, cantidad);
       return false;
     }
+    final previo = (await OfflineStore.carritoPendiente(usuario))[producto];
     try {
       await ApiService.guardarCantidadCarrito(
         idUsuario: usuario,
         idProducto: producto,
         cantidad: cantidad,
       );
-      final pendientes = await OfflineStore.carritoPendiente(usuario);
-      if (pendientes.containsKey(producto)) {
-        pendientes.remove(producto);
-        await OfflineStore.guardarCarritoPendiente(usuario, pendientes);
+      if (previo != null) {
+        await OfflineStore.confirmarCarritoSiIgual(usuario, producto, previo);
       }
       return true;
     } catch (e) {
@@ -197,20 +241,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<bool> _guardarFavoritoOCola(
     int usuario, int producto, bool agregar,
   ) async {
-    if (_catalogoLocal) {
+    if (_catalogoLocal || _sincronizandoCompras) {
       await OfflineStore.marcarFavorito(usuario, producto, agregar);
       return false;
     }
+    final previo = (await OfflineStore.favoritosPendientes(usuario))[producto];
     try {
       await ApiService.guardarFavorito(
         idUsuario: usuario,
         idProducto: producto,
         agregar: agregar,
       );
-      final pendientes = await OfflineStore.favoritosPendientes(usuario);
-      if (pendientes.containsKey(producto)) {
-        pendientes.remove(producto);
-        await OfflineStore.guardarFavoritosPendientes(usuario, pendientes);
+      if (previo != null) {
+        await OfflineStore.confirmarFavoritoSiIgual(usuario, producto, previo);
       }
       return true;
     } catch (e) {
