@@ -285,6 +285,33 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     try {
       final idUsuario = await _idCliente();
       if (idUsuario <= 0) throw Exception('Inicia sesión nuevamente.');
+      // Transferir el carrito invitado de forma idempotente. Antes se sumaba
+      // en cada petición y una respuesta perdida podía duplicar artículos.
+      // Primero persistir la cantidad absoluta en SQLite; después borrar la
+      // entrada de invitado. Solo entonces se envía esa cantidad a MySQL.
+      final invitados = await LocalStore.getGuestCart();
+      if (invitados.isNotEmpty) {
+        final remoto = await ApiService.obtenerCarritoUsuario(idUsuario);
+        final cantidadesRemotas = <int, int>{};
+        for (final item in (remoto['items'] as List? ?? const [])) {
+          if (item is! Map) continue;
+          final id = int.tryParse(item['id_producto']?.toString() ?? '') ?? 0;
+          final cantidad = int.tryParse(item['cantidad']?.toString() ?? '') ?? 0;
+          if (id > 0 && cantidad > 0) cantidadesRemotas[id] = cantidad;
+        }
+        final cantidadesEnCola = await OfflineStore.carritoPendiente(idUsuario);
+        for (final item in invitados.entries) {
+          if (item.value <= 0) continue;
+          // Si la misma migración se interrumpió, la cantidad ya preparada
+          // prevalece sobre la copia remota: no sumar dos veces.
+          final objetivo = cantidadesEnCola[item.key] ??
+              ((cantidadesRemotas[item.key] ?? 0) + item.value);
+          await OfflineStore.marcarCarrito(idUsuario, item.key, objetivo);
+          final restantes = await LocalStore.getGuestCart();
+          restantes.remove(item.key);
+          await LocalStore.saveGuestCart(restantes);
+        }
+      }
       final cambiosPendientes = await _sincronizarPendientes(idUsuario);
       final respuestaCarrito = await ApiService.obtenerCarritoUsuario(idUsuario);
       final respuestaFavoritos = await ApiService.obtenerFavoritosUsuario(idUsuario);
@@ -296,30 +323,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         final cantidad = int.tryParse(item['cantidad']?.toString() ?? '') ?? 0;
         if (id > 0 && cantidad > 0) carrito[id] = cantidad;
       }
-      // Los productos agregados como invitado se incorporan al servidor
-      // al iniciar sesión. Se elimina cada pendiente solo tras confirmarse.
-      final pendientesInvitado = await LocalStore.getGuestCart();
-      var invitadoSinSincronizar = false;
-      for (final entry in pendientesInvitado.entries) {
-        final cantidad = (carrito[entry.key] ?? 0) + entry.value;
-        try {
-          await ApiService.guardarCantidadCarrito(
-            idUsuario: idUsuario,
-            idProducto: entry.key,
-            cantidad: cantidad,
-          );
-          carrito[entry.key] = cantidad;
-          final restantes = await LocalStore.getGuestCart();
-          restantes.remove(entry.key);
-          await LocalStore.saveGuestCart(restantes);
-        } catch (_) {
-          invitadoSinSincronizar = true;
-        }
-      }
-      if (invitadoSinSincronizar && mounted) {
-        _message('Algunos productos de invitado no se pudieron agregar. Revisa el stock.');
-      }
-
       // Si MySQL rechazó un cambio pendiente por stock o eliminación,
       // no reemplazar la elección offline por la copia antigua del servidor.
       final pendienteCarrito = await OfflineStore.carritoPendiente(idUsuario);
