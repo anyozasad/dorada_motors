@@ -299,6 +299,14 @@ def main():
             str(id_pedido), timeout=20000
         )
         expect(page.locator("#pedidos")).to_have_class(re.compile("active"))
+        # La sección debe verse nítida incluso inmediatamente después de
+        # que MySQL haya provocado una actualización del dashboard.
+        assert page.locator("#pedidos").evaluate(
+            "(el) => getComputedStyle(el).animationName"
+        ) == "none", "El dashboard debe mostrar las tablas sin desvanecerse"
+        assert page.locator("#pedidos").evaluate(
+            "(el) => getComputedStyle(el).opacity"
+        ) == "1", "El contenido del módulo no debe ser transparente"
         page.screenshot(
             path="artifacts/ui/06_pedido_del_cliente_en_dashboard.png",
             full_page=True,
