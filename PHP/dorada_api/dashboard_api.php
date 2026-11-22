@@ -12,6 +12,7 @@ if (!adminActual() || !puede("inicio")) {
     exit;
 }
 require_once "sistema_bootstrap.php";
+require_once "dashboard_revision.php";
 
 function serieUltimos7Dias(mysqli $conexion, string $consulta, string $campoValor): array {
     $mapa = [];
@@ -210,6 +211,7 @@ try {
 
     echo json_encode([
         "estado" => true,
+        "revision" => revisionDatosDashboard($conexion),
         "actualizado_en" => date("Y-m-d H:i:s"),
         "productos" => $totalProductos,
         "usuarios" => $totalUsuarios,
