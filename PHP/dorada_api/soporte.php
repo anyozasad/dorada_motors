@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . "/conexion.php";
+require_once __DIR__ . "/sistema_bootstrap.php";
 require_once __DIR__ . "/cliente_auth.php";
 header("Content-Type: application/json; charset=UTF-8");
 header("Cache-Control: no-store");
@@ -38,6 +39,11 @@ if (!is_array($input)) {
 }
 $asunto = trim((string)($input["asunto"] ?? ""));
 $mensaje = trim((string)($input["mensaje"] ?? ""));
+$claveOperacion = trim((string)($input["clave_operacion"] ?? ""));
+if ($claveOperacion !== "" && !preg_match('/^[A-Za-z0-9_-]{16,64}$/', $claveOperacion)) {
+    responderSoporte(["estado"=>false,"mensaje"=>"Identificador de operación inválido"],422);
+}
+$claveOperacion = $claveOperacion === "" ? null : $claveOperacion;
 
 if (strlen($asunto) < 5 || strlen($asunto) > 180
     || strlen($mensaje) < 10 || strlen($mensaje) > 5000) {
@@ -48,10 +54,12 @@ if (strlen($asunto) < 5 || strlen($asunto) > 180
 }
 
 $stmt = $conexion->prepare(
-    "INSERT INTO solicitud_soporte (id_usuario,asunto,mensaje,estado,fecha_creacion)
-     VALUES (?,?,?,'Abierto',NOW())"
+    "INSERT INTO solicitud_soporte
+        (id_usuario,asunto,mensaje,estado,fecha_creacion,clave_operacion)
+     VALUES (?,?,?,'Abierto',NOW(),?)
+     ON DUPLICATE KEY UPDATE id_solicitud=LAST_INSERT_ID(id_solicitud)"
 );
-$stmt->bind_param("iss", $idUsuario, $asunto, $mensaje);
+$stmt->bind_param("isss", $idUsuario, $asunto, $mensaje, $claveOperacion);
 $stmt->execute();
 
 responderSoporte([
