@@ -2375,7 +2375,9 @@ tbody tr:hover{background:#fafcff}
 .pagination{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding-top:10px}.pagination button{width:32px;height:30px;border:1px solid var(--border);background:#fff;border-radius:8px;font-size:9px;font-weight:900}.pagination button.active{background:#171b22;color:#fff;border-color:#171b22}.pagination span{font-size:9px;color:var(--muted);margin-right:auto}
 
 
-.page-panel{display:none;animation:panelIn .34s cubic-bezier(.2,.75,.2,1)}
+/* Mostrar inmediatamente las tablas y formularios en desktop y móvil.
+   Evita paneles casi invisibles durante una actualización de MySQL. */
+.page-panel{display:none;animation:none!important;opacity:1!important;transform:none!important}
 .page-panel.active{display:block}
 @keyframes panelIn{
  from{opacity:0;transform:translateY(12px) scale(.994)}
