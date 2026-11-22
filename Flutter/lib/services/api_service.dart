@@ -8,6 +8,26 @@ import 'local_store.dart';
 class ApiService {
   static String? _urlPersonalizada;
 
+  /// Los errores de red son diferentes de un rechazo de MySQL (stock,
+  /// permisos, contraseña). Solo los de red permiten guardar cambios offline.
+  static bool esErrorConexion(Object error) {
+    final mensaje = error.toString().toLowerCase();
+    return mensaje.contains('socketexception') ||
+        mensaje.contains('clientexception') ||
+        mensaje.contains('timeoutexception') ||
+        mensaje.contains('failed host lookup') ||
+        mensaje.contains('connection refused') ||
+        mensaje.contains('network is unreachable') ||
+        mensaje.contains('network unreachable') ||
+        mensaje.contains('connection reset') ||
+        mensaje.contains('connection closed') ||
+        mensaje.contains('connection timed out') ||
+        mensaje.contains('failed to fetch') ||
+        mensaje.contains('xmlhttprequest error') ||
+        mensaje.contains('host unreachable') ||
+        mensaje.contains('handshakeexception');
+  }
+
   static void configurarServidor(String? url) {
     final valor = url?.trim() ?? '';
     _urlPersonalizada = valor.isEmpty
