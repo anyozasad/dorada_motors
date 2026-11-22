@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/producto.dart';
 import '../data/productos_data.dart';
@@ -355,6 +358,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         await OfflineStore.guardarCatalogo(ApiService.baseUrl, data);
       } catch (_) {
         // La copia local no debe impedir el funcionamiento online.
+      }
+      // Descargar de antemano las fotos nuevas del dashboard para que el
+      // cliente no tenga que abrir cada ficha antes de quedarse sin red.
+      // Las 19 fotos iniciales ya están incluidas dentro del APK.
+      for (final producto in productosApi
+          .where((p) => p.imagen.startsWith('http'))
+          .take(25)) {
+        unawaited(
+          precacheImage(
+            CachedNetworkImageProvider(producto.imagen),
+            context,
+          ).catchError((_) {}),
+        );
       }
     } catch (e) {
       if (!mounted) return;
