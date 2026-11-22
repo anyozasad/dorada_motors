@@ -1243,6 +1243,42 @@ def main():
     print("OK: datos del celular persistidos en MySQL; "
           "otra sesión recupera perfil, dirección, compra, pago, favorito y soporte.")
 
+    # Si una respuesta se pierde sin internet, reintentar la misma operación
+    # no debe duplicar datos del cliente en MySQL.
+    clave_dir = uuid4().hex
+    registro_dir = {
+        "id_usuario": id_usuario, "departamento": "Ucayali",
+        "provincia": "Coronel Portillo", "distrito": "Callería",
+        "direccion_detalle": "Jr. Sincronización Offline 123",
+        "referencia": "Prueba de reconexión",
+        "clave_operacion": clave_dir,
+    }
+    creada_dir = api("direcciones.php", method="POST", token=token_nuevo,
+                     body=registro_dir, status=201)
+    repetida_dir = api("direcciones.php", method="POST", token=token_nuevo,
+                       body=registro_dir, status=201)
+    assert creada_dir["id_direccion"] == repetida_dir["id_direccion"]
+    lista_dir = api(f"direcciones.php?id_usuario={id_usuario}", token=token_nuevo)
+    assert sum(int(d["id_direccion"]) == creada_dir["id_direccion"]
+               for d in lista_dir) == 1
+
+    clave_soporte = uuid4().hex
+    mensaje_soporte = {
+        "asunto": "Consulta offline desde celular",
+        "mensaje": "Guardada en SQLite y enviada después de recuperar la conexión.",
+        "clave_operacion": clave_soporte,
+    }
+    creada_sol = api("soporte.php", method="POST", token=token_nuevo,
+                     body=mensaje_soporte, status=201)
+    repetida_sol = api("soporte.php", method="POST", token=token_nuevo,
+                       body=mensaje_soporte, status=201)
+    assert creada_sol["id_solicitud"] == repetida_sol["id_solicitud"]
+    consultas = api("soporte.php", token=token_nuevo)["solicitudes"]
+    assert sum(int(x["id_solicitud"]) == creada_sol["id_solicitud"]
+               for x in consultas) == 1
+    print("OK: reintentos offline no duplican direcciones ni consultas de soporte.")
+
+
     # La compra vacía el carrito del servidor.
     carrito_final = api(f"carrito.php?id_usuario={id_usuario}", token=token)
     assert carrito_final["items"] == [], carrito_final
