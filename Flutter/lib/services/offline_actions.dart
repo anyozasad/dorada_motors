@@ -95,7 +95,9 @@ class OfflineActions {
           await ApiService.eliminarDireccion(datos['id_direccion'] as int);
         } catch (e) {
           if (!e.toString().contains('404') &&
-              !e.toString().contains('Dirección no encontrada')) rethrow;
+              !e.toString().contains('Dirección no encontrada')) {
+            rethrow;
+          }
         }
       case 'perfil':
         await ApiService.actualizarCuenta(
