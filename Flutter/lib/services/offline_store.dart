@@ -108,6 +108,19 @@ class OfflineStore {
     );
   }
 
+  /// Un carrito de invitado se incorpora exactamente una vez a la cuenta.
+  /// Una cantidad absoluta ya encolada prevalece aunque la petición anterior
+  /// sí llegara a MySQL y se hubiera perdido la respuesta.
+  static int cantidadAlVincularInvitado({
+    required int cantidadServidor,
+    required int cantidadInvitado,
+    int? cantidadPendiente,
+  }) {
+    if (cantidadPendiente != null) return cantidadPendiente;
+    return (cantidadServidor < 0 ? 0 : cantidadServidor) +
+        (cantidadInvitado < 0 ? 0 : cantidadInvitado);
+  }
+
   static Future<void> marcarCarrito(
     int usuario,
     int producto,
