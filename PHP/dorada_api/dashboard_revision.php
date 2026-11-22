@@ -37,6 +37,25 @@ function revisionDatosDashboard(mysqli $conexion): string {
          FROM compra",
         "SELECT COUNT(*) AS n, COALESCE(MAX(id_movimiento),0) AS suma
          FROM movimiento_stock",
+        "SELECT COUNT(*) AS n,
+                COALESCE(SUM(CRC32(CONCAT_WS('|',
+                    id_direccion, id_usuario, departamento, provincia, distrito,
+                    direccion_detalle, COALESCE(referencia,'')))),0) AS suma
+         FROM direccion",
+        "SELECT COUNT(*) AS n,
+                COALESCE(SUM(CRC32(CONCAT_WS('|',id_categoria,nombre_categoria))),0) AS suma
+         FROM categoria",
+        "SELECT COUNT(*) AS n,
+                COALESCE(SUM(CRC32(CONCAT_WS('|',id_marca,nombre_marca))),0) AS suma
+         FROM marca",
+        "SELECT COUNT(*) AS n,
+                COALESCE(SUM(CRC32(CONCAT_WS('|',
+                    id_proveedor,razon_social,COALESCE(ruc,''),estado))),0) AS suma
+         FROM proveedor",
+        "SELECT COUNT(*) AS n,
+                COALESCE(SUM(CRC32(CONCAT_WS('|',
+                    id_comprobante,id_pedido,tipo_comprobante,numero_comprobante,total))),0) AS suma
+         FROM comprobante",
     ];
     $huellas = [];
     foreach ($consultas as $sql) {
