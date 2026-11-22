@@ -229,7 +229,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         title: const Text('Cancelar pedido'),
         content: Text(
           '¿Confirmas la cancelación del pedido ${pedido.id}? '
-          'Los repuestos volverán al inventario y el pago pendiente quedará rechazado.',
+          'El stock se restaurará cuando MySQL acepte la cancelación. Sin red, la solicitud quedará guardada en el celular.',
         ),
         actions: [
           TextButton(
@@ -249,13 +249,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (id <= 0) return;
     setState(() => _cancelando.add(pedido.id));
     try {
-      await ApiService.cancelarPedidoCliente(id);
+      final confirmada = await OfflineActions.registrar(
+        accion: 'cancelacion',
+        clave: 'cancelar_$id',
+        datos: {'id_pedido': id},
+      );
       if (!mounted) return;
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pedido cancelado. El inventario se actualizó en MySQL.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(confirmada
+            ? 'Pedido cancelado. El stock se actualizó en MySQL.'
+            : 'Solicitud de cancelación guardada en SQLite. '
+              'El stock se actualizará cuando MySQL la confirme.'),
+      ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -412,13 +419,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     setState(() => _reportando.add(pedido.id));
     try {
-      await ApiService.reportarReferenciaPago(idPedido: id, referencia: referencia);
+      final enviada = await OfflineActions.registrar(
+        accion: 'pago_referencia',
+        clave: 'referencia_$id',
+        datos: {'id_pedido': id, 'referencia': referencia},
+      );
       if (!mounted) return;
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Referencia recibida. El pago sigue pendiente hasta su verificación.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(enviada
+            ? 'Referencia recibida por MySQL. El pago sigue pendiente de revisión.'
+            : 'Referencia guardada en SQLite. Se enviará al reconectar. '
+              'Esto NO confirma un pago.'),
+      ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
