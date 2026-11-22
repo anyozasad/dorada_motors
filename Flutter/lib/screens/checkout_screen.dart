@@ -6,6 +6,7 @@ import '../models/pedido.dart';
 import '../models/producto.dart';
 import '../services/api_service.dart';
 import '../services/offline_actions.dart';
+import '../services/offline_store.dart';
 import '../services/checkout_validator.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
@@ -334,6 +335,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       try {
         await LocalStore.addOrder(order);
         await LocalStore.saveCartForUser(idUsuario, <int, int>{});
+        // La venta en MySQL vacía el carrito: no volver a cargar artículos
+        // comprados a partir de ediciones offline anteriores.
+        await OfflineStore.guardarCarritoPendiente(idUsuario, <int, int>{});
       } catch (_) {
         // El historial principal se consulta desde el servidor.
       }
