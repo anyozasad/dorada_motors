@@ -147,6 +147,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<bool> _guardarCantidadCarritoOCola(
     int usuario, int producto, int cantidad,
   ) async {
+    if (_catalogoLocal) {
+      // Ya sabemos que la API no ha respondido; no hacer esperar 10 s
+      // por cada botón del carrito cuando el dispositivo está offline.
+      await OfflineStore.marcarCarrito(usuario, producto, cantidad);
+      return false;
+    }
     try {
       await ApiService.guardarCantidadCarrito(
         idUsuario: usuario,
@@ -169,6 +175,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<bool> _guardarFavoritoOCola(
     int usuario, int producto, bool agregar,
   ) async {
+    if (_catalogoLocal) {
+      await OfflineStore.marcarFavorito(usuario, producto, agregar);
+      return false;
+    }
     try {
       await ApiService.guardarFavorito(
         idUsuario: usuario,
