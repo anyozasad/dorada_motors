@@ -60,7 +60,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final sesion = await LocalStore.getSession();
       final idUsuario = int.tryParse(sesion?['id'] ?? '') ?? 0;
       if (idUsuario <= 0) return;
-      final data = await ApiService.obtenerDireccionesUsuario(idUsuario);
+      List<dynamic> data;
+      try {
+        data = await ApiService.obtenerDireccionesUsuario(idUsuario);
+        await OfflineActions.guardarCopia('direcciones', data);
+      } catch (e) {
+        if (!ApiService.esErrorConexion(e)) rethrow;
+        final copia = await OfflineActions.leerCopia('direcciones');
+        data = copia is List ? copia : [];
+      }
       if (!mounted) return;
       setState(() {
         _direccionesGuardadas = data
@@ -95,7 +103,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _cargarCostoDelivery() async {
     try {
-      final config = await ApiService.obtenerConfiguracionPublica();
+      Map<String, dynamic> config;
+      try {
+        config = await ApiService.obtenerConfiguracionPublica();
+        await OfflineActions.guardarCopia('config_publica', config);
+      } catch (e) {
+        if (!ApiService.esErrorConexion(e)) rethrow;
+        final copia = await OfflineActions.leerCopia('config_publica');
+        if (copia is! Map) rethrow;
+        config = Map<String, dynamic>.from(copia);
+      }
       final costo = double.tryParse(config['costo_delivery']?.toString() ?? '') ?? 0;
       if (!mounted) return;
       setState(() {
