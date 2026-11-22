@@ -29,6 +29,21 @@ void main() {
     expect(await LocalStore.getSession(), isNull);
   });
 
+  test('Rechaza guardar cuentas sin ID válido o sin token', () async {
+    SharedPreferences.setMockInitialValues({});
+    await expectLater(
+      LocalStore.saveSession(userId: 0, name: 'Sin ID',
+        email: 'cliente@example.com', token: 'token'),
+      throwsArgumentError,
+    );
+    await expectLater(
+      LocalStore.saveSession(userId: 7, name: 'Sin token',
+        email: 'cliente@example.com', token: ''),
+      throwsArgumentError,
+    );
+    expect(await LocalStore.getSession(), isNull);
+  });
+
   test('una sesión antigua sin token exige autenticarse', () async {
     SharedPreferences.setMockInitialValues({
       'session_user_id': '4',
