@@ -100,6 +100,15 @@ class ApiService {
       final decoded = jsonDecode(respuesta.body);
       if (decoded is! Map || decoded['estado'] != true) return null;
       if (decoded['usuario'] is! Map) return null;
+      final sesionLocal = await LocalStore.getSession();
+      if (sesionLocal == null) return false;
+      final usuarioServidor = decoded['usuario'] as Map;
+      final idServidor =
+          int.tryParse(usuarioServidor['id_usuario']?.toString() ?? '') ?? 0;
+      final idLocal = int.tryParse(sesionLocal['id'] ?? '') ?? 0;
+      // Incluso si dos servidores usan el mismo ID para distintos clientes,
+      // nunca dar por válido un token que identifica a otra cuenta.
+      if (idServidor <= 0 || idServidor != idLocal) return false;
       return true;
     } catch (_) {
       return null;
