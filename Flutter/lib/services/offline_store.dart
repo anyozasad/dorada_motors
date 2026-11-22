@@ -110,8 +110,40 @@ class OfflineStore {
     int producto,
     int cantidad,
   ) async {
+    if (usuario <= 0 || producto <= 0) return;
+    if (_sqliteAndroid) {
+      await OfflineDatabase.cambiarEntradaMapa(
+        scope: await _scopeUsuario(usuario),
+        nombre: 'carrito_pendiente',
+        clave: producto.toString(),
+        valor: cantidad < 0 ? 0 : cantidad,
+      );
+      return;
+    }
     final data = await carritoPendiente(usuario);
     data[producto] = cantidad < 0 ? 0 : cantidad;
+    await guardarCarritoPendiente(usuario, data);
+  }
+
+  /// Confirma únicamente el estado que recibió MySQL. Si el cliente cambió
+  /// el artículo durante el envío, su edición más reciente permanece.
+  static Future<void> confirmarCarritoSiIgual(
+    int usuario, int producto, int cantidad,
+  ) async {
+    if (usuario <= 0 || producto <= 0) return;
+    if (_sqliteAndroid) {
+      await OfflineDatabase.cambiarEntradaMapa(
+        scope: await _scopeUsuario(usuario),
+        nombre: 'carrito_pendiente',
+        clave: producto.toString(),
+        confirmar: true,
+        valorEsperado: cantidad,
+      );
+      return;
+    }
+    final data = await carritoPendiente(usuario);
+    if (data[producto] != cantidad) return;
+    data.remove(producto);
     await guardarCarritoPendiente(usuario, data);
   }
 
@@ -171,8 +203,38 @@ class OfflineStore {
     int producto,
     bool agregar,
   ) async {
+    if (usuario <= 0 || producto <= 0) return;
+    if (_sqliteAndroid) {
+      await OfflineDatabase.cambiarEntradaMapa(
+        scope: await _scopeUsuario(usuario),
+        nombre: 'favoritos_pendientes',
+        clave: producto.toString(),
+        valor: agregar,
+      );
+      return;
+    }
     final data = await favoritosPendientes(usuario);
     data[producto] = agregar;
+    await guardarFavoritosPendientes(usuario, data);
+  }
+
+  static Future<void> confirmarFavoritoSiIgual(
+    int usuario, int producto, bool agregar,
+  ) async {
+    if (usuario <= 0 || producto <= 0) return;
+    if (_sqliteAndroid) {
+      await OfflineDatabase.cambiarEntradaMapa(
+        scope: await _scopeUsuario(usuario),
+        nombre: 'favoritos_pendientes',
+        clave: producto.toString(),
+        confirmar: true,
+        valorEsperado: agregar,
+      );
+      return;
+    }
+    final data = await favoritosPendientes(usuario);
+    if (data[producto] != agregar) return;
+    data.remove(producto);
     await guardarFavoritosPendientes(usuario, data);
   }
 
