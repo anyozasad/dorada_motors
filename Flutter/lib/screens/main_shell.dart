@@ -58,6 +58,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   List<String> _categorias = productosData.map((p) => p.categoria).toSet().toList();
   List<String> _marcas = productosData.map((p) => p.marca).toSet().toList();
   bool _catalogoLocal = true;
+  bool _pendientesDeSincronizar = false;
   bool _cargandoProductosApi = false;
   bool _cargandoMisDatos = false;
   final Set<int> _carritoEnProceso = <int>{};
