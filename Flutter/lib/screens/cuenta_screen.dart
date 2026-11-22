@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/offline_actions.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 
@@ -46,8 +47,22 @@ class _CuentaScreenState extends State<CuentaScreen> {
   Future<void> _cargarCuenta() async {
     if (mounted) setState(() { _cargando = true; _error = null; });
     try {
-      final respuesta = await ApiService.obtenerCuenta();
-      final cuenta = Map<String, dynamic>.from(respuesta['usuario'] as Map);
+      Map<String, dynamic> cuenta;
+      try {
+        final respuesta = await ApiService.obtenerCuenta();
+        cuenta = Map<String, dynamic>.from(respuesta['usuario'] as Map);
+        await OfflineActions.guardarCopia('cuenta', cuenta);
+      } catch (e) {
+        if (!ApiService.esErrorConexion(e)) rethrow;
+        final copia = await OfflineActions.leerCopia('cuenta');
+        if (copia is! Map) throw Exception(
+            'No hay datos de perfil guardados. Conéctate una vez para cargarlos.');
+        cuenta = Map<String, dynamic>.from(copia);
+      }
+      final operaciones = await OfflineActions.operacionesPendientes(accion: 'perfil');
+      if (operaciones.isNotEmpty) {
+        cuenta.addAll(Map<String, dynamic>.from(operaciones.last['datos'] as Map));
+      }
       if (!mounted) return;
       setState(() {
         _nombres.text = cuenta['nombres']?.toString() ?? '';
@@ -74,22 +89,25 @@ class _CuentaScreenState extends State<CuentaScreen> {
     if (_guardando || !(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _guardando = true);
     try {
-      final respuesta = await ApiService.actualizarCuenta(
-        nombres: _nombres.text,
-        apellidos: _apellidos.text,
-        correo: _correo.text,
-        telefono: _telefono.text,
+      final datos = <String, dynamic>{
+        'nombres': _nombres.text.trim(),
+        'apellidos': _apellidos.text.trim(),
+        'correo': _correo.text.trim().toLowerCase(),
+        'telefono': _telefono.text.trim(),
+      };
+      final id = await OfflineActions.usuarioActual();
+      final guardado = await OfflineActions.registrar(
+        accion: 'perfil', clave: 'perfil_$id', datos: datos,
       );
-      final cuenta = Map<String, dynamic>.from(respuesta['usuario'] as Map);
+      await OfflineActions.guardarCopia('cuenta', datos);
       await LocalStore.updateSessionProfile(
-        name: [
-          cuenta['nombres']?.toString() ?? '',
-          cuenta['apellidos']?.toString() ?? '',
-        ].where((parte) => parte.trim().isNotEmpty).join(' '),
-        email: cuenta['correo']?.toString() ?? _correo.text,
+        name: [datos['nombres'] as String, datos['apellidos'] as String]
+            .where((parte) => parte.isNotEmpty).join(' '),
+        email: datos['correo'] as String,
       );
       widget.onUpdated();
-      _avisar('Los datos de tu cuenta se guardaron en MySQL.');
+      _avisar(guardado ? 'Datos actualizados en MySQL.'
+          : 'Datos guardados en SQLite. Se sincronizarán al reconectar.');
     } catch (e) {
       _avisar(e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -171,7 +189,7 @@ class _CuentaScreenState extends State<CuentaScreen> {
                               const Text('Datos personales',
                                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 6),
-                              const Text('Los cambios se guardan directamente en la base de datos.',
+                              const Text('Sin internet se guardan en SQLite; MySQL se actualiza al reconectar.',
                                   style: TextStyle(color: AppColors.muted)),
                               const SizedBox(height: 20),
                               TextFormField(
