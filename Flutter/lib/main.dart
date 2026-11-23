@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/login_screen.dart';
+import 'screens/admin_mobile_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/local_store.dart';
 import 'services/offline_store.dart';
@@ -27,7 +28,7 @@ class DoradaMotorsApp extends StatelessWidget {
   }
 }
 
-enum AppMode { loading, login, guest, authenticated }
+enum AppMode { loading, login, guest, authenticated, admin }
 
 class AppRoot extends StatefulWidget {
   const AppRoot({super.key});
@@ -48,6 +49,17 @@ class _AppRootState extends State<AppRoot> {
 
   Future<void> _loadSession() async {
     ApiService.configurarServidor(await LocalStore.getApiBaseUrl());
+    final sesionAdmin = await AdminMobileApi.sesion();
+    if (sesionAdmin != null) {
+      final vigenteAdmin = await AdminMobileApi.verificar();
+      if (vigenteAdmin == false) {
+        await AdminMobileApi.limpiar();
+      } else {
+        if (!mounted) return;
+        setState(() { _session = null; _mode = AppMode.admin; });
+        return;
+      }
+    }
     var session = await LocalStore.getSession();
     if (session != null) {
       // No confundir un token guardado con una sesión vigente en MySQL.
@@ -158,7 +170,9 @@ class _AppRootState extends State<AppRoot> {
       AppMode.login => LoginScreen(
           onAuthenticated: _loadSession,
           onGuest: _guest,
+          onAdminAuthenticated: _loadSession,
         ),
+      AppMode.admin => AdminMobileDashboardScreen(onLogout: _showLogin),
       AppMode.guest => MainShell(
           isGuest: true,
           onLoginRequested: _showLogin,
