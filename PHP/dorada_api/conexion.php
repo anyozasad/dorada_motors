@@ -70,10 +70,18 @@ if ($conexion->connect_error) {
 
 $conexion->set_charset("utf8mb4");
 
-$nombreSeguro = preg_replace('/[^A-Za-z0-9_]/', '', $dbName);
-if ($nombreSeguro === "") {
-    $nombreSeguro = "dorada_motors";
+// No cambiar silenciosamente el nombre de la base configurada: eso podía
+// hacer que PHP leyera otra base y pareciera que los registros desaparecieron.
+if (!preg_match('/^[A-Za-z0-9_]{1,64}$/D', $dbName)) {
+    error_log("Dorada Motors: DB_NAME inválido");
+    http_response_code(500);
+    echo json_encode([
+        "estado" => false,
+        "mensaje" => "La configuración DB_NAME es inválida. Usa letras, números y guion bajo."
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
+$nombreSeguro = $dbName;
 
 if (!$conexion->query(
     "CREATE DATABASE IF NOT EXISTS `" . $nombreSeguro . "`
@@ -155,13 +163,35 @@ if ($faltanTablas) {
         exit;
     }
 
+    // El SQL de demostración fue escrito para dorada_motors. Respetar
+    // DB_NAME, especialmente en instalaciones heredadas y pruebas aisladas.
+    // Una petición nunca debe crear tablas accidentalmente en otra base.
+    $sql = preg_replace(
+        '/^CREATE DATABASE IF NOT EXISTS dorada_motors\\b/mi',
+        'CREATE DATABASE IF NOT EXISTS `' . $nombreSeguro . '`',
+        $sql
+    );
+    $sql = preg_replace(
+        '/^USE dorada_motors\\s*;/mi',
+        'USE `' . $nombreSeguro . '`;',
+        $sql
+    );
+    if ($sql === null) {
+        error_log("Dorada Motors: no se pudo adaptar SQL a DB_NAME");
+        http_response_code(500);
+        echo json_encode(["estado"=>false,
+            "mensaje"=>"No se pudo preparar la estructura SQL."],
+            JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if (!$conexion->multi_query($sql)) {
         error_log("Dorada Motors IMPORT SQL: " . $conexion->error);
         http_response_code(500);
         echo json_encode([
             "estado" => false,
             "mensaje" => "No se pudo crear la estructura de la base de datos.",
-            "detalle" => $conexion->error
+            "detalle" => "Revisa el registro de errores de PHP/MySQL."
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
