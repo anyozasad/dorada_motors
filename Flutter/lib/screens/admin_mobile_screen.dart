@@ -1,7 +1,6 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures, use_null_aware_elements
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -395,8 +394,8 @@ class _AdminMobileDashboardScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(r['mensaje']?.toString() ??
-              widget.modoLocal ? 'Guardado en SQLite de este celular' :
-              'Actualizado en MySQL')));
+              (widget.modoLocal ? 'Guardado en SQLite de este celular' :
+              'Actualizado en MySQL'))));
       await cargar();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
