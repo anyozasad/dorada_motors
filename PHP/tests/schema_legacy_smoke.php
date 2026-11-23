@@ -90,6 +90,25 @@ try {
         throw new RuntimeException("La migración cambió de base de datos");
     }
     echo implode("\\n", $salida) . "\\n";
+    // Si una columna esencial aún falta y no se puede inferir de los datos
+    // existentes, la API debe informar fallo y no declarar "conectado".
+    $conexion->query("ALTER TABLE carrito DROP COLUMN fecha_creacion");
+    putenv("DORADA_SCHEMA_CHECK=1");
+    $salidaDiagnostico = [];
+    $codigoDiagnostico = 0;
+    exec($comando . " 2>&1", $salidaDiagnostico, $codigoDiagnostico);
+    putenv("DORADA_SCHEMA_CHECK");
+    $diagnostico = json_decode(implode("\n", $salidaDiagnostico), true);
+    if (!is_array($diagnostico) || ($diagnostico["estado"] ?? null) !== false) {
+        throw new RuntimeException(
+            "El diagnóstico afirmó que MySQL estaba completo pese a faltar carrito.fecha_creacion: " .
+            implode(" | ", $salidaDiagnostico)
+        );
+    }
+    $conexion->query(
+        "ALTER TABLE carrito ADD COLUMN fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    );
+    echo "OK: diagnóstico rechaza esquema incompleto de carrito sin alterar datos.\n";
     echo "OK: columnas antiguas y tabla faltante reparadas sin perder productos.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "ERROR PRUEBA ESQUEMA HEREDADO: " . $e->getMessage() . "\n");
