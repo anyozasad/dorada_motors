@@ -432,8 +432,15 @@ class AdminOfflineRepository {
         p['estado_pago'] == 'Pagado').fold<double>(
         0, (a, p) => a + _decimal(p['monto']));
     final total = _decimal(pedido['total']);
-    pedido['estado_pedido'] = pagado + 0.009 >= total
-        ? 'Pagado' : 'Pendiente';
+    // No retroceder un pedido que ya está en preparación por un abono
+    // nuevo o el cambio de estado de otro pago. El avance y los cobros
+    // son procesos distintos.
+    if (pedido['estado_pedido'] == 'Pendiente' && pagado + 0.009 >= total) {
+      pedido['estado_pedido'] = 'Pagado';
+    } else if (pedido['estado_pedido'] == 'Pagado' &&
+        pagado + 0.009 < total) {
+      pedido['estado_pedido'] = 'Pendiente';
+    }
     pedidos[index] = pedido;
     base['pedidos'] = pedidos;
   }
@@ -941,9 +948,20 @@ class AdminOfflineRepository {
       }
       final numero = serie + '-' +
           (correlativo+1).toString().padLeft(8,'0');
+      final config = Map<String, dynamic>.from(base['configuracion'] as Map);
+      final igvPorcentaje = _decimal(config['igv']);
+      if (!igvPorcentaje.isFinite || igvPorcentaje < 0 ||
+          igvPorcentaje > 100) {
+        throw StateError('Configura un IGV válido entre 0 y 100');
+      }
+      final subtotal = double.parse(
+        (total / (1 + igvPorcentaje / 100)).toStringAsFixed(2));
+      final igvMonto = double.parse((total - subtotal).toStringAsFixed(2));
       comprobantes.add({
         'id_comprobante': _id(base), 'id_pedido': idPedido,
         'tipo_comprobante': tipo, 'numero_comprobante': numero,
+        'subtotal': subtotal, 'igv_monto': igvMonto,
+        'igv_porcentaje': igvPorcentaje,
         'total': total, 'fecha_emision': ahora,
         'observacion': 'Documento de demostración. Sin validez SUNAT.',
       });
