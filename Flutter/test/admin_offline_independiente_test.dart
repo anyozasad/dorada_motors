@@ -124,4 +124,84 @@ void main() {
       await OfflineDatabase.limpiarScope(scope);
     }
   });
+  test('Cliente offline comparte catálogo, ventas, pagos y stock con '
+      'dashboard admin SQLite del mismo celular', () async {
+    const scope = AdminOfflineRepository.scope;
+    await OfflineDatabase.limpiarScope(scope);
+    try {
+      final productos = (await AdminOfflineRepository.consultar('productos'))
+          ['items'] as List;
+      expect(productos, isNotEmpty);
+      final prod = Map<String,dynamic>.from(productos.first as Map);
+      final idProd = prod['id_producto'];
+      final stockInicial = int.parse(prod['stock'].toString());
+      final cliente = await AdminOfflineRepository.registrarComprador(
+        nombres: 'Sandra', apellidos: 'Prueba',
+        correo: 'sandra-local@example.test', telefono: '987654321',
+        contrasena: 'TiendaLocal_2026',
+      );
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'SANDRA-LOCAL@example.test','TiendaLocal_2026'),cliente);
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'sandra-local@example.test','ClaveIncorrecta'),isNull);
+      await expectLater(AdminOfflineRepository.registrarComprador(
+        nombres: 'Duplicada', apellidos: 'Prueba',
+        correo: 'sandra-local@example.test',telefono: '',
+        contrasena: 'ClaveDuplicada!'),throwsStateError);
+      final otro = await AdminOfflineRepository.registrarComprador(
+        nombres:'Carlos',apellidos:'Cliente',
+        correo:'carlos-local@example.test',telefono:'',
+        contrasena:'OtraClave!2026',
+      );
+      final direccion = await AdminOfflineRepository.operar({
+        'accion':'direccion_guardar', 'id_usuario':cliente,
+        'id_direccion':0,
+        'departamento':'Ucayali','provincia':'Coronel Portillo',
+        'distrito':'Callería','direccion_detalle':'Jr. Local 125',
+        'referencia':'Frente a la tienda',
+      });
+      expect(int.parse(direccion['id_direccion'].toString()),
+          greaterThan(0));
+
+      final compra = await AdminOfflineRepository.operar({
+        'accion':'pedido_manual', 'id_usuario':cliente,
+        'tipo_entrega':'Delivery',
+        'id_direccion':direccion['id_direccion'],
+        'metodo_pago':'Efectivo',
+        'items':[{'id_producto':idProd,'cantidad':1}],
+      });
+      final idPedido = compra['id_pedido'] as int;
+      expect((await AdminOfflineRepository.consultar(
+        'mis_pedidos',id:cliente))['items'],hasLength(1));
+      expect((await AdminOfflineRepository.consultar(
+        'mis_pedidos',id:otro))['items'],isEmpty);
+      expect((await AdminOfflineRepository.consultar(
+        'pedidos'))['items'],hasLength(1));
+      final despues = (await AdminOfflineRepository.consultar(
+        'productos'))['items'] as List;
+      expect((despues.first as Map)['stock'],stockInicial-1);
+
+      final detalle = await AdminOfflineRepository.consultar(
+        'pedido_detalle',id:idPedido);
+      expect((detalle['lineas'] as List),hasLength(1));
+      expect((detalle['pagos'] as List).single['estado_pago'],'Pendiente');
+
+      final idPago = (detalle['pagos'] as List).single['id_pago'];
+      await AdminOfflineRepository.operar({
+        'accion':'pago_confirmar','id_pago':idPago,
+      });
+      expect((await AdminOfflineRepository.consultar(
+        'mis_pedidos',id:cliente))['items'][0]['estado_pedido'],'Pagado');
+      await OfflineDatabase.cerrarPruebas();
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'sandra-local@example.test','TiendaLocal_2026'),cliente);
+      expect((await AdminOfflineRepository.consultar(
+        'mis_pedidos',id:cliente))['items'],hasLength(1));
+      expect((await AdminOfflineRepository.consultar(
+        'productos'))['items'][0]['stock'],stockInicial-1);
+    } finally {
+      await OfflineDatabase.limpiarScope(scope);
+    }
+  });
+
 }
