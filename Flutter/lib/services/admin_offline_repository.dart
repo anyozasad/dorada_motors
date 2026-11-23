@@ -482,6 +482,8 @@ class AdminOfflineRepository {
       final nuevo = <String, dynamic>{
         ...?(i >= 0 ? lista[i] : null),
         ...datos,
+        if (cliente) 'apellidos': datos['apellidos'] ?? '',
+        if (cliente) 'telefono': datos['telefono'] ?? '',
         idCol: i >= 0 ? id : _id(base),
         'estado': (datos['estado'] ?? (i>=0 ? lista[i]['estado'] : 'Activo')),
       };
@@ -647,6 +649,46 @@ class AdminOfflineRepository {
       base[compra?'detalle_compra':'detalle_pedido']=detalles;
       return {...mensaje, compra?'id_compra':'id_pedido':idPedido,
         'total':total};
+    }
+    if (accion == 'compra_estado') {
+      final id = _entero(datos['id_compra']);
+      final nuevo = (datos['estado'] ?? '').toString();
+      if (!['Registrado', 'Anulado'].contains(nuevo)) {
+        throw StateError('Estado de compra inválido');
+      }
+      final compras = _filas(base, 'compras');
+      final index = compras.indexWhere((p) => _entero(p['id_compra'])==id);
+      if (index < 0) throw StateError('Compra no encontrada');
+      if (compras[index]['estado'] == nuevo) {
+        throw StateError('La compra ya tiene ese estado');
+      }
+      final productos = _filas(base,'productos');
+      final cambios = <Map<String,int>>[];
+      for (final detalle in _filas(base,'detalle_compra')
+          .where((p)=>_entero(p['id_compra'])==id)) {
+        final prodId = _entero(detalle['id_producto']);
+        final i = productos.indexWhere((p)=>
+          _entero(p['id_producto'])==prodId);
+        if (i < 0) throw StateError('Producto de compra no encontrado');
+        final previo = _entero(productos[i]['stock']);
+        final cambio = _entero(detalle['cantidad']);
+        final actual = nuevo == 'Anulado'
+            ? previo - cambio : previo + cambio;
+        if (actual < 0) {
+          throw StateError('Stock insuficiente para anular esta compra');
+        }
+        cambios.add({'id':prodId,'index':i,'antes':previo,'nuevo':actual});
+      }
+      for (final item in cambios) {
+        productos[item['index']!]['stock']=item['nuevo']!;
+        _movimiento(base,item['id']!,item['antes']!,item['nuevo']!,
+          (nuevo=='Anulado'?'Anular compra local #'
+            :'Reactivar compra local #')+id.toString());
+      }
+      compras[index]['estado']=nuevo;
+      base['compras']=compras;
+      base['productos']=productos;
+      return mensaje;
     }
     if (accion == 'pedido_estado' || accion == 'pedido_cancelar') {
       final id=_entero(datos['id_pedido']);
