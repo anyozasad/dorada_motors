@@ -136,6 +136,48 @@ def probar_pagos_api_administrativa(navegador, csrf, id_producto, cliente, token
                          body=datos, status=409)
     assert sobrepago["estado"] is False, sobrepago
 
+    # REGRESIÓN: registrar un abono no debe devolver un pedido que ya
+    # está "Procesando" a "Pagado" (ni desde la API ni desde el dashboard).
+    for ruta in ("api", "dashboard"):
+        en_preparacion = api("pedidos.php", method="POST", token=token,
+                            status=201, body={
+            "id_usuario": cliente,
+            "tipo_entrega": "Recojo en tienda",
+            "metodo_pago": "Efectivo",
+            "items": [{"id_producto": id_producto, "cantidad": 1}],
+        })
+        id_preparacion = int(en_preparacion["id_pedido"])
+        cambiado = admin_page(navegador, "dashboard.php", form={
+            "csrf_token": csrf,
+            "actualizar_estado_pedido": "1",
+            "id_pedido": str(id_preparacion),
+            "estado_pedido": "Procesando",
+        })
+        assert "Estado del pedido actualizado" in cambiado
+        if ruta == "api":
+            cobrado = admin_api(navegador, "pagos.php",
+                method="POST", csrf=csrf, status=201, body={
+                "id_pedido": id_preparacion,
+                "metodo_pago": "Efectivo",
+                "monto": en_preparacion["total"],
+                "estado_pago": "Pagado",
+            })
+            assert cobrado["estado_pedido"] == "Procesando", cobrado
+        else:
+            cobrado_html = admin_page(navegador, "dashboard.php", form={
+                "csrf_token": csrf,
+                "registrar_pago_manual": "1",
+                "id_pedido_pago": str(id_preparacion),
+                "metodo_pago_manual": "Efectivo",
+                "monto_pago": str(en_preparacion["total"]),
+                "estado_pago_manual": "Pagado",
+            })
+            assert "Pago registrado correctamente" in cobrado_html
+        ahora = api(f"pedidos.php?id_usuario={cliente}", token=token)
+        procesado = next(p for p in ahora if int(p["id_pedido"]) == id_preparacion)
+        assert procesado["estado_pedido"] == "Procesando", procesado
+        assert procesado["estado_pago"] == "Pagado", procesado
+
     otro = api("pedidos.php", method="POST", token=token, status=201, body={
         "id_usuario": cliente, "tipo_entrega": "Recojo en tienda",
         "metodo_pago": "Efectivo",
