@@ -60,7 +60,14 @@ function sincronizarEstadoFinancieroPedido(mysqli $conexion, int $idPedido): voi
 
     $total = (float)$fila["total"];
     $pagado = (float)$fila["pagado"];
-    $nuevoEstado = $pagado + 0.009 >= $total ? "Pagado" : ($estadoActual === "Pagado" ? "Procesando" : $estadoActual);
+    // Un abono solo confirma el pedido si sigue pendiente. Si ya esta
+    // preparando, enviando o completando, no debe retroceder de fase.
+    $nuevoEstado = $estadoActual;
+    if ($estadoActual === "Pendiente" && $pagado + 0.009 >= $total) {
+        $nuevoEstado = "Pagado";
+    } elseif ($estadoActual === "Pagado" && $pagado + 0.009 < $total) {
+        $nuevoEstado = "Pendiente";
+    }
 
     if ($nuevoEstado !== $estadoActual) {
         $stmt = $conexion->prepare("UPDATE pedido SET estado_pedido=? WHERE id_pedido=?");
