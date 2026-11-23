@@ -1159,7 +1159,7 @@ class _AdminMobileDashboardScreenState
           'Historial de proveedores', Icons.shopping_cart_outlined, 'compras'),
       if (permitido('proveedores')) modulo('Proveedores',
           'Gestionar proveedores', Icons.local_shipping_outlined, 'proveedores'),
-      if (!widget.modoLocal && permitido('pagos')) modulo('Comprobantes',
+      if (permitido('pagos')) modulo('Comprobantes',
           'Boletas y facturas de demostración',
           Icons.description_outlined, 'comprobantes'),
       if (permitido('reportes')) modulo('Reportes',
