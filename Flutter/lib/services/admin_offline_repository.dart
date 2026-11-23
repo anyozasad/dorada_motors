@@ -224,6 +224,11 @@ class AdminOfflineRepository {
     if (contenido is Map && contenido['version'] == 1) {
       return Map<String, dynamic>.from(contenido);
     }
+    // No sobrescribir ventas, clientes ni productos si el formato es distinto.
+    if (contenido != null) {
+      throw StateError('La base SQLite contiene datos incompatibles. '
+          'No se reemplazaron tus datos por el catálogo de ejemplo.');
+    }
     final inicial = _inicial();
     await OfflineDatabase.guardar(scope, _estadoNombre, inicial);
     return inicial;
@@ -387,6 +392,15 @@ class AdminOfflineRepository {
           _entero(v['id_proveedor']) == _entero(p['id_proveedor']));
         return {...p, 'razon_social': prov.isEmpty
             ? 'Proveedor' : prov.first['razon_social']};
+      }).toList();
+    } else if (vista == 'comprobantes') {
+      registros = registros.map((p) {
+        final pedido = pedidos.where((v) =>
+            _entero(v['id_pedido']) == _entero(p['id_pedido']));
+        return {...p,
+          'nombres': pedido.isEmpty ? '' : pedido.first['nombres'],
+          'apellidos': pedido.isEmpty ? '' : pedido.first['apellidos'],
+        };
       }).toList();
     }
     return {'estado': true, 'items': registros};
@@ -859,6 +873,56 @@ class AdminOfflineRepository {
       base['pagos']=pagos;
       _sincronizarPago(base,pedidoId);
       return mensaje;
+    }
+    if (accion == 'comprobante_emitir') {
+      final idPedido = _entero(datos['id_pedido']);
+      final tipo = datos['tipo_comprobante']?.toString() ?? '';
+      if (idPedido <= 0 || !['Boleta','Factura'].contains(tipo)) {
+        throw StateError('Selecciona un pedido y un tipo de comprobante');
+      }
+      final pedidos = _filas(base,'pedidos');
+      final encontrados = pedidos.where((p) =>
+          _entero(p['id_pedido']) == idPedido);
+      if (encontrados.isEmpty ||
+          encontrados.first['estado_pedido'] == 'Cancelado') {
+        throw StateError('Pedido no disponible para comprobante');
+      }
+      final pedido = encontrados.first;
+      final total = _decimal(pedido['total']);
+      final abonado = _filas(base,'pagos').where((p) =>
+          _entero(p['id_pedido']) == idPedido &&
+          p['estado_pago'] == 'Pagado').fold<double>(0,
+            (a,p) => a+_decimal(p['monto']));
+      if (!total.isFinite || total <= 0 || abonado+0.009 < total) {
+        throw StateError('Primero confirma el pago íntegro del pedido');
+      }
+      final comprobantes = _filas(base, 'comprobantes');
+      if (comprobantes.any((p)=>
+          _entero(p['id_pedido']) == idPedido &&
+          p['tipo_comprobante'] == tipo)) {
+        throw StateError('Ya existe un comprobante local de ese tipo');
+      }
+      final serie = tipo == 'Boleta' ? 'B001' : 'F001';
+      var correlativo = 0;
+      for (final p in comprobantes) {
+        if (p['tipo_comprobante'] != tipo) continue;
+        final numero = p['numero_comprobante']?.toString() ?? '';
+        if (!numero.startsWith(serie + '-')) continue;
+        final valor = int.tryParse(numero.substring(serie.length+1)) ?? 0;
+        if (valor > correlativo) correlativo = valor;
+      }
+      final numero = serie + '-' +
+          (correlativo+1).toString().padLeft(8,'0');
+      comprobantes.add({
+        'id_comprobante': _id(base), 'id_pedido': idPedido,
+        'tipo_comprobante': tipo, 'numero_comprobante': numero,
+        'total': total, 'fecha_emision': ahora,
+        'observacion': 'Documento de demostración. Sin validez SUNAT.',
+      });
+      base['comprobantes'] = comprobantes;
+      return {...mensaje, 'numero_comprobante':numero,
+        'mensaje':'Comprobante DEMO local ' + numero +
+            '. No emitido ante SUNAT.'};
     }
     if (accion == 'configuracion_guardar') {
       final actual=Map<String,dynamic>.from(base['configuracion'] as Map);
