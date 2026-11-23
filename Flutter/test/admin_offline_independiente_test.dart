@@ -186,10 +186,30 @@ void main() {
       expect((detalle['lineas'] as List),hasLength(1));
       expect((detalle['pagos'] as List).single['estado_pago'],'Pendiente');
 
+      await expectLater(AdminOfflineRepository.operar({
+        'accion':'comprobante_emitir','id_pedido':idPedido,
+        'tipo_comprobante':'Boleta',
+      }),throwsStateError);
+      expect((await AdminOfflineRepository.consultar('comprobantes'))
+          ['items'],isEmpty);
+
       final idPago = (detalle['pagos'] as List).single['id_pago'];
       await AdminOfflineRepository.operar({
         'accion':'pago_confirmar','id_pago':idPago,
       });
+      final recibo = await AdminOfflineRepository.operar({
+        'accion':'comprobante_emitir','id_pedido':idPedido,
+        'tipo_comprobante':'Boleta',
+      });
+      expect(recibo['numero_comprobante'],'B001-00000001');
+      final comprobantes = (await AdminOfflineRepository.consultar(
+          'comprobantes'))['items'] as List;
+      expect(comprobantes,hasLength(1));
+      expect((comprobantes.single as Map)['nombres'],'Sandra');
+      await expectLater(AdminOfflineRepository.operar({
+        'accion':'comprobante_emitir','id_pedido':idPedido,
+        'tipo_comprobante':'Boleta',
+      }),throwsStateError);
       expect((await AdminOfflineRepository.consultar(
         'mis_pedidos',id:cliente))['items'][0]['estado_pedido'],'Pagado');
       await OfflineDatabase.cerrarPruebas();
@@ -199,6 +219,25 @@ void main() {
         'mis_pedidos',id:cliente))['items'],hasLength(1));
       expect((await AdminOfflineRepository.consultar(
         'productos'))['items'][0]['stock'],stockInicial-1);
+      expect((await AdminOfflineRepository.consultar(
+        'comprobantes'))['items'],hasLength(1));
+    } finally {
+      await OfflineDatabase.limpiarScope(scope);
+    }
+  });
+
+  test('Nunca sobrescribir la base SQLite si su formato es incompatible',
+      () async {
+    const scope = AdminOfflineRepository.scope;
+    await OfflineDatabase.limpiarScope(scope);
+    try {
+      await OfflineDatabase.guardar(scope,'dashboard',{
+        'version':999,'clientes':[{'id_usuario':81,'nombres':'Preservar'}],
+      });
+      await expectLater(AdminOfflineRepository.estado(),throwsStateError);
+      final original = await OfflineDatabase.leer(scope,'dashboard');
+      expect((original as Map)['version'],999);
+      expect((original['clientes'] as List).single['nombres'],'Preservar');
     } finally {
       await OfflineDatabase.limpiarScope(scope);
     }
