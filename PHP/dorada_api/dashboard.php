@@ -2683,7 +2683,7 @@ select:focus-visible,textarea:focus-visible{
   <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
- <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v4.0<br>PHP · MySQL · Flutter · UI dinámica</div>
+ <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v4.2<br>Interfaz simplificada · PHP + MySQL</div>
 </aside>
 
 <main class="main">
