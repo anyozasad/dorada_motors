@@ -1,13 +1,16 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures, use_null_aware_elements
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
+import '../services/admin_offline_repository.dart';
 import '../services/local_store.dart';
 import '../services/product_image_url.dart';
 import '../theme/app_theme.dart';
@@ -273,7 +276,9 @@ class _AdminMobileLoginScreenState extends State<AdminMobileLoginScreen> {
 
 class AdminMobileDashboardScreen extends StatefulWidget {
   final VoidCallback onLogout;
-  const AdminMobileDashboardScreen({super.key, required this.onLogout});
+  final bool modoLocal;
+  const AdminMobileDashboardScreen({super.key, required this.onLogout,
+      this.modoLocal = false});
   @override
   State<AdminMobileDashboardScreen> createState() =>
       _AdminMobileDashboardScreenState();
@@ -289,6 +294,21 @@ class _AdminMobileDashboardScreenState
   bool cargando = true;
   bool guardando = false;
   String? error;
+
+  Future<Map<String, dynamic>> consultar(String vista,
+      {Map<String, String> parametros = const {}}) async {
+    if (widget.modoLocal) {
+      return AdminOfflineRepository.consultar(vista,
+        id: int.tryParse(parametros['id_usuario'] ??
+            parametros['id_pedido'] ?? ''));
+    }
+    return AdminMobileApi.consultar(vista, parametros: parametros);
+  }
+
+  Future<Map<String, dynamic>> operar(Map<String, dynamic> args) async {
+    if (widget.modoLocal) return AdminOfflineRepository.operar(args);
+    return AdminMobileApi.operar(args);
+  }
 
   bool permitido(String modulo) {
     if (rol == 'Administrador') return true;
@@ -315,7 +335,9 @@ class _AdminMobileDashboardScreenState
   }
 
   Future<void> iniciar() async {
-    final s = await AdminMobileApi.sesion();
+    final s = widget.modoLocal ? <String, String>{
+      'rol': 'Administrador', 'nombre': 'Administrador local',
+    } : await AdminMobileApi.sesion();
     if (!mounted) return;
     setState(() {
       rol = s?['rol'] ?? '';
@@ -332,7 +354,7 @@ class _AdminMobileDashboardScreenState
     }
     setState(() { cargando = true; error = null; });
     try {
-      final r = await AdminMobileApi.consultar(vista,
+      final r = await consultar(vista,
           parametros: vista == 'direcciones' && clienteDirecciones != null
               ? {'id_usuario': clienteDirecciones.toString()} : const {});
       if (!mounted) return;
@@ -357,6 +379,10 @@ class _AdminMobileDashboardScreenState
   }
 
   Future<void> salir() async {
+    if (widget.modoLocal) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
     await AdminMobileApi.salir();
     if (mounted) widget.onLogout();
   }
@@ -365,10 +391,11 @@ class _AdminMobileDashboardScreenState
     if (guardando) return;
     setState(() => guardando = true);
     try {
-      final r = await AdminMobileApi.operar(args);
+      final r = await operar(args);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(r['mensaje']?.toString() ??
+              widget.modoLocal ? 'Guardado en SQLite de este celular' :
               'Actualizado en MySQL')));
       await cargar();
     } catch (e) {
@@ -418,7 +445,7 @@ class _AdminMobileDashboardScreenState
 
   Future<void> editarProducto([Map<String, dynamic>? producto]) async {
     try {
-      final data = await AdminMobileApi.consultar('catalogos');
+      final data = await consultar('catalogos');
       if (!mounted) return;
       final categorias = ((data['categorias'] as List?) ?? const [])
           .whereType<Map>().map((x) => Map<String, dynamic>.from(x)).toList();
@@ -430,7 +457,8 @@ class _AdminMobileDashboardScreenState
       final valores = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (ctx) => _ProductoEditor(producto: producto,
-            categorias: categorias, marcas: marcas));
+            categorias: categorias, marcas: marcas,
+            modoLocal: widget.modoLocal));
       if (valores != null && mounted) {
         await ejecutar({'accion': 'producto_guardar', ...valores});
       }
@@ -446,8 +474,8 @@ class _AdminMobileDashboardScreenState
   Future<void> registrarVenta() async {
     try {
       final respuestas = await Future.wait([
-        AdminMobileApi.consultar('clientes'),
-        AdminMobileApi.consultar('productos'),
+        consultar('clientes'),
+        consultar('productos'),
       ]);
       if (!mounted) return;
       final clientes = ((respuestas[0]['items'] as List?) ?? const [])
@@ -461,15 +489,18 @@ class _AdminMobileDashboardScreenState
       final formulario = await AdminMobileOrderForm.abrir(context,
         clientes: clientes, productos: productos,
         cargarDirecciones: (id) async {
-          final datos = await AdminMobileApi.consultar('direcciones',
+          final datos = await consultar('direcciones',
               parametros: {'id_usuario': id});
           return ((datos['items'] as List?) ?? const [])
               .whereType<Map>()
               .map((p) => Map<String, dynamic>.from(p)).toList();
         });
       if (formulario == null || !mounted) return;
-      if (!await confirmar('Se registrará la venta, el detalle, '
-          'el pago pendiente y se descontará el stock. ¿Confirmas?')
+      if (!await confirmar(widget.modoLocal
+          ? 'Se guardará esta venta y descontará el stock '
+            'solo en SQLite del celular. ¿Confirmar?'
+          : 'Se registrará la venta, el detalle, '
+            'el pago pendiente y se descontará el stock. ¿Confirmas?')
           || !mounted) return;
       await ejecutar({'accion': 'pedido_manual', ...formulario});
     } catch (e) {
@@ -480,7 +511,7 @@ class _AdminMobileDashboardScreenState
 
   Future<void> verDetallePedido(Map<String, dynamic> pedido) async {
     try {
-      final respuesta = await AdminMobileApi.consultar('pedido_detalle',
+      final respuesta = await consultar('pedido_detalle',
         parametros: {'id_pedido': pedido['id_pedido'].toString()});
       if (!mounted) return;
       final cabecera = Map<String, dynamic>.from(respuesta['pedido'] as Map);
@@ -534,7 +565,7 @@ class _AdminMobileDashboardScreenState
 
   Future<void> registrarAbono() async {
     try {
-      final datosPedidos = await AdminMobileApi.consultar('pedidos');
+      final datosPedidos = await consultar('pedidos');
       if (!mounted) return;
       final pedidos = ((datosPedidos['items'] as List?) ?? const [])
           .whereType<Map>().where((p) => p['estado_pedido'] != 'Cancelado');
@@ -606,7 +637,7 @@ class _AdminMobileDashboardScreenState
         AdminMobileField('apellidos', 'Apellidos'),
         AdminMobileField('correo', 'Correo', requiredValue: true),
         AdminMobileField('telefono', 'Teléfono'),
-        AdminMobileField('contrasena', cliente == null
+        if (!widget.modoLocal) AdminMobileField('contrasena', cliente == null
             ? 'Contraseña (mínimo 8)' : 'Nueva contraseña (dejar vacío para mantener)',
             requiredValue: cliente == null),
       ]);
@@ -617,7 +648,7 @@ class _AdminMobileDashboardScreenState
   }
 
   Future<void> guardarPersonal([Map<String, dynamic>? empleado]) async {
-    if (rol != 'Administrador') return;
+    if (rol != 'Administrador' || widget.modoLocal) return;
     final form = await AdminMobileForm.open(context,
       title: empleado == null ? 'Crear cuenta de personal' : 'Editar empleado',
       initial: {
@@ -749,7 +780,8 @@ class _AdminMobileDashboardScreenState
   Future<void> cambiarEstadoCliente(Map<String, dynamic> actual) async {
     final nuevo = actual['estado'] == 'Activo' ? 'Bloqueado' : 'Activo';
     if (await confirmar('¿Cambiar cliente a ' + nuevo +
-        '? Al bloquear se revocarán sus sesiones activas.') && mounted) {
+        (widget.modoLocal ? '? (Solo afecta este teléfono)' :
+          '? Al bloquear se revocarán sus sesiones activas.')) && mounted) {
       await ejecutar({'accion': 'cliente_estado',
         'id_usuario': actual['id_usuario'], 'estado': nuevo});
     }
@@ -757,7 +789,7 @@ class _AdminMobileDashboardScreenState
 
   Future<void> moverInventario() async {
     try {
-      final data = await AdminMobileApi.consultar('productos');
+      final data = await consultar('productos');
       if (!mounted) return;
       final productos = ((data['items'] as List?) ?? const [])
           .whereType<Map>().toList();
@@ -788,8 +820,10 @@ class _AdminMobileDashboardScreenState
         ],
       );
       if (form == null || !mounted) return;
-      if (!await confirmar('El stock y el Kardex se actualizarán en MySQL. '
-          '¿Confirmas el movimiento?') || !mounted) return;
+      if (!await confirmar(widget.modoLocal
+          ? 'El stock y el Kardex se guardarán en SQLite de este teléfono.'
+          : 'El stock y el Kardex se actualizarán en MySQL. '
+            '¿Confirmas el movimiento?') || !mounted) return;
       await ejecutar({'accion': 'inventario_movimiento', ...form});
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -856,8 +890,8 @@ class _AdminMobileDashboardScreenState
   Future<void> registrarCompra() async {
     try {
       final respuestas = await Future.wait([
-        AdminMobileApi.consultar('proveedores'),
-        AdminMobileApi.consultar('productos'),
+        consultar('proveedores'),
+        consultar('productos'),
       ]);
       if (!mounted) return;
       final proveedores = ((respuestas[0]['items'] as List?) ?? const [])
@@ -897,7 +931,7 @@ class _AdminMobileDashboardScreenState
 
   Future<void> emitirComprobante() async {
     try {
-      final resp = await AdminMobileApi.consultar('pedidos');
+      final resp = await consultar('pedidos');
       if (!mounted) return;
       final pedidos = ((resp['items'] as List?) ?? const [])
           .whereType<Map>().where((p) => p['estado_pedido'] != 'Cancelado')
@@ -972,7 +1006,8 @@ class _AdminMobileDashboardScreenState
     final seleccion = menu.contains(vista) ? vista : 'mas';
     return Scaffold(
       appBar: AppBar(
-        title: Text(titulo(vista) + ' · ' + rol),
+        title: Text(titulo(vista) +
+          (widget.modoLocal ? ' · SQLite local' : ' · ' + rol)),
         actions: [
           IconButton(tooltip: 'Actualizar', onPressed: cargando ? null : cargar,
               icon: const Icon(Icons.refresh)),
@@ -980,6 +1015,15 @@ class _AdminMobileDashboardScreenState
               icon: const Icon(Icons.logout)),
         ]),
       body: Column(children: [
+        if (widget.modoLocal) Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          color: const Color(0xFFFFF1D5),
+          child: const Text('SIN LAPTOP · SQLite en este celular. '
+            'No se ha enviado información a MySQL.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        ),
         if (guardando) const LinearProgressIndicator(minHeight: 2),
         if (vista != 'resumen') Align(alignment: Alignment.centerLeft,
           child: TextButton.icon(
@@ -992,14 +1036,18 @@ class _AdminMobileDashboardScreenState
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.cloud_off, size: 50, color: AppColors.muted),
                 const SizedBox(height: 12),
-                const Text('No se puede consultar la base de datos',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(widget.modoLocal
+                  ? 'No se pudo leer la base SQLite'
+                  : 'No se puede consultar la base de datos',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text(error!, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
-                Text(ApiService.baseUrl, textAlign: TextAlign.center),
+                if (!widget.modoLocal) Text(ApiService.baseUrl,
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                const Text('Enciende XAMPP y usa la misma red Wi-Fi. '
+                if (!widget.modoLocal) const Text(
+                    'Enciende XAMPP y usa la misma red Wi-Fi. '
                     'Los cambios administrativos necesitan conexión al servidor.',
                     textAlign: TextAlign.center),
                 const SizedBox(height: 15),
@@ -1095,14 +1143,16 @@ class _AdminMobileDashboardScreenState
   List<Widget> contenido() {
     if (vista == 'mas') return [
       encabezado('Opciones de administrador',
-          'Módulos conectados a la misma base de datos de PHP.'),
+          widget.modoLocal
+            ? 'Los módulos guardan sus datos exclusivamente en SQLite.'
+            : 'Módulos conectados a la misma base de datos de PHP.'),
       if (permitido('productos')) modulo('Categorías',
           'Agregar, editar o eliminar', Icons.category_outlined, 'categorias'),
       if (permitido('productos')) modulo('Marcas',
           'Agregar, editar o eliminar', Icons.sell_outlined, 'marcas'),
       if (permitido('clientes')) modulo('Clientes',
           'Cuentas y estados', Icons.people_outline, 'clientes'),
-      if (permitido('clientes')) modulo('Soporte',
+      if (!widget.modoLocal && permitido('clientes')) modulo('Soporte',
           'Consultas de clientes', Icons.support_agent_outlined, 'soporte'),
       if (permitido('inventario')) modulo('Kardex',
           'Movimientos de stock', Icons.warehouse_outlined, 'inventario'),
@@ -1110,12 +1160,12 @@ class _AdminMobileDashboardScreenState
           'Historial de proveedores', Icons.shopping_cart_outlined, 'compras'),
       if (permitido('proveedores')) modulo('Proveedores',
           'Gestionar proveedores', Icons.local_shipping_outlined, 'proveedores'),
-      if (permitido('pagos')) modulo('Comprobantes',
+      if (!widget.modoLocal && permitido('pagos')) modulo('Comprobantes',
           'Boletas y facturas de demostración',
           Icons.description_outlined, 'comprobantes'),
       if (permitido('reportes')) modulo('Reportes',
           'Ventas y más vendidos', Icons.bar_chart, 'reportes'),
-      if (rol == 'Administrador') modulo('Personal',
+      if (!widget.modoLocal && rol == 'Administrador') modulo('Personal',
           'Cuentas, roles y permisos', Icons.manage_accounts_outlined,
           'personal'),
       if (rol == 'Administrador') modulo('Configuración',
@@ -1130,7 +1180,9 @@ class _AdminMobileDashboardScreenState
           .whereType<Map>();
       return [
         encabezado('Bienvenido, ' + nombre,
-            'Información compartida con el dashboard PHP.'),
+            widget.modoLocal
+              ? 'Información persistente en la base SQLite de este Samsung.'
+              : 'Información compartida con el dashboard PHP.'),
         Wrap(spacing: 7, runSpacing: 7, children: [
           metrica('Productos', r['productos'], Icons.inventory_2_outlined),
           metrica('Clientes', r['clientes'], Icons.people_outline),
@@ -1141,7 +1193,9 @@ class _AdminMobileDashboardScreenState
           metrica('Cobrado S/', r['cobrado'], Icons.payments_outlined),
         ]),
         const SizedBox(height: 19),
-        encabezado('Últimos pedidos', 'Registros nuevos de MySQL.'),
+        encabezado('Últimos pedidos',
+          widget.modoLocal ? 'Ventas registradas en este teléfono.'
+              : 'Registros nuevos de MySQL.'),
         for (final p in ultimos) registro('Pedido #' +
             p['id_pedido'].toString(), p['nombres'].toString() + ' ' +
             p['apellidos'].toString() + ' · ' +
@@ -1156,8 +1210,14 @@ class _AdminMobileDashboardScreenState
       for (final p in items) Card(child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(children: [
-          SizedBox(width: 75, height: 75, child: ProductImage(
-              source: ProductImageUrl.resolver(
+          SizedBox(width: 75, height: 75, child:
+            widget.modoLocal && !kIsWeb &&
+              (p['imagen_url']?.toString() ?? '').startsWith('/')
+            ? Image.file(File(p['imagen_url'].toString()),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported))
+            : ProductImage(
+                source: ProductImageUrl.resolver(
                   p['imagen_url']?.toString(), ApiService.baseUrl))),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
@@ -1402,7 +1462,9 @@ class _AdminMobileDashboardScreenState
         : <String, dynamic>{};
       return [
         encabezado('Configuración de la empresa',
-            'Los valores se usan también en el checkout del cliente.'),
+            widget.modoLocal
+              ? 'Estos valores afectan únicamente las ventas locales.'
+              : 'Los valores se usan también en el checkout del cliente.'),
         registro(d['nombre_comercial']?.toString() ?? 'Dorada Motors',
             'Razón social: ' + (d['razon_social']?.toString() ?? '') +
             '\nIGV: ' + (d['igv']?.toString() ?? '-') + '%' +
@@ -1419,7 +1481,7 @@ class _AdminMobileDashboardScreenState
       final diario = ((datos['diario'] as List?) ?? const []).whereType<Map>();
       final top = ((datos['top'] as List?) ?? const []).whereType<Map>();
       return [
-        encabezado('Ventas de 7 días', 'Pedidos no cancelados.'),
+        encabezado('Ventas', 'Pedidos no cancelados de esta base de datos.'),
         for (final p in diario) registro(p['fecha'].toString(),
             p['pedidos'].toString() + ' pedidos', Icons.calendar_month,
             cifra: 'S/ ' + p['ventas'].toString()),
@@ -1439,8 +1501,10 @@ class _AdminMobileDashboardScreenState
 class _ProductoEditor extends StatefulWidget {
   final Map<String, dynamic>? producto;
   final List<Map<String, dynamic>> categorias, marcas;
+  final bool modoLocal;
   const _ProductoEditor({required this.producto,
-      required this.categorias, required this.marcas});
+      required this.categorias, required this.marcas,
+      this.modoLocal = false});
   @override
   State<_ProductoEditor> createState() => _ProductoEditorState();
 }
@@ -1477,7 +1541,9 @@ class _ProductoEditorState extends State<_ProductoEditor> {
     setState(() => subiendo = true);
     try {
       if (fotoNueva != null) {
-        valores['imagen_url'] = await AdminMobileApi.subirFotografia(fotoNueva!);
+        valores['imagen_url'] = widget.modoLocal
+            ? await AdminOfflineRepository.guardarFoto(fotoNueva!)
+            : await AdminMobileApi.subirFotografia(fotoNueva!);
       }
       if (!mounted) return;
       Navigator.of(context).pop(valores);
@@ -1603,8 +1669,9 @@ class _ProductoEditorState extends State<_ProductoEditor> {
               child: FilledButton.icon(
                 onPressed: subiendo ? null : guardarProducto,
                 icon: const Icon(Icons.save_outlined),
-                label: Text(subiendo
-                  ? 'Subiendo fotografía...' : 'Guardar en MySQL'))),
+                label: Text(subiendo ? 'Guardando foto...'
+                  : (widget.modoLocal ? 'Guardar en el celular'
+                  : 'Guardar en MySQL')))),
         ])),
       ),
     ));
