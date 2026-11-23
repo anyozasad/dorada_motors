@@ -302,6 +302,11 @@ class AdminOfflineRepository {
       'items': productos.map((p) =>
           _productoEnriquecido(p, categorias, marcas)).toList(),
     };
+    if (vista == 'mis_pedidos') return {
+      'estado': true,
+      'items': pedidos.where((p) => _entero(p['id_usuario']) == id)
+          .toList().reversed.toList(),
+    };
     if (vista == 'direcciones') return {'estado': true, 'items':
       _filas(base, 'direcciones').where((p) => id == null ||
           _entero(p['id_usuario']) == id).toList()};
