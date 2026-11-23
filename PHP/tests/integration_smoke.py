@@ -570,6 +570,90 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert api("admin_movil.php", method="POST", token=token,
                body={"accion": "producto_guardar", "id_producto": id_movil},
                status=401)["estado"] is False
+    # CRUD catálogo: operaciones reales, verificación de duplicados y borrado.
+    assert isinstance(api("admin_movil.php?vista=categorias",
+                          token=token_admin)["items"], list)
+    assert isinstance(api("admin_movil.php?vista=marcas",
+                          token=token_admin)["items"], list)
+    tipo_nombre = "Categoria APK " + uuid4().hex[:8]
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "catalogo_guardar", "tipo": "categoria", "id": 0,
+        "nombre": tipo_nombre,
+    })
+    lista_cat = api("admin_movil.php?vista=categorias", token=token_admin)["items"]
+    id_cat = next(int(x["id_categoria"]) for x in lista_cat
+                  if x["nombre_categoria"] == tipo_nombre)
+    nuevo_nombre = tipo_nombre + " editada"
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "catalogo_guardar", "tipo": "categoria", "id": id_cat,
+        "nombre": nuevo_nombre,
+    })
+    assert any(x["nombre_categoria"] == nuevo_nombre for x in
+               api("admin_movil.php?vista=categorias", token=token_admin)["items"])
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "catalogo_eliminar", "tipo": "categoria", "id": id_cat,
+    })
+    assert all(x["id_categoria"] != id_cat for x in
+               api("admin_movil.php?vista=categorias", token=token_admin)["items"])
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "catalogo_eliminar", "tipo": "categoria",
+        "id": producto_movil["id_categoria"],
+    }, status=409)["estado"] is False
+
+    # Proveedor CRUD y límites de acceso.
+    prov_nombre = "Proveedor APK " + uuid4().hex[:8]
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "proveedor_guardar", "id_proveedor": 0,
+        "razon_social": prov_nombre, "ruc": "20601234567",
+        "telefono": "987654321", "correo": "proveedor@example.com",
+        "direccion": "Pucallpa", "estado": "Activo",
+    })
+    lista_prov = api("admin_movil.php?vista=proveedores", token=token_admin)["items"]
+    id_prov = next(int(p["id_proveedor"]) for p in lista_prov
+                   if p["razon_social"] == prov_nombre)
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "proveedor_guardar", "id_proveedor": id_prov,
+        "razon_social": prov_nombre, "ruc": "20601234567",
+        "telefono": "987654321", "correo": "proveedor@example.com",
+        "direccion": "Pucallpa", "estado": "Inactivo",
+    })
+    assert next(p for p in api("admin_movil.php?vista=proveedores",
+                 token=token_admin)["items"] if int(p["id_proveedor"]) == id_prov
+               )["estado"] == "Inactivo"
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "proveedor_eliminar", "id_proveedor": id_prov,
+    })
+
+    # Movimientos de stock: transacción, Kardex, rechazo por insuficiencia.
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "inventario_movimiento", "id_producto": id_movil,
+        "tipo": "Salida", "cantidad": 999999,
+        "motivo": "Validar protección de stock",
+    }, status=422)["estado"] is False
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "inventario_movimiento", "id_producto": id_movil,
+        "tipo": "Salida", "cantidad": 2, "motivo": "Salida de ensayo",
+    })
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == 3
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "inventario_movimiento", "id_producto": id_movil,
+        "tipo": "Entrada", "cantidad": 2, "motivo": "Reposición de ensayo",
+    })
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == 5
+    assert any(x["motivo"] == "Desde APK: Salida de ensayo"
+               for x in api("admin_movil.php?vista=inventario",
+                           token=token_admin)["items"])
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "cliente_estado",
+        "id_usuario": acceso_movil["usuario"]["id_usuario"],
+        "estado": "Bloqueado",
+    }, status=404)["estado"] is False
+    for vista in ("compras", "comprobantes", "soporte"):
+        assert isinstance(api(f"admin_movil.php?vista={vista}",
+                              token=token_admin)["items"], list)
+    assert api("admin_movil.php?vista=configuracion",
+               token=token_admin)["configuracion"]["nombre_comercial"]
+    print("OK APK ADMIN: CRUD catalogo, proveedor, Kardex, permisos y módulos.")
     assert api("admin_movil.php", method="POST", token=token_admin,
                body={"accion": "logout"})["estado"] is True
     assert api("admin_movil.php?vista=resumen", token=token_admin,
