@@ -44,7 +44,29 @@ try {
     ] as $sql) {
         $conexion->query($sql);
     }
-    require_once __DIR__ . "/../dorada_api/sistema_bootstrap.php";
+    // Cuando conexion.php inicializa la base nueva, sistema_bootstrap.php
+    // ya se cargó una vez. Requerirlo de nuevo en ESTE proceso no ejecuta
+    // las migraciones. Simulamos una segunda petición con PHP independiente.
+    $conexion->query("DROP TABLE favorito");
+    $conexion->close();
+    $comando = escapeshellarg(PHP_BINARY) . " " .
+        escapeshellarg(__DIR__ . "/schema_reimport_child.php");
+    $salida = [];
+    $codigo = 0;
+    exec($comando . " 2>&1", $salida, $codigo);
+    if ($codigo !== 0) {
+        throw new RuntimeException(
+            "No se pudo reimportar el esquema antiguo: " . implode("\\n", $salida)
+        );
+    }
+
+    $conexion = new mysqli(
+        getenv("DB_HOST") ?: "127.0.0.1",
+        getenv("DB_USER") ?: "root",
+        getenv("DB_PASS") ?: "",
+        "dorada_schema_ci_test",
+        (int)(getenv("DB_PORT") ?: 3306)
+    );
     foreach ([
         ["producto", "imagen_url"],
         ["usuario", "ultimo_acceso"],
@@ -63,31 +85,11 @@ try {
     if (abs($restaurado - $original) > 0.001) {
         throw new RuntimeException("Se modificó el precio del producto existente");
     }
-    // Ninguna migración debe borrar pedidos, usuarios ni volver a crear la BD normal.
     $actual = $conexion->query("SELECT DATABASE() AS db")->fetch_assoc()["db"] ?? "";
     if ($actual !== "dorada_schema_ci_test") {
         throw new RuntimeException("La migración cambió de base de datos");
     }
-
-    // Reproducir el caso real que provoca "Unknown column" en XAMPP:
-    // falta una tabla, la conexión ejecuta el SQL de instalación pero
-    // producto es antiguo y carece de imagen_url. El catálogo de ejemplo
-    // no se debe insertar antes de reparar esa columna.
-    $conexion->query("DROP TABLE favorito");
-    $conexion->query("ALTER TABLE producto DROP COLUMN imagen_url");
-    $conexion->close();
-
-    $comando = escapeshellarg(PHP_BINARY) . " " .
-        escapeshellarg(__DIR__ . "/schema_reimport_child.php");
-    $salida = [];
-    $codigo = 0;
-    exec($comando . " 2>&1", $salida, $codigo);
-    if ($codigo !== 0) {
-        throw new RuntimeException(
-            "No se pudo reimportar el esquema antiguo: " . implode("\n", $salida)
-        );
-    }
-    echo implode("\n", $salida) . "\n";
+    echo implode("\\n", $salida) . "\\n";
     echo "OK: columnas antiguas y tabla faltante reparadas sin perder productos.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "ERROR PRUEBA ESQUEMA HEREDADO: " . $e->getMessage() . "\n");
