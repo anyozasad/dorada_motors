@@ -21,7 +21,7 @@ if ($origen !== "" && (in_array($origen, $origenesPermitidos, true) || $esOrigen
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
-if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "OPTIONS") {
     http_response_code(204);
     exit;
 }
