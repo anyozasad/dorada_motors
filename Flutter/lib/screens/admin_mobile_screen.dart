@@ -10,6 +10,7 @@ import '../services/local_store.dart';
 import '../services/product_image_url.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_image.dart';
+import 'admin_mobile_forms.dart';
 
 class AdminMobileApi {
   static const keyToken = 'adm_token';
@@ -382,6 +383,181 @@ class _AdminMobileDashboardScreenState
           SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
     }
   }
+
+
+  Future<void> guardarCatalogo(String tipo,
+      [Map<String, dynamic>? actual]) async {
+    final esCategoria = tipo == 'categoria';
+    final idCampo = esCategoria ? 'id_categoria' : 'id_marca';
+    final nombreCampo = esCategoria ? 'nombre_categoria' : 'nombre_marca';
+    final valores = await AdminMobileForm.open(context,
+      title: actual == null ? 'Agregar ' + tipo : 'Editar ' + tipo,
+      fields: [AdminMobileField('nombre', 'Nombre',
+          requiredValue: true)],
+      initial: {'nombre': actual?[nombreCampo] ?? ''});
+    if (valores != null && mounted) {
+      await ejecutar({
+        'accion': 'catalogo_guardar', 'tipo': tipo,
+        'id': actual?[idCampo] ?? 0, ...valores,
+      });
+    }
+  }
+
+  Future<void> eliminarCatalogo(String tipo,
+      Map<String, dynamic> actual) async {
+    final idCampo = tipo == 'categoria' ? 'id_categoria' : 'id_marca';
+    if (await confirmar('¿Eliminar este registro del catálogo? '
+        'No se permitirá si tiene productos.') && mounted) {
+      await ejecutar({'accion': 'catalogo_eliminar', 'tipo': tipo,
+          'id': actual[idCampo]});
+    }
+  }
+
+  Future<void> guardarProveedor([Map<String, dynamic>? actual]) async {
+    final valores = await AdminMobileForm.open(context,
+      title: actual == null ? 'Nuevo proveedor' : 'Editar proveedor',
+      initial: Map<String, dynamic>.from(actual ?? {}),
+      fields: [
+        AdminMobileField('razon_social', 'Razón social', requiredValue: true),
+        AdminMobileField('ruc', 'RUC'),
+        AdminMobileField('telefono', 'Teléfono'),
+        AdminMobileField('correo', 'Correo'),
+        AdminMobileField('direccion', 'Dirección'),
+        AdminMobileField('estado', 'Estado', choices: const [
+          DropdownMenuItem(value: 'Activo', child: Text('Activo')),
+          DropdownMenuItem(value: 'Inactivo', child: Text('Inactivo')),
+        ]),
+      ]);
+    if (valores != null && mounted) {
+      await ejecutar({'accion': 'proveedor_guardar',
+        'id_proveedor': actual?['id_proveedor'] ?? 0, ...valores});
+    }
+  }
+
+  Future<void> eliminarProveedor(Map<String, dynamic> actual) async {
+    if (await confirmar('¿Eliminar proveedor? No se permitirá si '
+        'existen compras vinculadas.') && mounted) {
+      await ejecutar({'accion': 'proveedor_eliminar',
+          'id_proveedor': actual['id_proveedor']});
+    }
+  }
+
+  Future<void> cambiarEstadoCliente(Map<String, dynamic> actual) async {
+    final nuevo = actual['estado'] == 'Activo' ? 'Bloqueado' : 'Activo';
+    if (await confirmar('¿Cambiar cliente a ' + nuevo +
+        '? Al bloquear se revocarán sus sesiones activas.') && mounted) {
+      await ejecutar({'accion': 'cliente_estado',
+        'id_usuario': actual['id_usuario'], 'estado': nuevo});
+    }
+  }
+
+  Future<void> moverInventario() async {
+    try {
+      final data = await AdminMobileApi.consultar('productos');
+      if (!mounted) return;
+      final productos = ((data['items'] as List?) ?? const [])
+          .whereType<Map>().toList();
+      if (productos.isEmpty) {
+        throw StateError('Primero registra productos');
+      }
+      final form = await AdminMobileForm.open(context,
+        title: 'Movimiento de inventario',
+        fields: [
+          AdminMobileField('id_producto', 'Producto',
+            requiredValue: true,
+            choices: [
+              for (final p in productos)
+                DropdownMenuItem<String>(
+                  value: p['id_producto'].toString(),
+                  child: Text(p['nombre_producto'].toString() +
+                      ' (stock ' + p['stock'].toString() + ')',
+                      overflow: TextOverflow.ellipsis),
+                ),
+            ]),
+          AdminMobileField('tipo', 'Tipo', requiredValue: true, choices: const [
+            DropdownMenuItem(value: 'Entrada', child: Text('Entrada')),
+            DropdownMenuItem(value: 'Salida', child: Text('Salida')),
+          ]),
+          AdminMobileField('cantidad', 'Cantidad',
+              requiredValue: true, numeric: true),
+          AdminMobileField('motivo', 'Motivo', requiredValue: true),
+        ],
+      );
+      if (form == null || !mounted) return;
+      if (!await confirmar('El stock y el Kardex se actualizarán en MySQL. '
+          '¿Confirmas el movimiento?') || !mounted) return;
+      await ejecutar({'accion': 'inventario_movimiento', ...form});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> guardarEmpresa() async {
+    final config = datos['configuracion'] is Map
+        ? Map<String, dynamic>.from(datos['configuracion'] as Map)
+        : <String, dynamic>{};
+    final initial = Map<String, dynamic>.from(config);
+    initial['direccion_empresa'] = config['direccion'] ?? '';
+    initial['telefono_empresa'] = config['telefono'] ?? '';
+    initial['correo_empresa'] = config['correo'] ?? '';
+    final form = await AdminMobileForm.open(context,
+      title: 'Datos de la empresa',
+      initial: initial,
+      fields: [
+        AdminMobileField('nombre_comercial', 'Nombre comercial',
+            requiredValue: true),
+        AdminMobileField('razon_social', 'Razón social',
+            requiredValue: true),
+        AdminMobileField('ruc', 'RUC'),
+        AdminMobileField('direccion_empresa', 'Dirección'),
+        AdminMobileField('telefono_empresa', 'Teléfono'),
+        AdminMobileField('correo_empresa', 'Correo'),
+        AdminMobileField('igv', 'IGV (%)', numeric: true, requiredValue: true),
+        AdminMobileField('costo_delivery', 'Delivery (S/)',
+            numeric: true, requiredValue: true),
+        AdminMobileField('numero_yape', 'Número Yape'),
+        AdminMobileField('numero_plin', 'Número Plin'),
+        AdminMobileField('cuenta_transferencia', 'Cuenta bancaria'),
+      ]);
+    if (form != null && mounted) {
+      await ejecutar({'accion': 'configuracion_guardar', ...form});
+    }
+  }
+
+  Future<void> responderSoporte(Map<String, dynamic> actual) async {
+    final form = await AdminMobileForm.open(context,
+      title: 'Responder solicitud #' + actual['id_solicitud'].toString(),
+      initial: {
+        'estado_soporte': actual['estado'] ?? 'Abierto',
+        'respuesta_soporte': actual['respuesta'] ?? '',
+      },
+      fields: [
+        AdminMobileField('estado_soporte', 'Estado',
+          requiredValue: true, choices: const [
+            DropdownMenuItem(value: 'Abierto', child: Text('Abierto')),
+            DropdownMenuItem(value: 'En proceso', child: Text('En proceso')),
+            DropdownMenuItem(value: 'Respondido', child: Text('Respondido')),
+          ]),
+        AdminMobileField('respuesta_soporte', 'Respuesta al cliente',
+            requiredValue: true),
+      ]);
+    if (form != null && mounted) {
+      await ejecutar({'accion': 'soporte_responder',
+          'id_solicitud': actual['id_solicitud'], ...form});
+    }
+  }
+
+  Widget botonAgregar(String texto, VoidCallback alPulsar) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Align(alignment: Alignment.centerLeft,
+      child: FilledButton.icon(
+        onPressed: guardando ? null : alPulsar,
+        icon: const Icon(Icons.add),
+        label: Text(texto),
+      ),
+    ),
+  );
 
   String titulo(String v) => switch (v) {
     'resumen' => 'Dashboard', 'productos' => 'Productos',
