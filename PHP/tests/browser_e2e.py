@@ -135,8 +135,12 @@ def main():
         assert "image/" in respuesta_foto.headers.get("content-type", ""), (
             "La imagen guardada no tiene un MIME correcto"
         )
-        assert foto.evaluate("(img) => img.complete && img.naturalWidth > 0"), (
-            "La fotografía no se visualiza realmente desde el navegador"
+        # Esperar la decodificación de la imagen: visible no implica cargada.
+        # Fallará si la fotografía no puede decodificarse dentro del plazo.
+        page.wait_for_function(
+            "(img) => img && img.complete && img.naturalWidth > 0",
+            arg=foto.element_handle(),
+            timeout=15000,
         )
         # Flutter consume la misma API pública: comprobar que recibe la URL
         # guardada en MySQL, el nombre correcto y el stock del administrador.
