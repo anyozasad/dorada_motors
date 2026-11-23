@@ -1,8 +1,10 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures, use_null_aware_elements
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
@@ -74,6 +76,47 @@ class AdminMobileApi {
           'HTTP ' + response.statusCode.toString());
     }
     return result;
+  }
+
+
+  static Future<String> subirFotografia(XFile foto) async {
+    final bytes = await foto.readAsBytes();
+    if (bytes.isEmpty || bytes.length > 3 * 1024 * 1024) {
+      throw StateError('La fotografía debe pesar menos de 3 MB');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(keyToken) ?? '';
+    if (token.isEmpty || prefs.getString(keyUrl) != ApiService.baseUrl) {
+      throw const AdminMobileUnauthorized('Inicia sesión como administrador');
+    }
+    final peticion = http.MultipartRequest('POST',
+        Uri.parse(ApiService.baseUrl + '/admin_movil.php'));
+    peticion.headers['Accept'] = 'application/json';
+    peticion.headers['Authorization'] = 'Bearer ' + token;
+    peticion.fields['accion'] = 'imagen_producto';
+    peticion.files.add(http.MultipartFile.fromBytes('imagen', bytes,
+        filename: foto.name));
+    final enviada = await peticion.send().timeout(const Duration(seconds: 25));
+    final response = await http.Response.fromStream(enviada);
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw StateError('No se pudo leer la respuesta de subida');
+    }
+    if (decoded is! Map) throw StateError('Respuesta de imagen inválida');
+    if (response.statusCode == 401) {
+      throw const AdminMobileUnauthorized('Vuelve a iniciar sesión');
+    }
+    if (response.statusCode != 200 || decoded['estado'] != true) {
+      throw StateError(decoded['mensaje']?.toString() ??
+          'No se pudo subir la fotografía');
+    }
+    final ruta = decoded['imagen_url']?.toString() ?? '';
+    if (!ruta.startsWith('uploads/productos/')) {
+      throw StateError('El servidor no guardó la ruta de imagen');
+    }
+    return ruta;
   }
 
   static Future<void> ingresar(String email, String pass) async {
@@ -1087,6 +1130,46 @@ class _ProductoEditor extends StatefulWidget {
 class _ProductoEditorState extends State<_ProductoEditor> {
   final form = GlobalKey<FormState>();
   late final Map<String, dynamic> valores;
+  XFile? fotoNueva;
+  Uint8List? imagenPrevia;
+  bool subiendo = false;
+
+  Future<void> elegirFoto() async {
+    try {
+      final archivo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1400,
+        imageQuality: 83,
+      );
+      if (archivo == null) return;
+      final bytes = await archivo.readAsBytes();
+      if (bytes.length > 3 * 1024 * 1024) {
+        throw StateError('La foto debe ser menor de 3 MB');
+      }
+      if (!mounted) return;
+      setState(() { fotoNueva = archivo; imagenPrevia = bytes; });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> guardarProducto() async {
+    if (subiendo || !(form.currentState?.validate() ?? false)) return;
+    setState(() => subiendo = true);
+    try {
+      if (fotoNueva != null) {
+        valores['imagen_url'] = await AdminMobileApi.subirFotografia(fotoNueva!);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop(valores);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Bad state: ', ''))));
+    } finally {
+      if (mounted) setState(() => subiendo = false);
+    }
+  }
 
   @override
   void initState() {
@@ -1180,18 +1263,30 @@ class _ProductoEditorState extends State<_ProductoEditor> {
                 campo('Descripción', 'descripcion'),
                 campo('Tipo de vehículo', 'tipo_vehiculo'),
                 campo('Compatibilidad', 'compatibilidad'),
-                campo('Ruta de imagen', 'imagen_url'),
+                const SizedBox(height: 8),
+                if (imagenPrevia != null) ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(imagenPrevia!,
+                    height: 148, fit: BoxFit.contain),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: subiendo ? null : elegirFoto,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(fotoNueva == null
+                    ? 'Elegir fotografía de la galería'
+                    : 'Cambiar fotografía seleccionada'),
+                ),
+                const SizedBox(height: 10),
+                campo('Ruta de imagen existente (opcional)', 'imagen_url'),
               ]))),
           const SizedBox(height: 8),
           SizedBox(width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () {
-                  if (form.currentState?.validate() ?? false) {
-                    Navigator.pop(context, valores);
-                  }
-                },
+                onPressed: subiendo ? null : guardarProducto,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Guardar en MySQL'))),
+                label: Text(subiendo
+                  ? 'Subiendo fotografía...' : 'Guardar en MySQL'))),
         ])),
       ),
     ));
