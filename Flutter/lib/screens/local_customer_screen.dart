@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_interpolation_to_compose_strings
+// ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures, unnecessary_underscores
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
