@@ -523,7 +523,6 @@ class _AdminMobileDashboardScreenState
                 style: const TextStyle(fontWeight: FontWeight.w900)),
             ],
           ))),
-        ),
         actions: [FilledButton(onPressed: () => Navigator.pop(ctx),
           child: const Text('Cerrar'))],
       ));
