@@ -223,7 +223,7 @@ class _AdminMobileOrderFormState extends State<AdminMobileOrderForm> {
           SizedBox(width: double.infinity, child: FilledButton.icon(
             onPressed: cargando ? null : guardar,
             icon: const Icon(Icons.save_outlined),
-            label: const Text('Guardar pedido en MySQL'))),
+            label: const Text('Guardar pedido'))),
         ])),
       ),
     ),
