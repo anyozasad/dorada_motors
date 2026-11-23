@@ -2604,7 +2604,7 @@ select:focus-visible,textarea:focus-visible{
 .cashflow-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#65c982)}
 @media(max-width:620px){.cashflow-strip{grid-template-columns:1fr}.cashflow-amount{font-size:22px}}
 </style>
-<link rel="stylesheet" href="dashboard_profesional_2026.css?v=4">
+<link rel="stylesheet" href="dashboard_profesional_2026.css?v=5">
 </head>
 <body>
 
@@ -2693,7 +2693,7 @@ select:focus-visible,textarea:focus-visible{
  <div class="top-title" id="topTitle">Dashboard</div>
  <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar en la sección actual..."><kbd>Ctrl K</kbd></div>
  <div class="top-actions">
-  <button type="button" class="icon-btn" id="refreshAllBtn" title="Actualizar datos desde MySQL" aria-label="Actualizar datos desde MySQL">↻</button>
+  <button type="button" class="icon-btn" id="refreshAllBtn" title="Actualizar datos desde MySQL" aria-label="Actualizar datos desde MySQL"><span aria-hidden="true">↻</span><span class="top-action-label">Actualizar</span></button>
   <div class="notify-wrap">
    <button type="button" class="icon-btn" id="notiBtn" title="Notificaciones" aria-label="Abrir notificaciones" aria-controls="notifyMenu" aria-expanded="false">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes+$totalSoportePendiente)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes+$totalSoportePendiente ?></span></button>
    <div class="notify-menu" id="notifyMenu">
@@ -2705,7 +2705,7 @@ select:focus-visible,textarea:focus-visible{
    </div>
   </div>
   <a class="admin" href="<?= puede("configuracion") ? "#configuracion" : "#inicio" ?>" title="Cuenta administrativa"><div class="avatar"><?= h($inicialesAdmin) ?></div><div><strong><?= h($adminNombre) ?></strong><small><?= h($adminRol) ?></small></div></a>
-  <a class="icon-btn" href="admin_logout.php" title="Cerrar sesión">↪</a>
+  <a class="icon-btn signout-action" href="admin_logout.php" title="Cerrar sesión" aria-label="Cerrar sesión">Salir</a>
 
  </div>
 </header>
@@ -2918,7 +2918,7 @@ select:focus-visible,textarea:focus-visible{
    </td>
    <td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price"><?php if(!empty($p["precio_oferta"])): ?><small class="table-sub" style="text-decoration:line-through">S/ <?= number_format((float)$p["precio"],2) ?></small>S/ <?= number_format((float)$p["precio_oferta"],2) ?><?php else: ?>S/ <?= number_format((float)$p["precio"],2) ?><?php endif; ?></td>
    <td><span class="stock <?= $sc ?>"><?= $s ?></span></td><td><?= $min ?></td>
-   <td><div class="actions"><a class="action-btn edit" title="Editar producto" aria-label="Editar <?= h($p["nombre_producto"]) ?>" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">✎</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button type="submit" class="action-btn delete" title="Eliminar producto" aria-label="Eliminar <?= h($p["nombre_producto"]) ?>" name="eliminar_producto">⌫</button></form></div></td>
+   <td><div class="actions"><a class="btn btn-light btn-small" title="Editar producto" aria-label="Editar <?= h($p["nombre_producto"]) ?>" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button type="submit" class="btn btn-danger btn-small" title="Eliminar producto" aria-label="Eliminar <?= h($p["nombre_producto"]) ?>" name="eliminar_producto">Eliminar</button></form></div></td>
   </tr>
  <?php endforeach; ?>
  </tbody></table></div>
