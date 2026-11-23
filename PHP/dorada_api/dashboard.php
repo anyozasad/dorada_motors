@@ -1754,6 +1754,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         /* ================= CONFIGURACIÓN ================= */
+        redir("No se reconoció esta acción. Recarga la página e inténtalo otra vez.", "error", "inicio");
 
     } catch (Throwable $e) {
         $mensaje = "Error: " . $e->getMessage();
@@ -2603,7 +2604,7 @@ select:focus-visible,textarea:focus-visible{
 .cashflow-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#65c982)}
 @media(max-width:620px){.cashflow-strip{grid-template-columns:1fr}.cashflow-amount{font-size:22px}}
 </style>
-<link rel="stylesheet" href="dashboard_profesional_2026.css?v=2">
+<link rel="stylesheet" href="dashboard_profesional_2026.css?v=3">
 </head>
 <body>
 
@@ -2789,7 +2790,7 @@ select:focus-visible,textarea:focus-visible{
   </tbody></table></div>
  </article>
  <article class="card">
-  <div class="card-head"><h2>Productos más vendidos</h2><a href="#gestion-productos">Ver productos →</a></div>
+  <div class="card-head"><h2>Productos más vendidos</h2><a href="<?= puede("gestion-productos") ? "#gestion-productos" : "#reportes" ?>">Ver productos →</a></div>
   <div class="top-list" id="listaTopProductos">
    <?php if(!$masVendidos): ?><p style="font-size:12px;color:#718096">No hay datos.</p><?php else: foreach($masVendidos as $i=>$prod): ?>
    <div class="top-product"><div class="rank"><?= $i+1 ?></div><strong><?= h($prod["nombre_producto"]) ?></strong><span><?= (int)$prod["vendidos"] ?> vendidos</span></div>
@@ -2802,15 +2803,15 @@ select:focus-visible,textarea:focus-visible{
  <article class="card">
   <div class="card-head"><h2>Acciones rápidas</h2><span class="badge">1 clic</span></div>
   <div class="quick-actions quick-actions-clean">
-   <?php if(puede("gestion-productos")): ?><a class="quick blue" href="#gestion-productos">📦<span>Nuevo producto</span></a><?php endif; ?>
-   <?php if(puede("pedidos")): ?><a class="quick purple" href="#pedidos">🛒<span>Gestionar pedidos</span></a><?php endif; ?>
-   <?php if(puede("compras")): ?><a class="quick gold" href="#compras">＋<span>Registrar compra</span></a><?php endif; ?>
-   <?php if(puede("inventario")): ?><a class="quick green" href="#inventario">↕<span>Ajustar stock</span></a><?php endif; ?>
+   <?php if(puede("gestion-productos")): ?><a class="quick blue" href="#gestion-productos" data-focus=".product-form input[name='nombre_producto']">📦<span>Nuevo producto</span></a><?php endif; ?>
+   <?php if(puede("pedidos")): ?><a class="quick purple" href="#pedidos" data-focus="#filtroEstadoPedido">🛒<span>Gestionar pedidos</span></a><?php endif; ?>
+   <?php if(puede("compras")): ?><a class="quick gold" href="#compras" data-focus="select[name='id_proveedor_compra']">＋<span>Registrar compra</span></a><?php endif; ?>
+   <?php if(puede("inventario")): ?><a class="quick green" href="#inventario" data-focus="select[name='id_producto_stock']">↕<span>Ajustar stock</span></a><?php endif; ?>
   </div>
  </article>
 
  <article class="card">
-  <div class="card-head"><h2>Stock bajo / alertas</h2><a href="#inventario">Ver inventario →</a></div>
+  <div class="card-head"><h2>Stock bajo / alertas</h2><a href="<?= puede("inventario") ? "#inventario" : "#reportes" ?>">Ver inventario →</a></div>
   <div class="compact-list" id="listaStockAlertas">
    <?php if(!$productosStockBajo): ?><div class="empty-state">✓ Todo el inventario está en buen nivel.</div><?php else: foreach(array_slice($productosStockBajo,0,5) as $sb): ?>
     <a href="#inventario" class="compact-row"><span class="product-dot"></span><div><strong><?= h($sb["nombre_producto"]) ?></strong><small>Stock actual</small></div><b class="<?= (int)$sb["stock"]<=2?"critical-text":"warning-text" ?>"><?= (int)$sb["stock"] ?></b></a>
@@ -2819,7 +2820,7 @@ select:focus-visible,textarea:focus-visible{
  </article>
 
  <article class="card">
-  <div class="card-head"><h2>Últimos pagos</h2><a href="#pagos">Ver todos →</a></div>
+  <div class="card-head"><h2>Últimos pagos</h2><a href="<?= puede("pagos") ? "#pagos" : "#reportes" ?>">Ver todos →</a></div>
   <div class="compact-list" id="listaPagosRecientes">
    <?php if(!$pagos): ?><div class="empty-state">Aún no hay pagos registrados.</div><?php else: foreach(array_slice($pagos,0,5) as $pg): ?>
     <a href="#pagos" class="compact-row"><span class="payment-dot">S/</span><div><strong><?= h($pg["nombres"]." ".$pg["apellidos"]) ?></strong><small><?= h($pg["metodo_pago"]) ?> · <?= h($pg["estado_pago"]) ?></small></div><b>S/ <?= number_format((float)$pg["monto"],2) ?></b></a>
@@ -2997,7 +2998,7 @@ select:focus-visible,textarea:focus-visible{
  <details class="detail-card" style="margin-bottom:16px">
   <summary style="cursor:pointer;font-weight:900">+ Registrar nuevo pedido</summary>
   <form method="POST" class="form-grid" style="margin-top:14px">
-   <div class="field"><label>CLIENTE</label><select name="id_usuario_pedido" required><option value="">Seleccione cliente</option><?php foreach($usuarios as $usr): if(($usr["estado"]??"Activo")!=="Activo") continue; ?><option value="<?= h($usr["id_usuario"]) ?>"><?= h($usr["nombres"]." ".$usr["apellidos"]) ?> — <?= h($usr["correo"]) ?></option><?php endforeach; ?></select></div>
+   <div class="field"><label>CLIENTE</label><select name="id_usuario_pedido" id="clientePedidoSelect" required><option value="">Seleccione cliente</option><?php foreach($usuarios as $usr): if(($usr["estado"]??"Activo")!=="Activo") continue; ?><option value="<?= h($usr["id_usuario"]) ?>"><?= h($usr["nombres"]." ".$usr["apellidos"]) ?> — <?= h($usr["correo"]) ?></option><?php endforeach; ?></select></div>
    <div class="field full"><label>PRODUCTOS DEL PEDIDO</label>
     <div id="pedidoItems">
      <div class="line-item-row">
@@ -3008,8 +3009,8 @@ select:focus-visible,textarea:focus-visible{
     </div>
     <button type="button" class="btn btn-light btn-small" style="margin-top:8px" onclick="agregarLineaPedido()">+ Agregar otro producto</button>
    </div>
-   <div class="field"><label>ENTREGA</label><select name="tipo_entrega_pedido"><option value="Recojo en tienda">Recojo en tienda</option><option value="Delivery">Delivery</option></select></div>
-   <div class="field"><label>DIRECCIÓN PARA DELIVERY</label><select name="id_direccion_pedido"><option value="0">No aplica / Recojo en tienda</option><?php foreach($direcciones as $dir): ?><option value="<?= h($dir["id_direccion"]) ?>">#<?= h($dir["id_usuario"]) ?> — <?= h($dir["nombres"]." ".$dir["apellidos"]) ?> — <?= h($dir["direccion_detalle"]) ?></option><?php endforeach; ?></select></div>
+   <div class="field"><label>ENTREGA</label><select name="tipo_entrega_pedido" id="entregaPedidoSelect"><option value="Recojo en tienda">Recojo en tienda</option><option value="Delivery">Delivery</option></select></div>
+   <div class="field"><label>DIRECCIÓN PARA DELIVERY</label><select name="id_direccion_pedido" id="direccionPedidoSelect" aria-describedby="ayudaDireccionPedido"><option value="0">No aplica / Recojo en tienda</option><?php foreach($direcciones as $dir): ?><option value="<?= h($dir["id_direccion"]) ?>" data-cliente="<?= (int)$dir["id_usuario"] ?>">#<?= h($dir["id_usuario"]) ?> — <?= h($dir["nombres"]." ".$dir["apellidos"]) ?> — <?= h($dir["direccion_detalle"]) ?></option><?php endforeach; ?></select><small id="ayudaDireccionPedido">Elige primero el cliente y el tipo de entrega.</small></div>
    <div class="field"><label>MÉTODO DE PAGO</label><select name="metodo_pago_pedido"><option>Efectivo</option><option>Yape</option><option>Plin</option><option>Transferencia</option></select></div>
    <div class="form-actions"><button class="btn btn-primary" name="registrar_pedido_manual">Registrar pedido</button></div>
   </form>
@@ -3444,6 +3445,45 @@ const filtroCategoriaProducto=document.getElementById('filtroCategoriaProducto')
 const filtroStockProducto=document.getElementById('filtroStockProducto');
 const filtroEstadoPedido=document.getElementById('filtroEstadoPedido');
 
+// Evitar direcciones de otro cliente al registrar pedidos.
+const clientePedidoSelect=document.getElementById('clientePedidoSelect');
+const entregaPedidoSelect=document.getElementById('entregaPedidoSelect');
+const direccionPedidoSelect=document.getElementById('direccionPedidoSelect');
+function actualizarDireccionPedido(){
+ if(!clientePedidoSelect || !entregaPedidoSelect || !direccionPedidoSelect) return;
+ const cliente=clientePedidoSelect.value;
+ const delivery=entregaPedidoSelect.value==='Delivery';
+ let disponibles=0;
+ [...direccionPedidoSelect.options].forEach(opcion=>{
+  if(opcion.value==='0') return;
+  const permitida=cliente!=='' && opcion.dataset.cliente===cliente;
+  opcion.disabled=!permitida;
+  opcion.hidden=!permitida;
+  if(permitida) disponibles++;
+ });
+ if(!delivery){
+  direccionPedidoSelect.value='0';
+  direccionPedidoSelect.disabled=true;
+  direccionPedidoSelect.setCustomValidity('');
+ }else{
+  direccionPedidoSelect.disabled=false;
+  const elegida=[...direccionPedidoSelect.options].find(o=>o.value===direccionPedidoSelect.value && !o.disabled);
+  if(!elegida) direccionPedidoSelect.value='0';
+  direccionPedidoSelect.setCustomValidity(direccionPedidoSelect.value==='0'
+   ? (disponibles===0?'Registra primero una dirección para este cliente.':'Selecciona una dirección del cliente.') : '');
+ }
+ const ayuda=document.getElementById('ayudaDireccionPedido');
+ if(ayuda) ayuda.textContent=!delivery
+  ? 'Recojo en tienda: no necesitas dirección.'
+  : disponibles===0
+    ? 'Este cliente no tiene dirección. Regístrala en Clientes > Direcciones.'
+    : 'Elige una de las '+disponibles+' direcciones registradas para este cliente.';
+}
+clientePedidoSelect?.addEventListener('change',actualizarDireccionPedido);
+entregaPedidoSelect?.addEventListener('change',actualizarDireccionPedido);
+direccionPedidoSelect?.addEventListener('change',actualizarDireccionPedido);
+actualizarDireccionPedido();
+
 document.querySelectorAll('form[method="POST"],form[method="post"]').forEach(form=>{
  if(!form.querySelector('input[name="csrf_token"]')){
   const input=document.createElement('input');
@@ -3546,6 +3586,19 @@ function renderTabla(tabla,reset=false){
  if(tabla._pagina<totalPaginas) pag.appendChild(crearBoton('›',tabla._pagina+1));
 }
 
+function rotularTablas(){
+ document.querySelectorAll('.table-wrap table').forEach(tabla=>{
+  const etiquetas=[...tabla.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+  tabla.querySelectorAll('tbody tr').forEach(fila=>{
+   if(fila.cells.length===1 && fila.cells[0].colSpan>1) return;
+   [...fila.cells].forEach((celda,i)=>{
+    if(celda.tagName==='TD' && etiquetas[i] && !celda.dataset.label)
+     celda.dataset.label=etiquetas[i];
+   });
+  });
+ });
+}
+rotularTablas();
 function refrescarTablas(reset=true){
  const activo=document.querySelector('.page-panel.active');
  if(!activo) return;
@@ -3588,10 +3641,18 @@ function mostrarPanel(id,actualizarHash=true){
 document.querySelectorAll('a[href^="#"]').forEach(a=>{
  a.addEventListener('click',e=>{
   const id=a.getAttribute('href').substring(1);
-  if(document.getElementById(id)){
+  if([...panels].some(p=>p.id===id)){
    e.preventDefault();
    mostrarPanel(id,true);
    document.getElementById('notifyMenu')?.classList.remove('show');
+   notiBtn?.setAttribute('aria-expanded','false');
+   if(a.dataset.focus) setTimeout(()=>{
+    const campo=document.getElementById(id)?.querySelector(a.dataset.focus);
+    if(!campo) return;
+    campo.closest('details')?.setAttribute('open','');
+    campo.scrollIntoView({behavior:'smooth',block:'center'});
+    campo.focus({preventScroll:true});
+   },130);
   }
  });
 });
@@ -3916,6 +3977,7 @@ async function actualizarDashboardEnVivo(manual=false){
   renderTopProductos(data.productos_mas_vendidos);
   renderStockAlertas(data.alertas_stock);
   renderPagosRecientes(data.pagos_recientes);
+  rotularTablas();
 
   const estado=document.getElementById('liveStatus');
   if(estado && !cambiaronDatos){
