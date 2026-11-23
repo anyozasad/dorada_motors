@@ -20,6 +20,8 @@ $resultado = [
     "columnas_usuario" => 0,
     "columnas_usuario_requeridas" => 2,
     "escritura" => false,
+    "columnas_criticas_verificadas" => 0,
+    "columnas_faltantes" => [],
     "mensaje" => ""
 ];
 
@@ -69,6 +71,48 @@ try {
     }
     $resultado["columnas_usuario"] = $columnasUsuarioEncontradas;
 
+    // Un dashboard puede mostrar 18 tablas y aún fallar por columnas
+    // faltantes en una instalación antigua. Informar qué reparación falta.
+    $criticas = [
+        "usuario" => ["id_usuario","nombres","apellidos","correo","contrasena",
+            "telefono","estado","rol_sistema"],
+        "producto" => ["id_producto","id_categoria","id_marca","nombre_producto",
+            "precio","precio_oferta","stock","stock_minimo","imagen_url"],
+        "pedido" => ["id_pedido","id_usuario","fecha_pedido","estado_pedido",
+            "total","tipo_entrega"],
+        "detalle_pedido" => ["id_detalle","id_pedido","id_producto",
+            "cantidad","precio_unitario","subtotal"],
+        "pago" => ["id_pago","id_pedido","metodo_pago","monto","estado_pago"],
+        "proveedor" => ["id_proveedor","razon_social","estado"],
+        "compra" => ["id_compra","id_proveedor","total","estado"],
+        "detalle_compra" => ["id_compra","id_producto","cantidad","precio_compra","subtotal"],
+        "movimiento_stock" => ["id_movimiento","id_producto","cantidad",
+            "stock_anterior","stock_nuevo"],
+        "comprobante" => ["id_comprobante","id_pedido","tipo_comprobante",
+            "numero_comprobante","subtotal","igv","total"],
+    ];
+    $resultado["columnas_criticas_verificadas"] = array_sum(
+        array_map("count", $criticas)
+    );
+    $columnasExistentes = [];
+    $columnasSQL = $conexion->query(
+        "SELECT TABLE_NAME,COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " .
+        "WHERE TABLE_SCHEMA=DATABASE()"
+    );
+    if (!$columnasSQL) {
+        throw new RuntimeException("No se pudo consultar el esquema de MySQL.");
+    }
+    while ($filaCol = $columnasSQL->fetch_assoc()) {
+        $columnasExistentes[$filaCol["TABLE_NAME"]][$filaCol["COLUMN_NAME"]] = true;
+    }
+    foreach ($criticas as $tabla => $nombres) {
+        foreach ($nombres as $nombre) {
+            if (!isset($columnasExistentes[$tabla][$nombre])) {
+                $resultado["columnas_faltantes"][] = "$tabla.$nombre";
+            }
+        }
+    }
+
     // Prueba real de escritura SIN dejar datos:
     // se inserta una categoría temporal dentro de una transacción y luego se revierte.
     $conexion->begin_transaction();
@@ -89,15 +133,16 @@ try {
 
     $resultado["estado"] =
         $resultado["conexion_mysql"] &&
-        $resultado["base_datos"] === "dorada_motors" &&
+        $resultado["base_datos"] === (getenv("DB_NAME") ?: "dorada_motors") &&
         $resultado["tablas_encontradas"] === 18 &&
         $resultado["columnas_producto"] === 4 &&
         $resultado["columnas_usuario"] === 2 &&
+        count($resultado["columnas_faltantes"]) === 0 &&
         $resultado["escritura"];
 
     $resultado["mensaje"] = $resultado["estado"]
-        ? "Conexión correcta: PHP puede leer y guardar datos en dorada_motors."
-        : "La conexión existe, pero falta revisar la estructura de la base de datos.";
+        ? "Conexión correcta: PHP puede leer y guardar datos sin pérdida en MySQL."
+        : "La conexión existe, pero falta completar tablas o columnas de la base de datos.";
 
 } catch (Throwable $e) {
     if ($conexion instanceof mysqli) {
@@ -107,4 +152,7 @@ try {
     $resultado["mensaje"] = "Error de verificación: " . $e->getMessage();
 }
 
+if (!$resultado["estado"]) {
+    http_response_code(503);
+}
 echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
