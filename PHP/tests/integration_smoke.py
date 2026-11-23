@@ -1530,7 +1530,8 @@ def main():
     estado_api = api("conexion_estado.php")
     assert estado_api["estado"] is True
     assert estado_api["api"] == "dorada_motors"
-    assert int(estado_api["tablas_verificadas"]) >= 10
+    assert int(estado_api["tablas_verificadas"]) == 18, estado_api
+    assert int(estado_api["columnas_verificadas"]) >= 50, estado_api
     assert api("conexion_estado.php", method="POST", status=405)["estado"] is False
     print("OK: APK apunta a la API Dorada Motors y tablas reales de MySQL.")
     assert isinstance(productos, list) and len(productos) >= 19, productos
