@@ -564,6 +564,9 @@ class _AdminMobileDashboardScreenState
     'pedidos' => 'Pedidos', 'pagos' => 'Pagos',
     'inventario' => 'Inventario', 'clientes' => 'Clientes',
     'proveedores' => 'Proveedores', 'reportes' => 'Reportes',
+    'categorias' => 'Categorías', 'marcas' => 'Marcas',
+    'compras' => 'Compras', 'comprobantes' => 'Comprobantes',
+    'soporte' => 'Soporte', 'configuracion' => 'Configuración',
     _ => 'Más módulos',
   };
 
@@ -695,15 +698,29 @@ class _AdminMobileDashboardScreenState
 
   List<Widget> contenido() {
     if (vista == 'mas') return [
-      encabezado('Opciones de administrador', 'Módulos permitidos por tu rol.'),
+      encabezado('Opciones de administrador',
+          'Módulos conectados a la misma base de datos de PHP.'),
+      if (permitido('productos')) modulo('Categorías',
+          'Agregar, editar o eliminar', Icons.category_outlined, 'categorias'),
+      if (permitido('productos')) modulo('Marcas',
+          'Agregar, editar o eliminar', Icons.sell_outlined, 'marcas'),
       if (permitido('clientes')) modulo('Clientes',
-          'Cuentas registradas', Icons.people_outline, 'clientes'),
+          'Cuentas y estados', Icons.people_outline, 'clientes'),
+      if (permitido('clientes')) modulo('Soporte',
+          'Consultas de clientes', Icons.support_agent_outlined, 'soporte'),
       if (permitido('inventario')) modulo('Kardex',
-          'Historial de stock', Icons.warehouse_outlined, 'inventario'),
+          'Movimientos de stock', Icons.warehouse_outlined, 'inventario'),
+      if (permitido('inventario')) modulo('Compras',
+          'Historial de proveedores', Icons.shopping_cart_outlined, 'compras'),
       if (permitido('proveedores')) modulo('Proveedores',
-          'Directorio', Icons.local_shipping_outlined, 'proveedores'),
+          'Gestionar proveedores', Icons.local_shipping_outlined, 'proveedores'),
+      modulo('Comprobantes', 'Boletas y facturas de demostración',
+          Icons.description_outlined, 'comprobantes'),
       if (permitido('reportes')) modulo('Reportes',
           'Ventas y más vendidos', Icons.bar_chart, 'reportes'),
+      if (rol == 'Administrador') modulo('Configuración',
+          'Datos de empresa y delivery', Icons.settings_outlined,
+          'configuracion'),
     ];
     if (vista == 'resumen') {
       final r = datos['resumen'] is Map
@@ -798,17 +815,47 @@ class _AdminMobileDashboardScreenState
               }, child: const Text('Confirmar cobro')) : null),
       if (items.isEmpty) const Text('No hay pagos.'),
     ];
+    if (vista == 'categorias' || vista == 'marcas') {
+      final tipo = vista == 'categorias' ? 'categoria' : 'marca';
+      final nombreCampo = tipo == 'categoria'
+          ? 'nombre_categoria' : 'nombre_marca';
+      final idCampo = tipo == 'categoria' ? 'id_categoria' : 'id_marca';
+      return [
+        encabezado(titulo(vista), 'Registros disponibles para los productos.'),
+        botonAgregar('Agregar ' + tipo,
+            () => guardarCatalogo(tipo)),
+        for (final item in items) Card(child: ListTile(
+          title: Text(item[nombreCampo]?.toString() ?? ''),
+          subtitle: Text('Código ' + item[idCampo].toString()),
+          trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Editar',
+              onPressed: guardando ? null : () => guardarCatalogo(tipo, item)),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Eliminar',
+              onPressed: guardando ? null : () => eliminarCatalogo(tipo, item)),
+          ]),
+        )),
+        if (items.isEmpty) const Text('No hay registros.'),
+      ];
+    }
     if (vista == 'clientes') return [
-      encabezado('Clientes', 'Cuentas registradas.'),
+      encabezado('Clientes', 'Cuentas reales. Activa o bloquea el acceso.'),
       for (final p in items) registro(
         p['nombres'].toString() + ' ' + p['apellidos'].toString(),
         p['correo'].toString() + '\n' +
         p['telefono'].toString() + ' · ' + p['estado'].toString(),
-        Icons.person_outline, cifra: 'ID ' + p['id_usuario'].toString()),
+        Icons.person_outline, cifra: 'ID ' + p['id_usuario'].toString(),
+        accion: TextButton(
+          onPressed: guardando ? null : () => cambiarEstadoCliente(p),
+          child: Text(p['estado'] == 'Activo' ? 'Bloquear' : 'Activar'))),
       if (items.isEmpty) const Text('No hay clientes.'),
     ];
     if (vista == 'inventario') return [
-      encabezado('Kardex', 'Movimientos reales de stock.'),
+      encabezado('Kardex', 'Stock anterior, stock nuevo y motivo del cambio.'),
+      botonAgregar('Registrar entrada o salida', moverInventario),
       for (final p in items) registro(
         p['nombre_producto'].toString(),
         p['tipo_movimiento'].toString() + ' · ' +
@@ -820,15 +867,87 @@ class _AdminMobileDashboardScreenState
       if (items.isEmpty) const Text('Sin movimientos.'),
     ];
     if (vista == 'proveedores') return [
-      encabezado('Proveedores', 'Directorio en MySQL.'),
-      for (final p in items) registro(
-        p['razon_social'].toString(),
-        (p['ruc']?.toString() ?? '') + ' · ' +
-        (p['telefono']?.toString() ?? '') + '\n' +
-        (p['correo']?.toString() ?? '') + ' · ' +
-        p['estado'].toString(), Icons.local_shipping_outlined),
+      encabezado('Proveedores', 'Registrar o actualizar datos de MySQL.'),
+      botonAgregar('Nuevo proveedor', () => guardarProveedor()),
+      for (final p in items) Card(child: Column(children: [
+        ListTile(
+          title: Text(p['razon_social']?.toString() ?? ''),
+          subtitle: Text((p['ruc']?.toString() ?? '') + ' · ' +
+            (p['telefono']?.toString() ?? '') + '\n' +
+            (p['correo']?.toString() ?? '') + ' · ' +
+            p['estado'].toString()),
+        ),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton.icon(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: guardando ? null : () => guardarProveedor(p),
+            label: const Text('Editar')),
+          TextButton.icon(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: guardando ? null : () => eliminarProveedor(p),
+            label: const Text('Eliminar')),
+        ]),
+      ])),
       if (items.isEmpty) const Text('No hay proveedores.'),
     ];
+    if (vista == 'compras') return [
+      encabezado('Compras a proveedores',
+          'Historial registrado en MySQL; los registros nuevos se '
+          'gestionan desde el panel PHP.'),
+      for (final p in items) registro(
+        'Compra #' + p['id_compra'].toString() +
+        ' · ' + p['razon_social'].toString(),
+        p['estado'].toString() + ' · ' + p['fecha_compra'].toString(),
+        Icons.shopping_cart_outlined, cifra: 'S/ ' + p['total'].toString()),
+      if (items.isEmpty) const Text('Aún no hay compras.'),
+    ];
+    if (vista == 'comprobantes') return [
+      encabezado('Comprobantes',
+          'Boletas y facturas de demostración emitidas en PHP.'),
+      for (final p in items) registro(
+        p['tipo_comprobante'].toString() +
+        ' ' + p['numero_comprobante'].toString(),
+        'Pedido #' + p['id_pedido'].toString() + ' · ' +
+        p['nombres'].toString() + ' ' + p['apellidos'].toString() +
+        '\n' + p['fecha_emision'].toString(),
+        Icons.description_outlined, cifra: 'S/ ' + p['total'].toString()),
+      if (items.isEmpty) const Text('No hay comprobantes.'),
+    ];
+    if (vista == 'soporte') return [
+      encabezado('Atención al cliente',
+          'Responde las consultas recibidas desde la aplicación móvil.'),
+      for (final p in items) registro(
+        'Solicitud #' + p['id_solicitud'].toString() +
+        ' · ' + p['asunto'].toString(),
+        p['nombres'].toString() + ' ' + p['apellidos'].toString() +
+        '\n' + p['mensaje'].toString() +
+        '\nEstado: ' + p['estado'].toString() +
+        '\nRespuesta: ' + (p['respuesta']?.toString() ?? 'Pendiente'),
+        Icons.support_agent_outlined,
+        accion: TextButton(
+          onPressed: guardando ? null : () => responderSoporte(p),
+          child: const Text('Responder'))),
+      if (items.isEmpty) const Text('No hay consultas.'),
+    ];
+    if (vista == 'configuracion') {
+      final d = datos['configuracion'] is Map
+        ? Map<String, dynamic>.from(datos['configuracion'] as Map)
+        : <String, dynamic>{};
+      return [
+        encabezado('Configuración de la empresa',
+            'Los valores se usan también en el checkout del cliente.'),
+        registro(d['nombre_comercial']?.toString() ?? 'Dorada Motors',
+            'Razón social: ' + (d['razon_social']?.toString() ?? '') +
+            '\nIGV: ' + (d['igv']?.toString() ?? '-') + '%' +
+            ' · Delivery: S/ ' + (d['costo_delivery']?.toString() ?? '-'),
+            Icons.store_outlined),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: guardando ? null : guardarEmpresa,
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Editar datos de la empresa')),
+      ];
+    }
     if (vista == 'reportes') {
       final diario = ((datos['diario'] as List?) ?? const []).whereType<Map>();
       final top = ((datos['top'] as List?) ?? const []).whereType<Map>();
