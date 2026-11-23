@@ -885,6 +885,60 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert api(f"productos.php?id={id_movil}")["imagen_url"] == ruta_subida
     print("OK APK ADMIN: imagen real subida, publicada y visible en API cliente.")
 
+    # Caja / venta manual desde el administrador Android.
+    stock_antes_venta = int(api(f"productos.php?id={id_movil}")["stock"])
+    pedido_mostrador = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pedido_manual", "id_usuario": id_nuevo_cliente,
+        "tipo_entrega": "Recojo en tienda", "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_movil, "cantidad": 2}],
+    })
+    id_venta_manual = int(pedido_mostrador["id_pedido"])
+    total_venta_manual = float(pedido_mostrador["total"])
+    assert total_venta_manual > 5
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_antes_venta - 2
+    detalle_manual = api("admin_movil.php?vista=pedido_detalle&id_pedido=" +
+                         str(id_venta_manual), token=token_admin)
+    assert int(detalle_manual["pedido"]["id_usuario"]) == id_nuevo_cliente
+    assert len(detalle_manual["lineas"]) == 1
+    assert int(detalle_manual["lineas"][0]["cantidad"]) == 2
+    assert detalle_manual["pagos"][0]["estado_pago"] == "Pendiente"
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pedido_manual", "id_usuario": id_nuevo_cliente,
+        "tipo_entrega": "Recojo en tienda", "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_movil, "cantidad": stock_antes_venta + 100}],
+    }, status=409)["estado"] is False
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_antes_venta - 2
+    print("OK APK ADMIN: registrar venta manual, detalle y descuento de stock.")
+
+    # Abonos con balance financiero y prevención de sobrepago.
+    abono = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pago_manual", "id_pedido": id_venta_manual,
+        "monto": 5.00, "metodo_pago": "Yape", "estado_pago": "Pagado",
+    })
+    id_abono_manual = int(abono["id_pago"])
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pago_manual", "id_pedido": id_venta_manual,
+        "monto": total_venta_manual, "metodo_pago": "Plin",
+        "estado_pago": "Pagado",
+    }, status=409)["estado"] is False
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pago_estado", "id_pago": id_abono_manual,
+        "estado_pago": "Rechazado",
+    })["estado"] is True
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pago_estado", "id_pago": id_abono_manual,
+        "estado_pago": "Pagado",
+    })
+    restante = round(total_venta_manual - 5.0, 2)
+    segundo = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pago_manual", "id_pedido": id_venta_manual,
+        "monto": restante, "metodo_pago": "Efectivo", "estado_pago": "Pagado",
+    })
+    assert int(segundo["id_pago"]) != id_abono_manual
+    assert api("admin_movil.php?vista=pedido_detalle&id_pedido=" +
+               str(id_venta_manual), token=token_admin)["pedido"]["estado_pedido"] == "Pagado"
+    print("OK APK ADMIN: pagos, abonos, control de saldo y cambio de estado.")
+
     assert api("admin_movil.php", method="POST", token=token_admin,
                body={"accion": "logout"})["estado"] is True
     assert api("admin_movil.php?vista=resumen", token=token_admin,
