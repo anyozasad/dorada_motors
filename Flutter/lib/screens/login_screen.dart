@@ -8,6 +8,7 @@ import '../widgets/ui_motion.dart';
 import 'register_screen.dart';
 import 'admin_mobile_screen.dart';
 import 'admin_offline_login_screen.dart';
+import 'local_customer_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
@@ -93,6 +94,12 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(mensaje)),
       );
     }
+  }
+
+  Future<void> _openClienteLocal() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => const LocalCustomerScreen()));
   }
 
   Future<void> _openAdmin() async {
@@ -655,6 +662,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Continuar como invitado',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 11),
+                SizedBox(
+                  height: 51,
+                  child: FilledButton.icon(
+                    onPressed: _loading ? null : _openClienteLocal,
+                    icon: const Icon(Icons.storefront_outlined),
+                    label: const Text('Tienda del cliente sin internet'),
                   ),
                 ),
                 const SizedBox(height: 11),
