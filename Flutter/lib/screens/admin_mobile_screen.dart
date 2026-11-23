@@ -1185,7 +1185,7 @@ class _AdminMobileDashboardScreenState
                     maxLines:1,overflow:TextOverflow.ellipsis),
                   const SizedBox(height:4),
                   Container(width:34,
-                    height:82*(importes[i]/maximo).clamp(0.04,1.0),
+                    height:82.0*(importes[i]/maximo).clamp(0.04,1.0).toDouble(),
                     decoration:BoxDecoration(
                       color:AppColors.goldDark,
                       borderRadius:const BorderRadius.vertical(
