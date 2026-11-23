@@ -124,7 +124,7 @@ class _AdminMobileFormState extends State<AdminMobileForm> {
           SizedBox(width: double.infinity,
             child: FilledButton.icon(
               icon: const Icon(Icons.save_outlined),
-              label: const Text('Guardar en MySQL'),
+              label: const Text('Guardar cambios'),
               onPressed: () {
                 if (_form.currentState?.validate() ?? false) {
                   Navigator.of(context).pop(_values);
