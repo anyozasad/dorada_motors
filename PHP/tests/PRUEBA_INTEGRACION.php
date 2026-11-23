@@ -13,6 +13,32 @@ function ok(string $mensaje): void {
     echo "[OK] " . $mensaje . PHP_EOL;
 }
 
+// Nunca ejecutar pruebas de escritura contra tablas no transaccionales.
+// Si una instalación antigua de XAMPP usa MyISAM, ROLLBACK no deshace
+// inserciones y podría dejar clientes, pedidos o ventas de prueba reales.
+$tablasTransaccionales = [
+    "categoria","marca","usuario","direccion","producto","proveedor",
+    "compra","detalle_compra","movimiento_stock","pedido",
+    "detalle_pedido","pago","comprobante"
+];
+$metadata = $conexion->query(
+    "SELECT TABLE_NAME, ENGINE FROM INFORMATION_SCHEMA.TABLES " .
+    "WHERE TABLE_SCHEMA=DATABASE()"
+);
+$motores = [];
+while ($filaMotor = $metadata->fetch_assoc()) {
+    $motores[(string)$filaMotor["TABLE_NAME"]] =
+        strtoupper((string)($filaMotor["ENGINE"] ?? ""));
+}
+foreach ($tablasTransaccionales as $tablaPrueba) {
+    if (($motores[$tablaPrueba] ?? "") !== "INNODB") {
+        fallo(
+            "Prueba cancelada sin escribir datos: $tablaPrueba no utiliza InnoDB. " .
+            "Haz un respaldo y revisa el motor de tus tablas en phpMyAdmin."
+        );
+    }
+}
+
 $conexion->begin_transaction();
 
 try {
