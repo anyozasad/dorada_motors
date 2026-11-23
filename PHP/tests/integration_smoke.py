@@ -511,14 +511,70 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     csrf = match.group(1)
 
     # Primera instalación: crear un administrador desde el formulario real.
+    correo_admin_movil = f"admin-{uuid4().hex[:10]}@example.test"
     creada = admin_page(navegador, "admin_login.php", form={
         "csrf_token": csrf, "crear_admin_inicial": "1",
         "nombres": "Administración", "apellidos": "Pruebas",
-        "correo": f"admin-{uuid4().hex[:10]}@example.test",
+        "correo": correo_admin_movil,
         "contrasena": "ClaveAdmin_2026",
         "confirmar_contrasena": "ClaveAdmin_2026",
     })
     assert "YP-45678123" in creada, "No se muestra la referencia en pagos administrativos"
+
+    # El APK debe iniciar como administrador con el MISMO usuario que PHP.
+    assert api("admin_movil.php?vista=resumen", status=401)["estado"] is False
+    assert api("admin_movil.php?vista=resumen", token=token,
+               status=401)["estado"] is False, "Un cliente no puede ser admin"
+    acceso_movil = api("admin_movil.php", method="POST", body={
+        "accion": "login", "correo": correo_admin_movil,
+        "contrasena": "ClaveAdmin_2026"
+    })
+    token_admin = acceso_movil["token"]
+    assert len(token_admin) == 64
+    assert acceso_movil["usuario"]["rol_sistema"] == "Administrador"
+    assert api("admin_movil.php?vista=sesion", token=token_admin)["usuario"]["correo"] == correo_admin_movil
+    resumen_movil = api("admin_movil.php?vista=resumen", token=token_admin)
+    assert resumen_movil["estado"] is True and "productos" in resumen_movil["resumen"]
+    assert isinstance(api("admin_movil.php?vista=clientes", token=token_admin)["items"], list)
+    assert isinstance(api("admin_movil.php?vista=pedidos", token=token_admin)["items"], list)
+    assert isinstance(api("admin_movil.php?vista=pagos", token=token_admin)["items"], list)
+    assert isinstance(api("admin_movil.php?vista=inventario", token=token_admin)["items"], list)
+    assert isinstance(api("admin_movil.php?vista=reportes", token=token_admin)["diario"], list)
+    catalogos_movil = api("admin_movil.php?vista=catalogos", token=token_admin)
+    assert catalogos_movil["categorias"] and catalogos_movil["marcas"]
+    nuevo_movil = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "producto_guardar",
+        "nombre_producto": "Repuesto verificado en APK",
+        "id_producto": 0,
+        "id_categoria": catalogos_movil["categorias"][0]["id_categoria"],
+        "id_marca": catalogos_movil["marcas"][0]["id_marca"],
+        "precio": 36.5, "stock": 3, "stock_minimo": 1,
+        "descripcion": "Prueba de integración PHP y Flutter",
+        "tipo_vehiculo": "Motocicleta", "compatibilidad": "125cc",
+        "imagen_url": "assets/imagenes/01_kit_transmision_dtiex.png",
+    })
+    id_movil = int(nuevo_movil["id_producto"])
+    producto_movil = api(f"productos.php?id={id_movil}")
+    assert producto_movil["nombre_producto"] == "Repuesto verificado en APK"
+    assert int(producto_movil["stock"]) == 3
+    cambio_movil = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "producto_guardar",
+        **{k: producto_movil[k] for k in (
+            "nombre_producto", "id_categoria", "id_marca", "descripcion",
+            "tipo_vehiculo", "compatibilidad", "precio", "stock_minimo",
+            "imagen_url")},
+        "id_producto": id_movil, "stock": 5, "precio_oferta": "",
+    })
+    assert cambio_movil["estado"] is True
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == 5
+    assert api("admin_movil.php", method="POST", token=token,
+               body={"accion": "producto_guardar", "id_producto": id_movil},
+               status=401)["estado"] is False
+    assert api("admin_movil.php", method="POST", token=token_admin,
+               body={"accion": "logout"})["estado"] is True
+    assert api("admin_movil.php?vista=resumen", token=token_admin,
+               status=401)["estado"] is False
+    print("OK APK ADMIN: login compartido, permisos, productos, stock, consultas y cierre de sesión.")
     probar_revocacion_de_personal(navegador, csrf)
     probar_productos_api(navegador, csrf, id_usuario, token)
     instalar_get = admin_page(navegador, "instalar.php")
