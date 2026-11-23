@@ -11,6 +11,7 @@ import '../services/product_image_url.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_image.dart';
 import 'admin_mobile_forms.dart';
+import 'admin_mobile_purchase_form.dart';
 
 class AdminMobileApi {
   static const keyToken = 'adm_token';
@@ -546,6 +547,97 @@ class _AdminMobileDashboardScreenState
       await ejecutar({'accion': 'soporte_responder',
           'id_solicitud': actual['id_solicitud'], ...form});
     }
+  }
+
+
+  Future<void> registrarCompra() async {
+    try {
+      final respuestas = await Future.wait([
+        AdminMobileApi.consultar('proveedores'),
+        AdminMobileApi.consultar('productos'),
+      ]);
+      if (!mounted) return;
+      final proveedores = ((respuestas[0]['items'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .where((e) => e['estado'] == 'Activo').toList();
+      final productos = ((respuestas[1]['items'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e)).toList();
+      if (proveedores.isEmpty || productos.isEmpty) {
+        throw StateError('Necesitas proveedores activos y productos registrados.');
+      }
+      final form = await AdminMobilePurchaseForm.abrir(context,
+        proveedores: proveedores, productos: productos);
+      if (form == null || !mounted) return;
+      if (!await confirmar('Registrar la compra aumentará el stock de '
+          'todos los productos seleccionados. ¿Confirmas?') || !mounted) {
+        return;
+      }
+      await ejecutar({'accion': 'compra_registrar', ...form});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> cambiarCompra(Map<String, dynamic> compra) async {
+    final nuevo = compra['estado'] == 'Anulado' ? 'Registrado' : 'Anulado';
+    final mensaje = nuevo == 'Anulado'
+      ? 'Al anular esta compra se retirará el stock recibido. '
+        'Si se vendió ese stock, la operación se rechazará.'
+      : 'Al reactivar la compra se añadirá el stock nuevamente.';
+    if (!await confirmar(mensaje) || !mounted) return;
+    await ejecutar({'accion': 'compra_estado',
+      'id_compra': compra['id_compra'], 'estado': nuevo});
+  }
+
+  Future<void> emitirComprobante() async {
+    try {
+      final resp = await AdminMobileApi.consultar('pedidos');
+      if (!mounted) return;
+      final pedidos = ((resp['items'] as List?) ?? const [])
+          .whereType<Map>().where((p) => p['estado_pedido'] != 'Cancelado')
+          .toList();
+      if (pedidos.isEmpty) {
+        throw StateError('No hay pedidos disponibles para emitir comprobantes.');
+      }
+      final form = await AdminMobileForm.open(context,
+        title: 'Emitir comprobante de demostración',
+        fields: [
+          AdminMobileField('id_pedido', 'Pedido', requiredValue: true,
+            choices: [
+              for (final p in pedidos) DropdownMenuItem<String>(
+                value: p['id_pedido'].toString(),
+                child: Text('Pedido #' + p['id_pedido'].toString() +
+                    ' · S/ ' + p['total'].toString(),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ]),
+          AdminMobileField('tipo_comprobante', 'Tipo',
+            requiredValue: true, choices: const [
+              DropdownMenuItem(value: 'Boleta', child: Text('Boleta')),
+              DropdownMenuItem(value: 'Factura', child: Text('Factura')),
+            ]),
+        ]);
+      if (form == null || !mounted) return;
+      if (!await confirmar('La emisión requiere que el pedido esté '
+          'completamente pagado. Es un documento de demostración, '
+          'no un comprobante registrado ante SUNAT.') || !mounted) return;
+      await ejecutar({'accion': 'comprobante_emitir', ...form});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> cancelarPedido(Map<String, dynamic> pedido) async {
+    if (!await confirmar('Cancelar pedido #' +
+      pedido['id_pedido'].toString() +
+      ' devolverá el stock. No se permite cancelar si hubo dinero '
+      'confirmado o ya fue enviado.') || !mounted) return;
+    await ejecutar({'accion': 'pedido_cancelar',
+        'id_pedido': pedido['id_pedido']});
   }
 
   Widget botonAgregar(String texto, VoidCallback alPulsar) => Padding(
