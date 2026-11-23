@@ -293,6 +293,7 @@ class _AdminMobileDashboardScreenState
   bool cargando = true;
   bool guardando = false;
   String? error;
+  int _versionCarga = 0;
 
   Future<Map<String, dynamic>> consultar(String vista,
       {Map<String, String> parametros = const {}}) async {
@@ -347,19 +348,21 @@ class _AdminMobileDashboardScreenState
 
   Future<void> cargar() async {
     if (!mounted) return;
-    if (vista == 'mas') {
+    final version = ++_versionCarga;
+    final modulo = vista;
+    if (modulo == 'mas') {
       setState(() { cargando = false; error = null; });
       return;
     }
     setState(() { cargando = true; error = null; });
     try {
-      final r = await consultar(vista,
-          parametros: vista == 'direcciones' && clienteDirecciones != null
+      final r = await consultar(modulo,
+          parametros: modulo == 'direcciones' && clienteDirecciones != null
               ? {'id_usuario': clienteDirecciones.toString()} : const {});
-      if (!mounted) return;
+      if (!mounted || version != _versionCarga) return;
       setState(() { datos = r; cargando = false; });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _versionCarga) return;
       setState(() {
         cargando = false;
         error = e.toString().replaceFirst('Bad state: ', '');
@@ -368,6 +371,7 @@ class _AdminMobileDashboardScreenState
   }
 
   void navegar(String destino) {
+    if (guardando || destino == vista) return;
     setState(() { vista = destino; datos = {}; error = null; });
     cargar();
   }
@@ -1091,8 +1095,11 @@ class _AdminMobileDashboardScreenState
         if (guardando) const LinearProgressIndicator(minHeight: 2),
         if (vista != 'resumen') Align(alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: () => navegar('resumen'),
-            icon: const Icon(Icons.arrow_back), label: const Text('Inicio'))),
+            onPressed: guardando ? null : () =>
+                navegar(secciones.contains(vista) ? 'resumen' : 'mas'),
+            icon: const Icon(Icons.arrow_back),
+            label: Text(secciones.contains(vista)
+                ? 'Volver al inicio' : 'Volver a opciones'))),
         Expanded(child: cargando ? const Center(
           child: CircularProgressIndicator()) : error != null
           ? Center(child: SingleChildScrollView(
@@ -1135,7 +1142,7 @@ class _AdminMobileDashboardScreenState
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: menu.indexOf(seleccion),
-        onDestinationSelected: (i) => navegar(menu[i]),
+        onDestinationSelected: guardando ? null : (i) => navegar(menu[i]),
         destinations: [
           const NavigationDestination(icon: Icon(Icons.dashboard_outlined),
               label: 'Inicio'),
@@ -1712,8 +1719,14 @@ class _ProductoEditorState extends State<_ProductoEditor> {
       validator: (v) {
         final str = (v ?? '').trim();
         if (requerido && str.isEmpty) return 'Obligatorio';
-        if (numero && (double.tryParse(str) == null ||
-            double.parse(str) < 0)) return 'Número incorrecto';
+        if (numero && str.isNotEmpty &&
+            (double.tryParse(str) == null || double.parse(str) < 0)) {
+          return 'Ingrese un número válido';
+        }
+        if ((key == 'stock' || key == 'stock_minimo') &&
+            int.tryParse(str) == null) {
+          return 'Ingrese unidades enteras';
+        }
         if (key == 'precio' && (double.tryParse(str) ?? 0) <= 0) {
           return 'Precio debe ser mayor a cero';
         }
@@ -1764,7 +1777,8 @@ class _ProductoEditorState extends State<_ProductoEditor> {
                   onChanged: (v) => valores['id_marca'] = v),
                 const SizedBox(height: 12),
                 campo('Precio S/', 'precio', numero: true, requerido: true),
-                campo('Precio oferta (opcional)', 'precio_oferta'),
+                campo('Precio oferta (opcional)', 'precio_oferta',
+                    numero: true),
                 campo('Stock', 'stock', numero: true),
                 campo('Stock mínimo', 'stock_minimo', numero: true),
                 campo('Descripción', 'descripcion'),
