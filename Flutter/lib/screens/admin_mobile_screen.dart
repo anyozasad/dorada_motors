@@ -14,6 +14,7 @@ import '../theme/app_theme.dart';
 import '../widgets/product_image.dart';
 import 'admin_mobile_forms.dart';
 import 'admin_mobile_purchase_form.dart';
+import 'admin_mobile_order_form.dart';
 
 class AdminMobileApi {
   static const keyToken = 'adm_token';
@@ -440,6 +441,162 @@ class _AdminMobileDashboardScreenState
   }
 
 
+
+
+  Future<void> registrarVenta() async {
+    try {
+      final respuestas = await Future.wait([
+        AdminMobileApi.consultar('clientes'),
+        AdminMobileApi.consultar('productos'),
+      ]);
+      if (!mounted) return;
+      final clientes = ((respuestas[0]['items'] as List?) ?? const [])
+          .whereType<Map>().map((p) => Map<String, dynamic>.from(p))
+          .where((p) => p['estado'] == 'Activo').toList();
+      final productos = ((respuestas[1]['items'] as List?) ?? const [])
+          .whereType<Map>().map((p) => Map<String, dynamic>.from(p)).toList();
+      if (clientes.isEmpty || productos.isEmpty) {
+        throw StateError('Primero necesitas clientes activos y productos.');
+      }
+      final formulario = await AdminMobileOrderForm.abrir(context,
+        clientes: clientes, productos: productos,
+        cargarDirecciones: (id) async {
+          final datos = await AdminMobileApi.consultar('direcciones',
+              parametros: {'id_usuario': id});
+          return ((datos['items'] as List?) ?? const [])
+              .whereType<Map>()
+              .map((p) => Map<String, dynamic>.from(p)).toList();
+        });
+      if (formulario == null || !mounted) return;
+      if (!await confirmar('Se registrará la venta, el detalle, '
+          'el pago pendiente y se descontará el stock. ¿Confirmas?')
+          || !mounted) return;
+      await ejecutar({'accion': 'pedido_manual', ...formulario});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> verDetallePedido(Map<String, dynamic> pedido) async {
+    try {
+      final respuesta = await AdminMobileApi.consultar('pedido_detalle',
+        parametros: {'id_pedido': pedido['id_pedido'].toString()});
+      if (!mounted) return;
+      final cabecera = Map<String, dynamic>.from(respuesta['pedido'] as Map);
+      final detalles = ((respuesta['lineas'] as List?) ?? const [])
+          .whereType<Map>();
+      final pagos = ((respuesta['pagos'] as List?) ?? const [])
+          .whereType<Map>();
+      await showDialog<void>(context: context, builder: (ctx) => AlertDialog(
+        title: Text('Pedido #' + pedido['id_pedido'].toString()),
+        content: SizedBox(width: 490,
+          child: SingleChildScrollView(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Cliente: ' + cabecera['nombres'].toString() + ' ' +
+                  cabecera['apellidos'].toString()),
+              Text('Estado: ' + cabecera['estado_pedido'].toString()),
+              Text('Entrega: ' + cabecera['tipo_entrega'].toString()),
+              const Divider(),
+              const Text('Artículos',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              for (final p in detalles) ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(p['nombre_producto'].toString()),
+                subtitle: Text('Cantidad: ' + p['cantidad'].toString() +
+                  ' · Unitario: S/ ' + p['precio_unitario'].toString()),
+                trailing: Text('S/ ' + p['subtotal'].toString()),
+              ),
+              const Divider(),
+              const Text('Pagos',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              for (final p in pagos) ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(p['metodo_pago'].toString()),
+                subtitle: Text(p['estado_pago'].toString()),
+                trailing: Text('S/ ' + p['monto'].toString()),
+              ),
+              const Divider(),
+              Text('TOTAL S/ ' + cabecera['total'].toString(),
+                style: const TextStyle(fontWeight: FontWeight.w900)),
+            ],
+          ))),
+        ),
+        actions: [FilledButton(onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cerrar'))],
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> registrarAbono() async {
+    try {
+      final datosPedidos = await AdminMobileApi.consultar('pedidos');
+      if (!mounted) return;
+      final pedidos = ((datosPedidos['items'] as List?) ?? const [])
+          .whereType<Map>().where((p) => p['estado_pedido'] != 'Cancelado');
+      if (pedidos.isEmpty) throw StateError('No hay pedidos habilitados');
+      final form = await AdminMobileForm.open(context,
+        title: 'Registrar pago o abono',
+        fields: [
+          AdminMobileField('id_pedido', 'Pedido', requiredValue: true,
+            choices: [for (final p in pedidos)
+              DropdownMenuItem(value: p['id_pedido'].toString(),
+                child: Text('Pedido #' + p['id_pedido'].toString() +
+                  ' · S/ ' + p['total'].toString(),
+                    overflow: TextOverflow.ellipsis))]),
+          AdminMobileField('monto', 'Monto en soles',
+              requiredValue: true, numeric: true),
+          AdminMobileField('metodo_pago', 'Método', requiredValue: true,
+            choices: const [
+              DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo')),
+              DropdownMenuItem(value: 'Yape', child: Text('Yape')),
+              DropdownMenuItem(value: 'Plin', child: Text('Plin')),
+              DropdownMenuItem(value: 'Transferencia',
+                child: Text('Transferencia')),
+            ]),
+          AdminMobileField('estado_pago', 'Estado', requiredValue: true,
+            choices: const [
+              DropdownMenuItem(value: 'Pendiente', child: Text('Pendiente')),
+              DropdownMenuItem(value: 'Pagado', child: Text('Pagado')),
+              DropdownMenuItem(value: 'Rechazado', child: Text('Rechazado')),
+            ]),
+        ]);
+      if (form == null || !mounted) return;
+      if (!await confirmar('Confirma que verificaste el abono '
+          'antes de marcarlo como Pagado. ¿Guardar?') || !mounted) return;
+      await ejecutar({'accion': 'pago_manual', ...form});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+    }
+  }
+
+  Future<void> cambiarEstadoPago(Map<String, dynamic> pago) async {
+    final opciones = ['Pendiente', 'Pagado', 'Rechazado']
+        .where((v) => v != pago['estado_pago']).toList();
+    final estado = await showDialog<String>(context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Estado del pago #' + pago['id_pago'].toString()),
+        children: [
+          for (final op in opciones) SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, op),
+            child: Padding(padding: const EdgeInsets.all(10),
+                child: Text(op))),
+        ],
+      ));
+    if (estado == null || !mounted) return;
+    if (!await confirmar(estado == 'Pagado'
+        ? 'Confirma que recibiste realmente S/ ' +
+          pago['monto'].toString() + ' y verificaste el pago.'
+        : '¿Cambiar el pago a ' + estado + '?') || !mounted) return;
+    await ejecutar({'accion': 'pago_estado', 'id_pago': pago['id_pago'],
+       'estado_pago': estado});
+  }
 
   Future<void> guardarCliente([Map<String, dynamic>? cliente]) async {
     final form = await AdminMobileForm.open(context,
@@ -1024,7 +1181,8 @@ class _AdminMobileDashboardScreenState
       if (items.isEmpty) const Text('No hay productos.'),
     ];
     if (vista == 'pedidos') return [
-      encabezado('Pedidos', 'Modifica el estado de atención.'),
+      encabezado('Pedidos', 'Registra ventas, revisa detalles y estados.'),
+      botonAgregar('Registrar venta', registrarVenta),
       for (final p in items) registro(
         'Pedido #' + p['id_pedido'].toString(),
         p['nombres'].toString() + ' ' + p['apellidos'].toString() +
@@ -1033,6 +1191,8 @@ class _AdminMobileDashboardScreenState
         Icons.receipt_long_outlined,
         cifra: 'S/ ' + p['total'].toString(),
         accion: Wrap(spacing: 4, children: [
+          TextButton(onPressed: guardando ? null : () => verDetallePedido(p),
+            child: const Text('Detalle')),
           if (['Pendiente', 'Pagado', 'Procesando'].contains(
               p['estado_pedido']?.toString()))
             TextButton(
@@ -1047,24 +1207,17 @@ class _AdminMobileDashboardScreenState
       if (items.isEmpty) const Text('No hay pedidos.'),
     ];
     if (vista == 'pagos') return [
-      encabezado('Pagos', 'Confirmación manual tras verificar el abono.'),
+      encabezado('Pagos', 'Registrar abonos y verificar los estados de cobro.'),
+      botonAgregar('Registrar pago o abono', registrarAbono),
       for (final p in items) registro(
         'Pago #' + p['id_pago'].toString() +
         ' · Pedido #' + p['id_pedido'].toString(),
         p['metodo_pago'].toString() + ' · ' + p['estado_pago'].toString() +
         '\n' + p['nombres'].toString() + ' ' + p['apellidos'].toString(),
         Icons.payments_outlined, cifra: 'S/ ' + p['monto'].toString(),
-        accion: p['estado_pago'] == 'Pendiente'
-          ? TextButton(
-              onPressed: guardando ? null : () async {
-                if (await confirmar('¿Verificaste el pago de S/ ' +
-                    p['monto'].toString() + '?') && mounted) {
-                  await ejecutar({
-                    'accion': 'pago_confirmar',
-                    'id_pago': p['id_pago'],
-                  });
-                }
-              }, child: const Text('Confirmar cobro')) : null),
+        accion: TextButton(
+          onPressed: guardando ? null : () => cambiarEstadoPago(p),
+          child: const Text('Cambiar estado'))),
       if (items.isEmpty) const Text('No hay pagos.'),
     ];
     if (vista == 'categorias' || vista == 'marcas') {
