@@ -11,7 +11,12 @@ if (getenv("GITHUB_ACTIONS") !== "true" ||
     exit(2);
 }
 try {
-    require_once __DIR__ . "/../dorada_api/conexion.php";
+    // Validar también que el endpoint NO acepte una tabla incompleta.
+if (getenv("DORADA_SCHEMA_CHECK") === "1") {
+    require_once __DIR__ . "/../dorada_api/conexion_estado.php";
+    exit;
+}
+require_once __DIR__ . "/../dorada_api/conexion.php";
     require_once __DIR__ . "/../dorada_api/sistema_bootstrap.php";
     $db = $conexion->query("SELECT DATABASE() AS nombre")->fetch_assoc()["nombre"] ?? "";
     if ($db !== "dorada_schema_ci_test") {
