@@ -262,8 +262,27 @@ class AdminOfflineRepository {
         diario[fecha]!['ventas'] = (diario[fecha]!['ventas'] as double)
             + _decimal(p['total']);
       }
+      final acumulados = <int, Map<String, dynamic>>{};
+      final idsValidos = pedidos.where(
+        (p) => p['estado_pedido'] != 'Cancelado')
+        .map((p) => _entero(p['id_pedido'])).toSet();
+      for (final linea in _filas(base, 'detalle_pedido')) {
+        if (!idsValidos.contains(_entero(linea['id_pedido']))) continue;
+        final idProd = _entero(linea['id_producto']);
+        final registro = acumulados.putIfAbsent(idProd, () => {
+          'nombre_producto': linea['nombre_producto'] ?? 'Producto',
+          'cantidad': 0, 'importe': 0.0,
+        });
+        registro['cantidad'] = (registro['cantidad'] as int)
+            + _entero(linea['cantidad']);
+        registro['importe'] = (registro['importe'] as double)
+            + _decimal(linea['subtotal']);
+      }
+      final top = acumulados.values.toList()
+        ..sort((a,b) => (b['cantidad'] as int)
+            .compareTo(a['cantidad'] as int));
       return {'estado': true, 'diario': diario.values.toList(),
-        'top': <Map<String, dynamic>>[]};
+        'top': top.take(10).toList()};
     }
     final tabla = switch (vista) {
       'categorias' => 'categorias', 'marcas' => 'marcas',
@@ -274,7 +293,35 @@ class AdminOfflineRepository {
       _ => '',
     };
     if (tabla.isEmpty) throw StateError('Módulo local no disponible');
-    return {'estado': true, 'items': _filas(base, tabla).reversed.toList()};
+    var registros = _filas(base, tabla).reversed.toList();
+    if (vista == 'pagos') {
+      registros = registros.map((p) {
+        final pedido = pedidos.where((v) =>
+          _entero(v['id_pedido']) == _entero(p['id_pedido']));
+        return {...p,
+          'nombres': pedido.isEmpty ? '' : pedido.first['nombres'],
+          'apellidos': pedido.isEmpty ? '' : pedido.first['apellidos'],
+        };
+      }).toList();
+    } else if (vista == 'inventario') {
+      registros = registros.map((p) {
+        final producto = productos.where((v) =>
+          _entero(v['id_producto']) == _entero(p['id_producto']));
+        return {...p,
+          'nombre_producto': producto.isEmpty
+              ? 'Producto' : producto.first['nombre_producto'],
+        };
+      }).toList();
+    } else if (vista == 'compras') {
+      final proveedores = _filas(base, 'proveedores');
+      registros = registros.map((p) {
+        final prov = proveedores.where((v) =>
+          _entero(v['id_proveedor']) == _entero(p['id_proveedor']));
+        return {...p, 'razon_social': prov.isEmpty
+            ? 'Proveedor' : prov.first['razon_social']};
+      }).toList();
+    }
+    return {'estado': true, 'items': registros};
   }
 
   static void _movimiento(Map<String, dynamic> base,
@@ -397,7 +444,8 @@ class AdminOfflineRepository {
     if (accion == 'inventario_movimiento') {
       final id = _entero(datos['id_producto']);
       final cambio = _entero(datos['cantidad']);
-      final tipo = datos['tipo_movimiento']?.toString() ?? '';
+      final tipo = (datos['tipo_movimiento'] ?? datos['tipo'])
+          ?.toString() ?? '';
       final lista = _filas(base, 'productos');
       final i = lista.indexWhere((p) => _entero(p['id_producto']) == id);
       if (i < 0 || cambio <= 0 || !['Entrada','Salida'].contains(tipo)) {
@@ -695,6 +743,15 @@ class AdminOfflineRepository {
     if (accion == 'configuracion_guardar') {
       final actual=Map<String,dynamic>.from(base['configuracion'] as Map);
       final nuevo={...actual,...datos}..remove('accion');
+      if (datos.containsKey('direccion_empresa')) {
+        nuevo['direccion'] = datos['direccion_empresa'];
+      }
+      if (datos.containsKey('telefono_empresa')) {
+        nuevo['telefono'] = datos['telefono_empresa'];
+      }
+      if (datos.containsKey('correo_empresa')) {
+        nuevo['correo'] = datos['correo_empresa'];
+      }
       final delivery=_decimal(nuevo['costo_delivery']);
       if (delivery.isNaN || delivery<0) throw StateError('Delivery inválido');
       base['configuracion']=nuevo;
