@@ -100,3 +100,88 @@ button[disabled]{opacity:.55;cursor:not-allowed!important;transform:none!importa
  .section-actions{flex-wrap:wrap}
  .filter-toolbar select{font-size:13px}
 }
+
+
+/* Diseño funcional 2026: mejor lectura, mismo orden de módulos y sin controles de adorno. */
+:root{--bg:#f5f6f8;--text:#1c2636;--muted:#4b5a6f;--border:#dfe5ec;--gold:#f97316;--navy:#172132}
+.nav-main{font-size:14px!important;min-height:48px;letter-spacing:0}
+.nav-submenu a{font-size:13px!important;line-height:1.4}
+.brand-sub{font-size:12px}
+.top-title{font-size:17px;font-weight:800}
+.search{min-width:250px}.search input{min-height:44px;font-size:14px}
+.section-intro{border-left:5px solid #f97316}
+.section-intro h2{font-size:21px}
+.section-intro p{font-size:13px}
+.section-title h2{font-size:19px}
+.field label{font-size:12px;letter-spacing:.02em}
+.field input,.field select,.field textarea{font-size:14px}
+.btn-primary{background:#ea580c}
+.btn-primary:hover{background:#c2410c;color:#fff}
+.btn-gold{background:#f97316}
+.quick-actions-clean .quick{font-size:14px;min-height:90px;font-weight:750;line-height:1.35}
+.quick-actions-clean .quick span{display:block}
+.detail-card summary{font-size:15px;line-height:1.4;padding:5px}
+.detail-card:has(summary[open]){border-color:#fdba74}
+.form-actions{margin-top:3px}
+.alert{position:relative;font-size:14px;line-height:1.5;padding:14px 18px}
+table td .actions,table td .order-actions{gap:8px}
+#ayudaDireccionPedido{font-size:12px;color:#4b5a6f;line-height:1.4;margin-top:4px}
+.table-wrap .empty-cell{text-align:center;line-height:1.5}
+@media(max-width:760px){
+ .content{padding:12px!important}
+ .card{padding:14px!important}
+ .metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}
+ .metric{min-height:96px;padding:12px}
+ .metric-label{font-size:13px}
+ .metric-value{font-size:21px}
+ .metric small{font-size:11px;line-height:1.35}
+ .section-intro{padding:16px}
+ .section-intro h2{font-size:20px}
+ .search{display:none}
+ .mobile-bottom a{font-size:12px}
+ .table-wrap{overflow:visible;border:0}
+ .table-wrap table{display:block;min-width:0!important;width:100%}
+ .table-wrap thead{display:none}
+ .table-wrap tbody{display:block}
+ .table-wrap tbody>tr{
+  display:block;margin:0 0 12px;background:#fff;
+  border:1px solid #dce4ed;border-radius:14px;overflow:hidden;
+  box-shadow:0 3px 12px rgba(13,23,39,.04);
+ }
+ .table-wrap tbody>tr[style*="display: none"]{display:none!important}
+ .table-wrap td{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  min-width:0;width:100%;padding:10px 12px;font-size:13px;
+  border-bottom:1px solid #eef1f5;overflow-wrap:anywhere;
+ }
+ .table-wrap td:last-child{border-bottom:0}
+ .table-wrap td::before{
+  content:attr(data-label);color:#44536a;flex:0 0 98px;
+  max-width:34%;font-size:12px;font-weight:800;text-align:left
+ }
+ .table-wrap td[data-label="Acciones"],.table-wrap td[data-label="Acción"]{
+  display:block;background:#f8fafc
+ }
+ .table-wrap td[data-label="Acciones"]::before,
+ .table-wrap td[data-label="Acción"]::before{
+  display:block;max-width:none;margin-bottom:9px
+ }
+ .table-wrap td[colspan]{display:block;text-align:center!important}
+ .table-wrap td[colspan]::before{display:none}
+ .table-wrap .product-cell{min-width:0;flex:1}
+ .table-wrap .product-cell>div{overflow-wrap:anywhere}
+ .table-wrap .actions,.table-wrap .order-actions{flex-wrap:wrap;align-items:center}
+ .table-wrap .inline-form{align-items:stretch;flex-wrap:wrap}
+ .table-wrap td select,.table-wrap td input{max-width:100%;min-width:0;font-size:13px}
+ .table-wrap td button,.table-wrap td .btn,.table-wrap td .action-btn{
+  min-height:42px;font-size:13px
+ }
+ .table-wrap .actions>.btn,.table-wrap .order-actions>.btn{flex:1}
+ .pagination{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+}
+@media(max-width:390px){
+ .metric{gap:7px}
+ .metric-icon{width:34px;height:34px;flex-basis:34px}
+ .metric-value{font-size:18px}
+ .table-wrap td::before{flex-basis:78px}
+}
