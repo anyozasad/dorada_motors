@@ -251,3 +251,18 @@ table td .actions,table td .order-actions{gap:8px}
  .form-accordion>form{margin:0 9px 9px!important;padding:11px!important}
  .dashboard-extras>.ops-strip,.dashboard-extras>.cashflow-strip{margin:10px}
 }
+
+
+/* Iconos ambiguos reemplazados por textos de acción. */
+#refreshAllBtn{display:flex;align-items:center;gap:7px;width:auto;padding:0 12px;font-size:13px;font-weight:700}
+#refreshAllBtn .top-action-label{font-size:13px}
+.signout-action{display:inline-flex;align-items:center;justify-content:center;
+ width:auto;min-width:55px;padding:0 12px;font-size:13px;font-weight:800;color:#9a3412}
+#tablaProductos .actions .btn{min-width:67px;white-space:nowrap}
+@media(max-width:760px){
+ #refreshAllBtn{width:44px;min-width:44px;padding:0}
+ #refreshAllBtn .top-action-label{display:none}
+ .signout-action{min-width:52px;padding:0 8px}
+ #tablaProductos .actions{display:flex;flex-wrap:wrap;gap:9px}
+ #tablaProductos .actions .btn{font-size:13px;min-width:82px}
+}
