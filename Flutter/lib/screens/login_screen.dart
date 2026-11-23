@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/ui_motion.dart';
 import 'register_screen.dart';
 import 'admin_mobile_screen.dart';
+import 'admin_offline_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
@@ -95,6 +96,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _openAdmin() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => const AdminOfflineLoginScreen(),
+    ));
+  }
+
+  Future<void> _openAdminServidor() async {
     if (ApiService.requiereConfigurarServidorEnAndroid) {
       await _configurarServidor();
       if (ApiService.requiereConfigurarServidorEnAndroid || !mounted) return;
@@ -655,10 +663,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _loading ? null : _openAdmin,
                     icon: const Icon(Icons.admin_panel_settings_outlined),
-                    label: const Text('Ingresar como administrador'),
+                    label: const Text('Administrador sin laptop · SQLite'),
                   ),
                 ),
                 const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _loading ? null : _openAdminServidor,
+                  icon: const Icon(Icons.cloud_outlined, size: 17),
+                  label: const Text('Administrador con servidor MySQL'),
+                ),
+                const SizedBox(height: 5),
                 TextButton.icon(
                   onPressed: _configurarServidor,
                   icon: const Icon(Icons.settings_ethernet_rounded, size: 17),
