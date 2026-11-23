@@ -1,3 +1,4 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: prefer_interpolation_to_compose_strings
 import 'dart:async';
 import 'dart:convert';
@@ -30,7 +31,7 @@ class AdminOfflineRepository {
   }
 
   static String _hash(String password, String salt) {
-    var bytes = utf8.encode('$salt:$password');
+    List<int> bytes = utf8.encode('$salt:$password');
     for (var i = 0; i < 16000; i++) {
       bytes = sha256.convert(bytes).bytes;
     }
