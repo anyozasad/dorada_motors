@@ -2810,6 +2810,7 @@ select:focus-visible,textarea:focus-visible{
   </div>
  </article>
 
+ <?php if(puede("inventario")): ?>
  <article class="card">
   <div class="card-head"><h2>Stock bajo / alertas</h2><a href="<?= puede("inventario") ? "#inventario" : "#reportes" ?>">Ver inventario →</a></div>
   <div class="compact-list" id="listaStockAlertas">
@@ -2818,7 +2819,9 @@ select:focus-visible,textarea:focus-visible{
    <?php endforeach; endif; ?>
   </div>
  </article>
+ <?php endif; ?>
 
+ <?php if(puede("pagos")): ?>
  <article class="card">
   <div class="card-head"><h2>Últimos pagos</h2><a href="<?= puede("pagos") ? "#pagos" : "#reportes" ?>">Ver todos →</a></div>
   <div class="compact-list" id="listaPagosRecientes">
@@ -2827,6 +2830,7 @@ select:focus-visible,textarea:focus-visible{
    <?php endforeach; endif; ?>
   </div>
  </article>
+ <?php endif; ?>
 </section>
 </div>
 
@@ -3920,13 +3924,12 @@ async function actualizarDashboardEnVivo(manual=false){
    return;
   }
   if(cambiaronDatos){
-   if(!formularioAdminModificado && document.visibilityState==='visible'){
-    window.location.reload();
-    return;
-   }
+   // Actualizar métricas sin recargar la pantalla ni cerrar formularios.
    const aviso=document.getElementById('liveStatus');
    if(aviso){
-    aviso.textContent='● Datos modificados en MySQL · guarda el formulario antes de actualizar';
+    aviso.textContent=formularioAdminModificado
+      ? '● Datos nuevos · guarda tus cambios antes de actualizar'
+      : '● Datos nuevos disponibles · pulsa ↻ para actualizar';
     aviso.style.opacity='1';
    }
   }
