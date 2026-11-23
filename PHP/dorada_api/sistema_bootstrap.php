@@ -115,6 +115,105 @@ if (!isset($columnasDetalle["precio_unitario"])) {
 
 if (!isset($columnasDetalle["subtotal"])) {
     $conexion->query("ALTER TABLE detalle_pedido ADD COLUMN subtotal DECIMAL(10,2) NOT NULL DEFAULT 0");
+    // Solo migrar una vez. No reescribir los detalles de cada venta en cada
+    // visita al dashboard, ni modificar descuentos ya registrados.
+    $conexion->query("UPDATE detalle_pedido SET subtotal=cantidad*precio_unitario WHERE subtotal=0");
 }
 
-$conexion->query("UPDATE detalle_pedido SET subtotal=cantidad*precio_unitario WHERE subtotal=0");
+/**
+ * Compatibilidad no destructiva para bases antiguas de XAMPP. Únicamente
+ * añade atributos opcionales que el dashboard y la API ya necesitan.
+ * Nunca borra tablas/columnas, altera claves primarias ni inventa montos
+ * históricos o contraseñas para cuentas existentes.
+ *
+ * Si una alteración falla, informar en lugar de fingir que se reparó MySQL.
+ */
+$columnasCompatibles = [
+    "producto" => [
+        "descripcion" => "TEXT NULL",
+        "imagen_url" => "VARCHAR(255) NOT NULL DEFAULT ''",
+        "stock_minimo" => "INT NOT NULL DEFAULT 5",
+        "precio_oferta" => "DECIMAL(10,2) NULL",
+        "tipo_vehiculo" => "VARCHAR(50) NOT NULL DEFAULT 'Motocicleta / Motokar'",
+        "compatibilidad" => "VARCHAR(255) NOT NULL DEFAULT ''",
+    ],
+    "usuario" => [
+        "apellidos" => "VARCHAR(120) NOT NULL DEFAULT ''",
+        "telefono" => "VARCHAR(30) NOT NULL DEFAULT ''",
+        "estado" => "VARCHAR(20) NOT NULL DEFAULT 'Activo'",
+        "rol_sistema" => "VARCHAR(20) NOT NULL DEFAULT 'Cliente'",
+        "ultimo_acceso" => "DATETIME NULL",
+    ],
+    "pedido" => [
+        "id_direccion" => "INT NULL",
+        "tipo_entrega" => "VARCHAR(30) NOT NULL DEFAULT 'Recojo en tienda'",
+        "clave_operacion" => "VARCHAR(64) NULL DEFAULT NULL",
+    ],
+    "pago" => [
+        "estado_pago" => "VARCHAR(30) NOT NULL DEFAULT 'Pendiente'",
+        "referencia_cliente" => "VARCHAR(100) NULL DEFAULT NULL",
+        "fecha_referencia" => "DATETIME NULL",
+    ],
+    "proveedor" => [
+        "ruc" => "VARCHAR(20) NULL",
+        "telefono" => "VARCHAR(30) NULL",
+        "correo" => "VARCHAR(160) NULL",
+        "direccion" => "VARCHAR(255) NULL",
+        "estado" => "VARCHAR(20) NOT NULL DEFAULT 'Activo'",
+    ],
+    "compra" => [
+        "estado" => "VARCHAR(30) NOT NULL DEFAULT 'Registrado'",
+    ],
+    "direccion" => [
+        "referencia" => "VARCHAR(255) NOT NULL DEFAULT ''",
+        "clave_operacion" => "VARCHAR(64) NULL DEFAULT NULL",
+    ],
+    "movimiento_stock" => [
+        "motivo" => "VARCHAR(255) NULL",
+        "stock_anterior" => "INT NULL",
+        "stock_nuevo" => "INT NULL",
+    ],
+    "comprobante" => [
+        "tipo_comprobante" => "VARCHAR(20) NOT NULL DEFAULT 'Boleta'",
+        "subtotal" => "DECIMAL(10,2) NOT NULL DEFAULT 0",
+        "igv" => "DECIMAL(10,2) NOT NULL DEFAULT 0",
+    ],
+    "solicitud_soporte" => [
+        "estado" => "VARCHAR(20) NOT NULL DEFAULT 'Abierto'",
+        "respuesta" => "TEXT NULL",
+        "fecha_actualizacion" => "DATETIME NULL",
+    ],
+    "detalle_compra" => [
+        "precio_compra" => "DECIMAL(10,2) NOT NULL DEFAULT 0",
+        "subtotal" => "DECIMAL(10,2) NOT NULL DEFAULT 0",
+    ],
+    "carrito" => [
+        "estado" => "VARCHAR(20) NOT NULL DEFAULT 'Activo'",
+    ],
+];
+
+foreach ($columnasCompatibles as $tablaCompat => $definiciones) {
+    foreach ($definiciones as $columnaCompat => $definicion) {
+        if (columnaExiste($conexion, $tablaCompat, $columnaCompat)) {
+            continue;
+        }
+        try {
+            $conexion->query(
+                "ALTER TABLE `$tablaCompat` ADD COLUMN `$columnaCompat` $definicion"
+            );
+            if (!columnaExiste($conexion, $tablaCompat, $columnaCompat)) {
+                throw new RuntimeException("La columna no aparece después de ALTER TABLE");
+            }
+            error_log("Dorada Motors: columna heredada recuperada: $tablaCompat.$columnaCompat");
+        } catch (Throwable $e) {
+            error_log("Dorada Motors: fallo migración $tablaCompat.$columnaCompat: " . $e->getMessage());
+            http_response_code(503);
+            throw new RuntimeException(
+                "No se pudo actualizar la estructura de MySQL: $tablaCompat.$columnaCompat. " .
+                "Haz una copia de seguridad y revisa permisos de ALTER TABLE.",
+                0,
+                $e
+            );
+        }
+    }
+}
