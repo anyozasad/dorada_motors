@@ -3803,6 +3803,8 @@ document.querySelectorAll('form').forEach(form=>{
 // Impide doble envío sin perder el name del botón que PHP necesita para guardar.
 document.querySelectorAll('form[method="POST"],form[method="post"]').forEach(form=>{
  form.addEventListener('submit',evento=>{
+  // Un botón de eliminar puede cancelar su confirmación inline.
+  if(evento.defaultPrevented) return;
   if(form.dataset.enviando==='si'){evento.preventDefault();return;}
   if(!form.checkValidity()) return;
   const boton=evento.submitter || form.querySelector('button[name][type="submit"],button[name]:not([type])');
