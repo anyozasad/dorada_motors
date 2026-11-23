@@ -969,6 +969,69 @@ class _AdminMobileDashboardScreenState
     }
   }
 
+  Future<void> verComprobante(Map<String,dynamic> p) async {
+    try {
+      final respuesta = await consultar('configuracion');
+      if (!mounted) return;
+      final config = respuesta['configuracion'] is Map
+          ? Map<String,dynamic>.from(respuesta['configuracion'] as Map)
+          : <String,dynamic>{};
+      final total=double.tryParse(p['total']?.toString()??'')??0;
+      final tasa=double.tryParse(p['igv_porcentaje']?.toString()??
+          config['igv']?.toString()??'18')??18;
+      final subtotal=double.tryParse(p['subtotal']?.toString()??'')??
+          double.parse((total/(1+tasa/100)).toStringAsFixed(2));
+      final impuesto=double.tryParse(p['igv_monto']?.toString()??'')??
+          double.parse((total-subtotal).toStringAsFixed(2));
+      if (!mounted) return;
+      await showDialog<void>(context:context,
+        builder:(ctx)=>AlertDialog(
+          title:const Text('Comprobante de demostración'),
+          content:SingleChildScrollView(child:Column(
+            mainAxisSize:MainAxisSize.min,
+            crossAxisAlignment:CrossAxisAlignment.stretch,
+            children:[
+              const Text('SIN VALIDEZ SUNAT',
+                textAlign:TextAlign.center,
+                style:TextStyle(fontWeight:FontWeight.w900,
+                    color:Color(0xFF98462B))),
+              const SizedBox(height:12),
+              Text(config['nombre_comercial']?.toString()??'Dorada Motors',
+                textAlign:TextAlign.center,
+                style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+              Text(config['razon_social']?.toString()??'',
+                textAlign:TextAlign.center),
+              const Divider(),
+              Text(p['tipo_comprobante'].toString()+' '+
+                  p['numero_comprobante'].toString(),
+                style:const TextStyle(fontWeight:FontWeight.bold)),
+              Text('Pedido #'+p['id_pedido'].toString()),
+              Text('Cliente: '+(p['nombres']??'').toString()+' '+
+                  (p['apellidos']??'').toString()),
+              Text('Fecha: '+(p['fecha_emision']??'').toString()),
+              const Divider(),
+              Text('Subtotal: S/ '+subtotal.toStringAsFixed(2)),
+              Text('IGV de referencia ('+tasa.toStringAsFixed(0)+'%): S/ '+
+                  impuesto.toStringAsFixed(2)),
+              const SizedBox(height:5),
+              Text('TOTAL: S/ '+total.toStringAsFixed(2),
+                style:const TextStyle(fontSize:18,
+                    fontWeight:FontWeight.bold)),
+              const SizedBox(height:12),
+              const Text('Documento académico de prueba, sin emisión '
+                  'electrónica registrada en SUNAT.',
+                style:TextStyle(fontSize:12)),
+            ],
+          )),
+          actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),
+            child:const Text('Cerrar'))],
+        ));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(error.toString())));
+    }
+  }
+
   Future<void> cancelarPedido(Map<String, dynamic> pedido) async {
     if (!await confirmar('Cancelar pedido #' +
       pedido['id_pedido'].toString() +
@@ -1455,7 +1518,11 @@ class _AdminMobileDashboardScreenState
         'Pedido #' + p['id_pedido'].toString() + ' · ' +
         p['nombres'].toString() + ' ' + p['apellidos'].toString() +
         '\n' + p['fecha_emision'].toString(),
-        Icons.description_outlined, cifra: 'S/ ' + p['total'].toString()),
+        Icons.description_outlined, cifra: 'S/ ' + p['total'].toString(),
+        accion:TextButton.icon(
+          onPressed:guardando?null:()=>verComprobante(p),
+          icon:const Icon(Icons.visibility_outlined,size:17),
+          label:const Text('Ver'))),
       if (items.isEmpty) const Text('No hay comprobantes.'),
     ];
     if (vista == 'soporte') return [
