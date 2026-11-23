@@ -2677,7 +2677,9 @@ select:focus-visible,textarea:focus-visible{
   <?php if(puede("reportes")): ?>
   <a href="#reportes" class="nav-main"><span class="nav-icon">▥</span><span>Reportes</span></a>
   <?php endif; ?>
-
+  <?php if(puede("configuracion")): ?>
+  <a href="#configuracion" class="nav-main"><span class="nav-icon">⚙</span><span>Configuración</span></a>
+  <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
  <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v4.0<br>PHP · MySQL · Flutter · UI dinámica</div>
@@ -2685,14 +2687,14 @@ select:focus-visible,textarea:focus-visible{
 
 <main class="main">
 <header class="topbar">
- <button class="mobile-menu" id="menuBtn" aria-label="Abrir menú">☰</button>
+ <button type="button" class="mobile-menu" id="menuBtn" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">☰</button>
  <img src="logo_adn_imports.png" alt="ADN" class="mobile-brand-logo">
  <div class="top-title" id="topTitle">Dashboard</div>
  <div class="search"><span>⌕</span><input id="buscador" type="search" placeholder="Buscar en la sección actual..."><kbd>Ctrl K</kbd></div>
  <div class="top-actions">
-  <button type="button" class="icon-btn" id="refreshAllBtn" title="Sincronizar todos los módulos desde MySQL" aria-label="Sincronizar registros desde MySQL">↻</button>
+  <button type="button" class="icon-btn" id="refreshAllBtn" title="Actualizar datos desde MySQL" aria-label="Actualizar datos desde MySQL">↻</button>
   <div class="notify-wrap">
-   <button class="icon-btn" id="notiBtn" title="Notificaciones">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes+$totalSoportePendiente)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes+$totalSoportePendiente ?></span></button>
+   <button type="button" class="icon-btn" id="notiBtn" title="Notificaciones" aria-label="Abrir notificaciones" aria-controls="notifyMenu" aria-expanded="false">🔔<span class="notification-count" id="notificationCount" <?= ($stockBajo+$pedidosPendientes+$totalSoportePendiente)>0 ? "" : "hidden" ?>><?= $stockBajo+$pedidosPendientes+$totalSoportePendiente ?></span></button>
    <div class="notify-menu" id="notifyMenu">
     <div class="notify-head"><strong>Notificaciones</strong><span>En tiempo real</span></div>
     <?php if(puede("inventario")): ?><a href="#inventario"><b>⚠ Stock bajo</b><small id="notifStock"><?= $stockBajo ?> producto(s) requieren atención</small></a><?php endif; ?>
@@ -2717,7 +2719,7 @@ select:focus-visible,textarea:focus-visible{
   <h1>¡Bienvenido, <?= h(explode(" ", $adminNombre)[0] ?: "Administrador") ?>!</h1>
   <p>Gestiona clientes, ventas, catálogo, inventario, compras y reportes desde un solo lugar.</p>
   <div class="hero-tags">
-   <span>● PHP conectado</span><span>● MySQL activo</span><span>● API lista para Flutter</span><span id="liveStatus">● Datos en vivo</span><button type="button" class="live-refresh-btn" id="liveRefreshBtn" title="Actualizar dashboard ahora">↻ Actualizar</button>
+   <span>● PHP y MySQL</span><span id="liveStatus" role="status" aria-live="polite">● Consultando datos...</span>
   </div>
  </div>
  <div class="hero-brand">
@@ -2743,7 +2745,7 @@ select:focus-visible,textarea:focus-visible{
 
 <?php if(puede("reportes")): ?>
 <section class="cashflow-strip" aria-label="Estado real de cobranza">
- <a class="cashflow-card" href="#pagos">
+ <a class="cashflow-card" href="<?= puede("pagos") ? "#pagos" : "#reportes" ?>">
   <div class="cashflow-top"><span class="cashflow-label">✓ Cobros confirmados</span><span class="badge">MySQL en vivo</span></div>
   <div class="cashflow-amount" id="metricCobrado">S/ <?= number_format($cobrado,2) ?></div>
   <p>Pagos confirmados por administración, sin contar pedidos cancelados.</p>
@@ -2902,7 +2904,7 @@ select:focus-visible,textarea:focus-visible{
    </td>
    <td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price"><?php if(!empty($p["precio_oferta"])): ?><small class="table-sub" style="text-decoration:line-through">S/ <?= number_format((float)$p["precio"],2) ?></small>S/ <?= number_format((float)$p["precio_oferta"],2) ?><?php else: ?>S/ <?= number_format((float)$p["precio"],2) ?><?php endif; ?></td>
    <td><span class="stock <?= $sc ?>"><?= $s ?></span></td><td><?= $min ?></td>
-   <td><div class="actions"><a class="action-btn edit" title="Editar" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">✎</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button class="action-btn delete" title="Eliminar" name="eliminar_producto">⌫</button></form></div></td>
+   <td><div class="actions"><a class="action-btn edit" title="Editar producto" aria-label="Editar <?= h($p["nombre_producto"]) ?>" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">✎</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button type="submit" class="action-btn delete" title="Eliminar producto" aria-label="Eliminar <?= h($p["nombre_producto"]) ?>" name="eliminar_producto">⌫</button></form></div></td>
   </tr>
  <?php endforeach; ?>
  </tbody></table></div>
@@ -3367,6 +3369,43 @@ select:focus-visible,textarea:focus-visible{
 
 <script>
 const csrfToken=<?= json_encode(csrfToken()) ?>;
+
+// Acciones del formulario de pedido y compra: cada botón agrega o quita una fila real.
+function actualizarQuitarLineas(contenedor){
+ if(!contenedor) return;
+ const filas=contenedor.querySelectorAll('.line-item-row');
+ filas.forEach(fila=>{
+  const boton=fila.querySelector('button[onclick^="quitarLinea"]');
+  if(boton){
+   boton.disabled=filas.length<=1;
+   boton.title=filas.length<=1?'Mantén al menos un producto':'Quitar este producto';
+  }
+ });
+}
+function agregarLinea(contenedorId){
+ const contenedor=document.getElementById(contenedorId);
+ const primera=contenedor?.querySelector('.line-item-row');
+ if(!primera) return;
+ const nueva=primera.cloneNode(true);
+ nueva.querySelectorAll('select,input').forEach(campo=>{
+  if(campo.tagName==='SELECT') campo.selectedIndex=0;
+  else campo.value=campo.name==='cantidad_pedido[]'?'1':'';
+ });
+ contenedor.appendChild(nueva);
+ actualizarQuitarLineas(contenedor);
+ nueva.querySelector('select')?.focus();
+}
+function agregarLineaPedido(){agregarLinea('pedidoItems');}
+function agregarLineaCompra(){agregarLinea('compraItems');}
+function quitarLinea(boton){
+ const fila=boton.closest('.line-item-row');
+ const contenedor=fila?.parentElement;
+ if(!fila || !contenedor || contenedor.querySelectorAll('.line-item-row').length<=1) return;
+ fila.remove();
+ actualizarQuitarLineas(contenedor);
+}
+actualizarQuitarLineas(document.getElementById('pedidoItems'));
+actualizarQuitarLineas(document.getElementById('compraItems'));
 const buscador=document.getElementById('buscador');
 const sidebar=document.getElementById('sidebar');
 const overlay=document.getElementById('overlay');
@@ -3431,6 +3470,7 @@ const nombresPanel={
 function cerrarMenu(){
  sidebar?.classList.remove('open');
  overlay?.classList.remove('show');
+ menuBtn?.setAttribute('aria-expanded','false');
 }
 
 function filaCoincide(fila,tabla){
@@ -3521,7 +3561,7 @@ document.addEventListener('keydown',e=>{
 });
 
 function mostrarPanel(id,actualizarHash=true){
- const destino=document.getElementById(id) || document.getElementById('inicio');
+ const destino=[...panels].find(p=>p.id===id) || document.getElementById('inicio');
  panels.forEach(p=>p.classList.remove('active'));
  destino.classList.add('active');
 
@@ -3561,12 +3601,15 @@ window.addEventListener('hashchange',()=>{
 menuBtn?.addEventListener('click',()=>{
  sidebar?.classList.toggle('open');
  overlay?.classList.toggle('show');
+ menuBtn.setAttribute('aria-expanded',String(sidebar?.classList.contains('open')===true));
 });
 overlay?.addEventListener('click',cerrarMenu);
 
 // Refresca tablas, formularios, alertas y métricas desde MySQL.
  // El hash del navegador se conserva, por eso el administrador vuelve al módulo actual.
 document.getElementById('refreshAllBtn')?.addEventListener('click',()=>{
+  if(formularioAdminModificado &&
+     !window.confirm('Tienes datos sin guardar. ¿Descartarlos y actualizar desde MySQL?')) return;
   const btn=document.getElementById('refreshAllBtn');
   if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); }
   window.location.reload();
@@ -3599,9 +3642,13 @@ const notifyMenu=document.getElementById('notifyMenu');
 notiBtn?.addEventListener('click',e=>{
  e.stopPropagation();
  notifyMenu?.classList.toggle('show');
+ notiBtn?.setAttribute('aria-expanded',String(notifyMenu?.classList.contains('show')===true));
 });
 document.addEventListener('click',e=>{
- if(notifyMenu && !notifyMenu.contains(e.target) && e.target!==notiBtn) notifyMenu.classList.remove('show');
+ if(notifyMenu && !notifyMenu.contains(e.target) && e.target!==notiBtn){
+  notifyMenu.classList.remove('show');
+  notiBtn?.setAttribute('aria-expanded','false');
+ }
 });
 
 document.querySelectorAll('.status-pill').forEach(el=>{
@@ -3751,6 +3798,30 @@ let formularioAdminModificado = false;
 document.querySelectorAll('form').forEach(form=>{
  form.addEventListener('input',()=>{formularioAdminModificado=true;});
  form.addEventListener('change',()=>{formularioAdminModificado=true;});
+});
+
+// Impide doble envío sin perder el name del botón que PHP necesita para guardar.
+document.querySelectorAll('form[method="POST"],form[method="post"]').forEach(form=>{
+ form.addEventListener('submit',evento=>{
+  if(form.dataset.enviando==='si'){evento.preventDefault();return;}
+  if(!form.checkValidity()) return;
+  const boton=evento.submitter || form.querySelector('button[name][type="submit"],button[name]:not([type])');
+  if(boton?.name){
+   const accion=document.createElement('input');
+   accion.type='hidden';
+   accion.name=boton.name;
+   accion.value=boton.value||'1';
+   accion.dataset.submitAction='true';
+   form.appendChild(accion);
+  }
+  form.dataset.enviando='si';
+  formularioAdminModificado=false;
+  if(boton){
+   boton.disabled=true;
+   boton.setAttribute('aria-busy','true');
+   boton.textContent='Guardando...';
+  }
+ });
 });
 
 async function actualizarDashboardEnVivo(manual=false){
