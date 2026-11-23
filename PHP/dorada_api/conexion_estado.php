@@ -31,15 +31,26 @@ $tablasNecesarias = [
 ];
 
 $columnasNecesarias = [
-    "usuario" => ["id_usuario","nombres","apellidos","correo","contrasena","estado","rol_sistema"],
-    "producto" => ["id_producto","id_categoria","id_marca","nombre_producto","precio","precio_oferta","stock","stock_minimo","imagen_url"],
-    "pedido" => ["id_pedido","id_usuario","fecha_pedido","estado_pedido","total","tipo_entrega"],
+    // Coincide con el esquema SQL del proyecto completo: el diagnóstico
+    // anterior revisaba solo 9 tablas y podía dar un OK falso.
+    "usuario" => ["id_usuario","nombres","apellidos","correo","contrasena","telefono","estado","rol_sistema","ultimo_acceso"],
+    "direccion" => ["id_direccion","id_usuario","departamento","provincia","distrito","direccion_detalle","referencia"],
+    "categoria" => ["id_categoria","nombre_categoria"],
+    "marca" => ["id_marca","nombre_marca"],
+    "producto" => ["id_producto","id_categoria","id_marca","nombre_producto","descripcion","tipo_vehiculo","compatibilidad","precio","precio_oferta","stock","stock_minimo","imagen_url"],
+    "pedido" => ["id_pedido","id_usuario","clave_operacion","fecha_pedido","estado_pedido","total","id_direccion","tipo_entrega"],
     "detalle_pedido" => ["id_detalle","id_pedido","id_producto","cantidad","precio_unitario","subtotal"],
-    "pago" => ["id_pago","id_pedido","metodo_pago","monto","estado_pago"],
-    "compra" => ["id_compra","id_proveedor","total","estado"],
-    "detalle_compra" => ["id_compra","id_producto","cantidad","precio_compra","subtotal"],
-    "movimiento_stock" => ["id_movimiento","id_producto","cantidad","stock_anterior","stock_nuevo"],
-    "comprobante" => ["id_comprobante","id_pedido","tipo_comprobante","numero_comprobante","subtotal","igv","total"],
+    "pago" => ["id_pago","id_pedido","metodo_pago","monto","fecha_pago","estado_pago","referencia_cliente","fecha_referencia"],
+    "proveedor" => ["id_proveedor","razon_social","ruc","telefono","correo","direccion","estado"],
+    "compra" => ["id_compra","id_proveedor","fecha_compra","total","estado"],
+    "detalle_compra" => ["id_detalle_compra","id_compra","id_producto","cantidad","precio_compra","subtotal"],
+    "movimiento_stock" => ["id_movimiento","id_producto","tipo_movimiento","cantidad","motivo","fecha_movimiento","stock_anterior","stock_nuevo"],
+    "comprobante" => ["id_comprobante","id_pedido","tipo_comprobante","numero_comprobante","fecha_emision","subtotal","igv","total"],
+    "sesion_cliente" => ["token_hash","id_usuario","fecha_creacion","fecha_expiracion"],
+    "carrito" => ["id_carrito","id_usuario","estado","fecha_creacion"],
+    "detalle_carrito" => ["id_detalle_carrito","id_carrito","id_producto","cantidad"],
+    "favorito" => ["id_favorito","id_usuario","id_producto","fecha_registro"],
+    "solicitud_soporte" => ["id_solicitud","id_usuario","asunto","mensaje","estado","respuesta","fecha_creacion","fecha_actualizacion"],
 ];
 
 try {
