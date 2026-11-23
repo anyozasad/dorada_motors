@@ -2918,7 +2918,7 @@ select:focus-visible,textarea:focus-visible{
    </td>
    <td><?= h($p["nombre_categoria"]) ?></td><td><?= h($p["nombre_marca"]) ?></td><td class="price"><?php if(!empty($p["precio_oferta"])): ?><small class="table-sub" style="text-decoration:line-through">S/ <?= number_format((float)$p["precio"],2) ?></small>S/ <?= number_format((float)$p["precio_oferta"],2) ?><?php else: ?>S/ <?= number_format((float)$p["precio"],2) ?><?php endif; ?></td>
    <td><span class="stock <?= $sc ?>"><?= $s ?></span></td><td><?= $min ?></td>
-   <td><div class="actions"><a class="btn btn-light btn-small" title="Editar producto" aria-label="Editar <?= h($p["nombre_producto"]) ?>" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button type="submit" class="btn btn-danger btn-small" title="Eliminar producto" aria-label="Eliminar <?= h($p["nombre_producto"]) ?>" name="eliminar_producto">Eliminar</button></form></div></td>
+   <td><div class="actions"><a class="btn btn-light btn-small" title="Editar" aria-label="Editar <?= h($p["nombre_producto"]) ?>" href="dashboard.php?editar=<?= h($p["id_producto"]) ?>#gestion-productos">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar este producto?');"><input type="hidden" name="id_producto" value="<?= h($p["id_producto"]) ?>"><button type="submit" class="btn btn-danger btn-small" title="Eliminar producto" aria-label="Eliminar <?= h($p["nombre_producto"]) ?>" name="eliminar_producto">Eliminar</button></form></div></td>
   </tr>
  <?php endforeach; ?>
  </tbody></table></div>
