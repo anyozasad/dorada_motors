@@ -60,75 +60,113 @@ try {
     exit 0
   }
 
-  Paso '2. Validar PHP y actualizar XAMPP sin borrar datos'
+  Paso '2. Verificar PHP y actualizar las copias reales de XAMPP'
   $XamppRoots = @('C:\xampp\htdocs','D:\xampp\htdocs')
-  $Raices = @($XamppRoots | Where-Object { Test-Path $_ })
-  if ($Raices.Count -gt 0) {
-    $Origen = Join-Path $Raiz 'PHP\dorada_api'
-    $Sitios = New-Object 'System.Collections.Generic.List[string]'
-    foreach ($Htdocs in $Raices) {
-      $Existentes = @()
-      foreach ($Relativa in @('dorada_api','dorada_motors\PHP\dorada_api','dorada_motors\dorada_api')) {
-        $Ruta = Join-Path $Htdocs $Relativa
-        if (Test-Path (Join-Path $Ruta 'dashboard.php')) {
-          $Existentes += $Ruta
-        }
-      }
-      if ($Existentes.Count -eq 0) {
-        $Existentes += (Join-Path $Htdocs 'dorada_api')
-      }
-      foreach ($Sitio in $Existentes) { $Sitios.Add($Sitio) }
-    }
+  if ($env:XAMPP_HOME) { $XamppRoots += (Join-Path $env:XAMPP_HOME 'htdocs') }
+  $Raices = @($XamppRoots | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -Unique)
+  if ($Raices.Count -eq 0) {
+    throw 'Se actualizo GitHub, pero no hay XAMPP en C: ni D:. Tu localhost NO se actualizo. Configura XAMPP_HOME si esta instalado en otra ruta.'
+  }
 
-    foreach ($Htdocs in $Raices) {
-      $PhpExe = Join-Path (Split-Path $Htdocs -Parent) 'php\php.exe'
-      if (Test-Path $PhpExe) {
-        Paso 'Comprobar sintaxis de PHP antes de desplegar'
-        foreach ($PhpFile in @(Get-ChildItem -LiteralPath $Origen -Recurse -Filter '*.php' -File)) {
-          & $PhpExe -l $PhpFile.FullName | Out-Null
-          Verificar ('PHP ' + $PhpFile.Name)
-        }
-        break
+  $Origen = Join-Path $Raiz 'PHP\dorada_api'
+  $ArchivoFuente = Join-Path $Origen 'dashboard.php'
+  $ShaFuente = (Get-FileHash -LiteralPath $ArchivoFuente -Algorithm SHA256).Hash
+  $VersionPanel = [regex]::Match(
+    (Get-Content -LiteralPath $ArchivoFuente -Raw), 'Panel v[0-9]+(?:\.[0-9]+)*'
+  ).Value
+
+  # Evitar reemplazar PHP si el codigo no pasa la sintaxis.
+  $PhpVerificado = $false
+  foreach ($Htdocs in $Raices) {
+    $PhpExe = Join-Path (Split-Path $Htdocs -Parent) 'php\php.exe'
+    if (Test-Path -LiteralPath $PhpExe) {
+      Paso 'Comprobar sintaxis PHP'
+      foreach ($PhpFile in @(Get-ChildItem -LiteralPath $Origen -Recurse -Filter '*.php' -File)) {
+        & $PhpExe -l $PhpFile.FullName | Out-Null
+        Verificar ('PHP: ' + $PhpFile.Name)
+      }
+      $PhpVerificado = $true
+      break
+    }
+  }
+  if (!$PhpVerificado) {
+    Write-Host 'No se encontro php.exe; falta validar sintaxis en esta laptop.' -ForegroundColor Yellow
+  }
+
+  # Localiza instalaciones en htdocs, incluidas las de proyectos con PHP/dorada_api.
+  $Instalaciones = New-Object 'System.Collections.Generic.List[string]'
+  foreach ($Htdocs in $Raices) {
+    $Candidatos = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($Relativa in @('dorada_api','PHP\dorada_api','dorada_motors\PHP\dorada_api','dorada_motors\dorada_api')) {
+      $Candidatos.Add((Join-Path $Htdocs $Relativa))
+    }
+    foreach ($Carpeta in @(Get-ChildItem -LiteralPath $Htdocs -Directory -ErrorAction SilentlyContinue)) {
+      foreach ($Relativa in @('PHP\dorada_api','dorada_api')) {
+        $Candidatos.Add((Join-Path $Carpeta.FullName $Relativa))
       }
     }
+    foreach ($Candidato in $Candidatos) {
+      $DashboardLocal = Join-Path $Candidato 'dashboard.php'
+      if (!(Test-Path -LiteralPath $DashboardLocal)) { continue }
+      $Cabecera = (Get-Content -LiteralPath $DashboardLocal -TotalCount 10 -ErrorAction SilentlyContinue) -join ' '
+      if ($Cabecera -notmatch 'auth_admin\.php|empresa_config\.php') { continue }
+      if (!$Instalaciones.Contains($Candidato)) { $Instalaciones.Add($Candidato) }
+    }
+  }
 
-    foreach ($Destino in $Sitios) {
-      New-Item -ItemType Directory -Path $Destino -Force | Out-Null
+  if ($Instalaciones.Count -eq 0) {
+    $Instalaciones.Add((Join-Path $Raices[0] 'dorada_api'))
+    Write-Host 'No existia un dashboard instalado. Se creara en /dorada_api.' -ForegroundColor Yellow
+  }
+  Write-Host ('Copias activas del dashboard encontradas: ' + $Instalaciones.Count) -ForegroundColor Cyan
+
+  foreach ($Destino in $Instalaciones) {
+    New-Item -ItemType Directory -Path $Destino -Force | Out-Null
+    $OrigenNormalizado = [System.IO.Path]::GetFullPath($Origen).TrimEnd('\')
+    $DestinoNormalizado = [System.IO.Path]::GetFullPath($Destino).TrimEnd('\')
+
+    if ($OrigenNormalizado -ine $DestinoNormalizado) {
       foreach ($Entrada in @(Get-ChildItem -LiteralPath $Origen -Force)) {
         if ($Entrada.Name -eq '.env') { continue }
         if ($Entrada.Name -eq 'uploads' -and $Entrada.PSIsContainer) {
-          # Conservar fotos que el administrador ya subio a su instalacion.
-          $CarpetaFotos = Join-Path $Destino 'uploads'
-          if (!(Test-Path $CarpetaFotos)) {
+          # Preservar imagenes subidas por el usuario.
+          if (!(Test-Path -LiteralPath (Join-Path $Destino 'uploads'))) {
             Copy-Item -LiteralPath $Entrada.FullName -Destination $Destino -Recurse -Force
           }
           continue
         }
         if ($Entrada.Name -eq 'data' -and $Entrada.PSIsContainer) {
-          $Datos = Join-Path $Destino 'data'
-          New-Item -ItemType Directory -Path $Datos -Force | Out-Null
+          $DatosDestino = Join-Path $Destino 'data'
+          New-Item -ItemType Directory -Path $DatosDestino -Force | Out-Null
           foreach ($Archivo in @(Get-ChildItem -LiteralPath $Entrada.FullName -Force)) {
             if ($Archivo.Name -in @('config_empresa.json','auditoria.jsonl')) { continue }
-            if (!(Test-Path (Join-Path $Datos $Archivo.Name))) {
-              Copy-Item -LiteralPath $Archivo.FullName -Destination $Datos -Recurse -Force
+            $RutaDestino = Join-Path $DatosDestino $Archivo.Name
+            if (!(Test-Path -LiteralPath $RutaDestino)) {
+              Copy-Item -LiteralPath $Archivo.FullName -Destination $DatosDestino -Recurse -Force
             }
           }
           continue
         }
         Copy-Item -LiteralPath $Entrada.FullName -Destination $Destino -Recurse -Force
       }
-      $FuenteSha = (Get-FileHash -LiteralPath (Join-Path $Origen 'dashboard.php') -Algorithm SHA256).Hash
-      $CopiaSha = (Get-FileHash -LiteralPath (Join-Path $Destino 'dashboard.php') -Algorithm SHA256).Hash
-      if ($FuenteSha -ne $CopiaSha) {
-        throw ('El dashboard instalado no coincide con GitHub en ' + $Destino)
-      }
-      Write-Host ('Dashboard PHP actualizado y verificado: ' + $Destino) -ForegroundColor Green
     }
-    Write-Host 'Se preservaron bases MySQL, fotos y configuraciones locales.' -ForegroundColor Green
-    Write-Host 'Abre http://localhost/dorada_api/admin_login.php y pulsa Ctrl+F5.' -ForegroundColor Cyan
-  } else {
-    Write-Host 'XAMPP no existe en C:\xampp o D:\xampp. PHP queda actualizado solo en Git.' -ForegroundColor Yellow
+
+    $ShaInstalado = (Get-FileHash -LiteralPath (Join-Path $Destino 'dashboard.php') -Algorithm SHA256).Hash
+    if ($ShaInstalado -ne $ShaFuente) {
+      throw ('FALLO: la copia abierta en XAMPP no se actualizo: ' + $Destino)
+    }
+    Write-Host ('OK DASHBOARD: ' + $Destino + ' / ' + $VersionPanel + ' / git ' + $CommitActual) -ForegroundColor Green
+    foreach ($Htdocs in $Raices) {
+      $BaseWeb = [System.IO.Path]::GetFullPath($Htdocs).TrimEnd('\') + '\'
+      if ($DestinoNormalizado.StartsWith($BaseWeb,[System.StringComparison]::OrdinalIgnoreCase)) {
+        $RutaWeb = $DestinoNormalizado.Substring($BaseWeb.Length).Replace('\','/')
+        Write-Host ('ABRE ESTA DIRECCION: http://localhost/' + $RutaWeb + '/admin_login.php') -ForegroundColor Cyan
+        break
+      }
+    }
   }
+  Write-Host 'Archivo PHP actualizado, hash SHA256 verificado. MySQL, fotos y configuracion local preservados.' -ForegroundColor Green
+  Write-Host 'Si la pagina se ve igual, abre la URL impresa arriba y pulsa Ctrl+F5.' -ForegroundColor Yellow
 
   Paso '3. Compilar APK actualizado'
   if ($SinCompilarApk) {
