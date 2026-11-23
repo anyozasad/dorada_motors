@@ -6,15 +6,18 @@ import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui_motion.dart';
 import 'register_screen.dart';
+import 'admin_mobile_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
   final VoidCallback onGuest;
+  final VoidCallback? onAdminAuthenticated;
 
   const LoginScreen({
     super.key,
     required this.onAuthenticated,
     required this.onGuest,
+    this.onAdminAuthenticated,
   });
 
   @override
@@ -89,6 +92,22 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(mensaje)),
       );
     }
+  }
+
+  Future<void> _openAdmin() async {
+    if (ApiService.requiereConfigurarServidorEnAndroid) {
+      await _configurarServidor();
+      if (ApiService.requiereConfigurarServidorEnAndroid || !mounted) return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AdminMobileLoginScreen(
+        onAuthenticated: () {
+          Navigator.of(context).pop();
+          widget.onAdminAuthenticated?.call();
+        },
+      ),
+    ));
   }
 
   Future<void> _openRegister() async {
@@ -628,6 +647,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Continuar como invitado',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 11),
+                SizedBox(
+                  height: 51,
+                  child: OutlinedButton.icon(
+                    onPressed: _loading ? null : _openAdmin,
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    label: const Text('Ingresar como administrador'),
                   ),
                 ),
                 const SizedBox(height: 8),
