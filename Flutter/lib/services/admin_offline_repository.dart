@@ -280,7 +280,6 @@ class AdminOfflineRepository {
   static void _movimiento(Map<String, dynamic> base,
       int id, int previo, int nuevo, String motivo) {
     if (previo == nuevo) return;
-    _filas(base, 'inventario').add({});
     final actual = _filas(base, 'inventario');
     actual.add({
       'id_movimiento': _id(base), 'id_producto': id,
@@ -432,7 +431,7 @@ class AdminOfflineRepository {
         }
       }
       final nuevo = <String, dynamic>{
-        ...?i >= 0 ? lista[i] : null,
+        ...?(i >= 0 ? lista[i] : null),
         ...datos,
         idCol: i >= 0 ? id : _id(base),
         'estado': (datos['estado'] ?? (i>=0 ? lista[i]['estado'] : 'Activo')),
