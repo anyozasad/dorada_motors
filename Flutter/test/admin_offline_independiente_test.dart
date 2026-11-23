@@ -58,7 +58,7 @@ void main() {
           ['items'] as List;
       expect((actualizado.first as Map)['stock'], stockOriginal - 2);
       final detalle = await AdminOfflineRepository.consultar('pedido_detalle',
-          id: (idPedido as num).toInt());
+          id: idPedido);
       expect((detalle['lineas'] as List).length, 1);
       expect((detalle['pagos'] as List).single['estado_pago'], 'Pendiente');
       await expectLater(AdminOfflineRepository.operar({
@@ -75,7 +75,7 @@ void main() {
         'monto': 5, 'metodo_pago': 'Yape', 'estado_pago': 'Pagado',
       });
       expect((await AdminOfflineRepository.consultar('pedido_detalle',
-          id: (idPedido as num).toInt()))['pedido']['estado_pedido'],
+          id: idPedido))['pedido']['estado_pedido'],
           'Pendiente');
       await expectLater(AdminOfflineRepository.operar({
         'accion': 'pago_manual', 'id_pedido': idPedido,
@@ -88,7 +88,7 @@ void main() {
         'metodo_pago': 'Efectivo', 'estado_pago': 'Pagado',
       });
       expect((await AdminOfflineRepository.consultar('pedido_detalle',
-          id: (idPedido as num).toInt()))['pedido']['estado_pedido'],
+          id: idPedido))['pedido']['estado_pedido'],
           'Pagado');
       await expectLater(AdminOfflineRepository.operar({
         'accion': 'pedido_cancelar', 'id_pedido': idPedido,
