@@ -440,6 +440,99 @@ class _AdminMobileDashboardScreenState
   }
 
 
+
+  Future<void> guardarCliente([Map<String, dynamic>? cliente]) async {
+    final form = await AdminMobileForm.open(context,
+      title: cliente == null ? 'Registrar cliente' : 'Editar cliente',
+      initial: Map<String, dynamic>.from(cliente ?? {}),
+      fields: [
+        AdminMobileField('nombres', 'Nombres', requiredValue: true),
+        AdminMobileField('apellidos', 'Apellidos'),
+        AdminMobileField('correo', 'Correo', requiredValue: true),
+        AdminMobileField('telefono', 'Teléfono'),
+        AdminMobileField('contrasena', cliente == null
+            ? 'Contraseña (mínimo 8)' : 'Nueva contraseña (dejar vacío para mantener)',
+            requiredValue: cliente == null),
+      ]);
+    if (form != null && mounted) {
+      await ejecutar({'accion': 'cliente_guardar',
+        'id_usuario': cliente?['id_usuario'] ?? 0, ...form});
+    }
+  }
+
+  Future<void> guardarPersonal([Map<String, dynamic>? empleado]) async {
+    if (rol != 'Administrador') return;
+    final form = await AdminMobileForm.open(context,
+      title: empleado == null ? 'Crear cuenta de personal' : 'Editar empleado',
+      initial: {
+        ...?empleado,
+        if (empleado == null) 'rol_sistema': 'Vendedor',
+        if (empleado == null) 'estado': 'Activo',
+      },
+      fields: [
+        AdminMobileField('nombres', 'Nombres', requiredValue: true),
+        AdminMobileField('apellidos', 'Apellidos'),
+        AdminMobileField('correo', 'Correo', requiredValue: true),
+        AdminMobileField('telefono', 'Teléfono'),
+        AdminMobileField('rol_sistema', 'Rol',
+          requiredValue: true, choices: const [
+            DropdownMenuItem(value: 'Administrador', child: Text('Administrador')),
+            DropdownMenuItem(value: 'Vendedor', child: Text('Vendedor')),
+            DropdownMenuItem(value: 'Almacen', child: Text('Almacén')),
+          ]),
+        AdminMobileField('estado', 'Estado', requiredValue: true,
+          choices: const [
+            DropdownMenuItem(value: 'Activo', child: Text('Activo')),
+            DropdownMenuItem(value: 'Bloqueado', child: Text('Bloqueado')),
+          ]),
+        AdminMobileField('contrasena', empleado == null
+            ? 'Contraseña (mínimo 8)' : 'Nueva contraseña (opcional)',
+            requiredValue: empleado == null),
+      ]);
+    if (form != null && mounted) {
+      if (empleado?['id_usuario'].toString() ==
+          (await AdminMobileApi.sesion())?['id'] &&
+          (form['rol_sistema'] != 'Administrador' ||
+              form['estado'] != 'Activo')) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No puedes quitarte tu propio acceso')));
+        return;
+      }
+      await ejecutar({'accion': 'personal_guardar',
+          'id_usuario': empleado?['id_usuario'] ?? 0, ...form});
+    }
+  }
+
+  Future<void> guardarDireccion([Map<String, dynamic>? direccion]) async {
+    if (clienteDirecciones == null) return;
+    final form = await AdminMobileForm.open(context,
+      title: direccion == null ? 'Nueva dirección' : 'Editar dirección',
+      initial: Map<String, dynamic>.from(direccion ?? {}),
+      fields: [
+        AdminMobileField('departamento', 'Departamento', requiredValue: true),
+        AdminMobileField('provincia', 'Provincia', requiredValue: true),
+        AdminMobileField('distrito', 'Distrito', requiredValue: true),
+        AdminMobileField('direccion_detalle', 'Dirección completa',
+            requiredValue: true),
+        AdminMobileField('referencia', 'Referencia'),
+      ]);
+    if (form != null && mounted) {
+      await ejecutar({'accion': 'direccion_guardar',
+        'id_usuario': clienteDirecciones,
+        'id_direccion': direccion?['id_direccion'] ?? 0, ...form});
+    }
+  }
+
+  Future<void> eliminarDireccion(Map<String, dynamic> direccion) async {
+    if (clienteDirecciones == null) return;
+    if (await confirmar('¿Eliminar esta dirección? No se permitirá '
+        'si está vinculada con una compra.') && mounted) {
+      await ejecutar({'accion': 'direccion_eliminar',
+        'id_direccion': direccion['id_direccion'],
+        'id_usuario': clienteDirecciones});
+    }
+  }
+
   Future<void> guardarCatalogo(String tipo,
       [Map<String, dynamic>? actual]) async {
     final esCategoria = tipo == 'categoria';
