@@ -8,6 +8,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from http.cookiejar import CookieJar
+from pathlib import Path
 from uuid import uuid4
 
 BASE = os.getenv("DORADA_API_URL", "http://127.0.0.1:8090").rstrip("/")
@@ -736,6 +737,153 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert any(int(p["id_pedido"]) == id_pagado for p in
                api("admin_movil.php?vista=comprobantes", token=token_admin)["items"])
     print("OK APK ADMIN: cancelar pedido y emitir comprobante solo si está pagado.")
+
+    # Clientes y direcciones: CRUD con rol, claves seguras y prevención de
+    # eliminación de domicilios asociados a pedidos reales.
+    correo_nuevo = f"app-admin-cliente-{uuid4().hex[:8]}@example.test"
+    cliente_nuevo = api("admin_movil.php", method="POST",
+        token=token_admin, body={
+            "accion": "cliente_guardar", "id_usuario": 0,
+            "nombres": "Cliente", "apellidos": "Desde APK",
+            "correo": correo_nuevo, "telefono": "987123123",
+            "contrasena": "ClaveMovil_2026",
+        })
+    id_nuevo_cliente = int(cliente_nuevo["id_usuario"])
+    assert any(int(p["id_usuario"]) == id_nuevo_cliente for p in
+               api("admin_movil.php?vista=clientes", token=token_admin)["items"])
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "cliente_guardar", "id_usuario": id_nuevo_cliente,
+        "nombres": "Cliente editado", "apellidos": "Desde APK",
+        "correo": correo_nuevo, "telefono": "999111222",
+        "contrasena": "",
+    })
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "cliente_guardar", "id_usuario": 0,
+        "nombres": "Repetido", "correo": correo_nuevo,
+        "contrasena": "OtraClave_2026",
+    }, status=409)["estado"] is False
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "cliente_guardar", "id_usuario": acceso_movil["usuario"]["id_usuario"],
+        "nombres": "Intrusión", "correo": correo_nuevo,
+    }, status=404)["estado"] is False
+    datos_dir = {
+        "accion": "direccion_guardar", "id_usuario": id_nuevo_cliente,
+        "id_direccion": 0, "departamento": "Ucayali",
+        "provincia": "Coronel Portillo", "distrito": "Callería",
+        "direccion_detalle": "Jr. de prueba 100", "referencia": "Al costado",
+    }
+    api("admin_movil.php", method="POST", token=token_admin, body=datos_dir)
+    lista_dir = api(f"admin_movil.php?vista=direcciones&id_usuario={id_nuevo_cliente}",
+                    token=token_admin)["items"]
+    id_dir = int(lista_dir[0]["id_direccion"])
+    api("admin_movil.php", method="POST", token=token_admin,
+        body={**datos_dir, "id_direccion": id_dir,
+              "direccion_detalle": "Jr. actualizado 101"})
+    assert api(f"admin_movil.php?vista=direcciones&id_usuario={id_nuevo_cliente}",
+               token=token_admin)["items"][0]["direccion_detalle"] == "Jr. actualizado 101"
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "direccion_eliminar", "id_direccion": id_dir,
+        "id_usuario": id_nuevo_cliente,
+    })
+    assert api(f"admin_movil.php?vista=direcciones&id_usuario={id_nuevo_cliente}",
+               token=token_admin)["items"] == []
+    print("OK APK ADMIN: clientes y direcciones CRUD en MySQL.")
+
+    # Personal de PHP comparte cuenta con login administrativo Android. Los
+    # permisos se leen de MySQL en cada petición, incluso tras cambios de rol.
+    empleado_correo = f"app-vendedor-{uuid4().hex[:8]}@example.test"
+    empleado = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "personal_guardar", "id_usuario": 0,
+        "nombres": "Vendedor", "apellidos": "Movil",
+        "correo": empleado_correo, "telefono": "999555222",
+        "rol_sistema": "Vendedor", "estado": "Activo",
+        "contrasena": "ClaveVendedor_2026",
+    })
+    id_empleado = int(empleado["id_usuario"])
+    entrada_empleado = api("admin_movil.php", method="POST", body={
+        "accion": "login", "correo": empleado_correo,
+        "contrasena": "ClaveVendedor_2026",
+    })
+    token_empleado = entrada_empleado["token"]
+    assert api("admin_movil.php?vista=productos", token=token_empleado,
+               status=403)["estado"] is False
+    assert api("admin_movil.php?vista=clientes", token=token_empleado)["estado"] is True
+    assert api("admin_movil.php?vista=personal", token=token_empleado,
+               status=403)["estado"] is False
+    assert api("admin_movil.php", method="POST", token=token_empleado, body={
+        "accion": "personal_guardar", "id_usuario": id_empleado,
+        "rol_sistema": "Administrador",
+    }, status=403)["estado"] is False
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "personal_guardar",
+        "id_usuario": acceso_movil["usuario"]["id_usuario"],
+        "nombres": "Administracion", "apellidos": "Pruebas",
+        "correo": correo_admin_movil,
+        "rol_sistema": "Vendedor", "estado": "Activo",
+    }, status=409)["estado"] is False
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "personal_guardar", "id_usuario": id_empleado,
+        "nombres": "Vendedor", "apellidos": "Movil",
+        "correo": empleado_correo, "telefono": "999555222",
+        "rol_sistema": "Almacen", "estado": "Activo",
+    })
+    assert api("admin_movil.php?vista=productos", token=token_empleado)["estado"] is True
+    assert api("admin_movil.php?vista=clientes", token=token_empleado,
+               status=403)["estado"] is False
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "personal_guardar", "id_usuario": id_empleado,
+        "nombres": "Vendedor", "apellidos": "Movil",
+        "correo": empleado_correo, "telefono": "999555222",
+        "rol_sistema": "Almacen", "estado": "Bloqueado",
+    })
+    assert api("admin_movil.php?vista=productos", token=token_empleado,
+               status=401)["estado"] is False
+    print("OK APK ADMIN: personal, roles, bloqueo y revocación de tokens.")
+
+    # Subida multipart de una imagen auténtica: PHP valida el contenido y
+    # almacena una ruta usada por los mismos clientes Flutter.
+    foto_bytes = Path("PHP/dorada_api/assets/imagenes/01_kit_transmision_dtiex.png").read_bytes()
+    boundary = "----Dorada" + uuid4().hex
+    data_foto = (
+        ("--" + boundary + "\r\nContent-Disposition: form-data; "
+          "name=\"accion\"\r\n\r\nimagen_producto\r\n").encode("ascii")
+        + ("--" + boundary + "\r\nContent-Disposition: form-data; "
+           "name=\"imagen\"; filename=\"foto.png\"\r\n"
+           "Content-Type: image/png\r\n\r\n").encode("ascii")
+        + foto_bytes + ("\r\n--" + boundary + "--\r\n").encode("ascii")
+    )
+    req_foto = urllib.request.Request(BASE + "/admin_movil.php", data=data_foto,
+        method="POST", headers={
+            "Authorization": "Bearer " + token_admin,
+            "Content-Type": "multipart/form-data; boundary=" + boundary,
+            "Accept": "application/json",
+        })
+    with urllib.request.urlopen(req_foto, timeout=25) as response:
+        foto_subida = json.loads(response.read().decode("utf-8"))
+    assert foto_subida["estado"] is True, foto_subida
+    ruta_subida = foto_subida["imagen_url"]
+    assert ruta_subida.startswith("uploads/productos/"), foto_subida
+    with urllib.request.urlopen(BASE + "/" + ruta_subida, timeout=20) as response:
+        assert response.status == 200
+        assert response.headers.get("Content-Type", "").startswith("image/")
+        assert response.read() == foto_bytes
+
+    ficha = api(f"productos.php?id={id_movil}")
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "producto_guardar",
+        "id_producto": id_movil,
+        "nombre_producto": ficha["nombre_producto"],
+        "descripcion": ficha["descripcion"],
+        "tipo_vehiculo": ficha["tipo_vehiculo"],
+        "compatibilidad": ficha["compatibilidad"],
+        "precio": ficha["precio"],
+        "precio_oferta": ficha["precio_oferta"],
+        "stock": ficha["stock"], "stock_minimo": ficha["stock_minimo"],
+        "id_categoria": ficha["id_categoria"], "id_marca": ficha["id_marca"],
+        "imagen_url": ruta_subida,
+    })
+    assert api(f"productos.php?id={id_movil}")["imagen_url"] == ruta_subida
+    print("OK APK ADMIN: imagen real subida, publicada y visible en API cliente.")
 
     assert api("admin_movil.php", method="POST", token=token_admin,
                body={"accion": "logout"})["estado"] is True
