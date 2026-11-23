@@ -35,6 +35,26 @@ try {
         throw new RuntimeException("No se encontró dorada_motors.sql");
     }
 
+    // Respetar la misma DB_NAME que utiliza conexion.php. El importador
+    // manual nunca debe introducir registros en otra base por accidente.
+    $nombreBase = getenv("DB_NAME") ?: "dorada_motors";
+    if (!preg_match('/^[A-Za-z0-9_]{1,64}$/D', $nombreBase)) {
+        throw new RuntimeException("DB_NAME inválido");
+    }
+    $sql = preg_replace(
+        '/^CREATE DATABASE IF NOT EXISTS dorada_motors\\b/mi',
+        'CREATE DATABASE IF NOT EXISTS `' . $nombreBase . '`',
+        $sql
+    );
+    $sql = preg_replace(
+        '/^USE dorada_motors\\s*;/mi',
+        'USE `' . $nombreBase . '`;',
+        $sql
+    );
+    if ($sql === null) {
+        throw new RuntimeException("No se pudo preparar el script SQL");
+    }
+
     if (!$db->multi_query($sql)) {
         throw new RuntimeException($db->error);
     }
