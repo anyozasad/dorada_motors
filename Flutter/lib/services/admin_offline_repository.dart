@@ -206,7 +206,8 @@ class AdminOfflineRepository {
   static Future<Map<String, dynamic>> consultar(String vista,
       {int? id}) async {
     final base = await estado();
-    final productos = _filas(base, 'productos');
+    final productos = _filas(base, 'productos')
+        .where((p) => p['archivado'] != true).toList();
     final categorias = _filas(base, 'categorias');
     final marcas = _filas(base, 'marcas');
     final pedidos = _filas(base, 'pedidos');
@@ -441,6 +442,16 @@ class AdminOfflineRepository {
       _movimiento(base, idReal, previo, stock,
           i < 0 ? 'Nuevo producto local' : 'Edición de producto local');
       return mensaje;
+    }
+    if (accion == 'producto_archivar') {
+      final id = _entero(datos['id_producto']);
+      final productos = _filas(base,'productos');
+      final index = productos.indexWhere((p)=>
+          _entero(p['id_producto']) == id && p['archivado'] != true);
+      if (index < 0) throw StateError('Producto no encontrado');
+      productos[index]['archivado'] = true;
+      base['productos'] = productos;
+      return {...mensaje, 'mensaje': 'Producto archivado en SQLite'};
     }
     if (accion == 'inventario_movimiento') {
       final id = _entero(datos['id_producto']);
