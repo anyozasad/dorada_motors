@@ -117,6 +117,22 @@ try {
         }
     }
 
+    // ROLLBACK no funciona en MyISAM. No dejar categorías falsas en
+    // instalaciones antiguas de XAMPP que todavía usan ese motor.
+    $estadoMotor = $conexion->query(
+        "SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES " .
+        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='categoria' LIMIT 1"
+    );
+    $motorCategoria = strtoupper(
+        (string)($estadoMotor?->fetch_assoc()["ENGINE"] ?? "")
+    );
+    if ($motorCategoria !== "INNODB") {
+        throw new RuntimeException(
+            "No se ejecutó la escritura de prueba: la tabla categoria " .
+            "debe usar InnoDB para poder deshacer los datos temporales."
+        );
+    }
+
     // Prueba real de escritura SIN dejar datos:
     // se inserta una categoría temporal dentro de una transacción y luego se revierte.
     $conexion->begin_transaction();
