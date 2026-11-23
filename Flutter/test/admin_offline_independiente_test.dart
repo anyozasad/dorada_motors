@@ -206,12 +206,28 @@ void main() {
           'comprobantes'))['items'] as List;
       expect(comprobantes,hasLength(1));
       expect((comprobantes.single as Map)['nombres'],'Sandra');
+      final documento = Map<String,dynamic>.from(comprobantes.single as Map);
+      expect(documento['igv_porcentaje'],18);
+      expect((documento['subtotal'] as num).toDouble()+
+          (documento['igv_monto'] as num).toDouble(),
+          closeTo((compra['total'] as num).toDouble(),0.01));
+      await AdminOfflineRepository.operar({
+        'accion':'pedido_estado','id_pedido':idPedido,
+        'estado_pedido':'Procesando',
+      });
+      await AdminOfflineRepository.operar({
+        'accion':'pago_manual','id_pedido':idPedido,
+        'monto':1,'metodo_pago':'Yape','estado_pago':'Pendiente',
+      });
+      final preparacion = await AdminOfflineRepository.consultar(
+        'pedido_detalle',id:idPedido);
+      expect((preparacion['pedido'] as Map)['estado_pedido'],'Procesando');
       await expectLater(AdminOfflineRepository.operar({
         'accion':'comprobante_emitir','id_pedido':idPedido,
         'tipo_comprobante':'Boleta',
       }),throwsStateError);
       expect((await AdminOfflineRepository.consultar(
-        'mis_pedidos',id:cliente))['items'][0]['estado_pedido'],'Pagado');
+        'mis_pedidos',id:cliente))['items'][0]['estado_pedido'],'Procesando');
       await OfflineDatabase.cerrarPruebas();
       expect(await AdminOfflineRepository.autenticarComprador(
         'sandra-local@example.test','TiendaLocal_2026'),cliente);
