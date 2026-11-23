@@ -2604,7 +2604,7 @@ select:focus-visible,textarea:focus-visible{
 .cashflow-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#65c982)}
 @media(max-width:620px){.cashflow-strip{grid-template-columns:1fr}.cashflow-amount{font-size:22px}}
 </style>
-<link rel="stylesheet" href="dashboard_profesional_2026.css?v=3">
+<link rel="stylesheet" href="dashboard_profesional_2026.css?v=4">
 </head>
 <body>
 
@@ -2729,6 +2729,16 @@ select:focus-visible,textarea:focus-visible{
  </div>
 </section>
 
+<section class="home-shortcuts" aria-label="Acciones principales">
+ <div class="shortcuts-title"><strong>¿Qué necesitas hacer?</strong><small>Elige una acción para abrir el formulario o listado.</small></div>
+ <div class="quick-actions quick-actions-clean">
+   <?php if(puede("gestion-productos")): ?><a class="quick blue" href="#gestion-productos" data-focus=".product-form input[name='nombre_producto']">📦<span>Nuevo producto</span></a><?php endif; ?>
+   <?php if(puede("pedidos")): ?><a class="quick purple" href="#pedidos" data-focus="#filtroEstadoPedido">🛒<span>Gestionar pedidos</span></a><?php endif; ?>
+   <?php if(puede("compras")): ?><a class="quick gold" href="#compras" data-focus="select[name='id_proveedor_compra']">＋<span>Registrar compra</span></a><?php endif; ?>
+   <?php if(puede("inventario")): ?><a class="quick green" href="#inventario" data-focus="select[name='id_producto_stock']">↕<span>Ajustar stock</span></a><?php endif; ?>
+  </div>
+</section>
+
 <section class="metrics">
  <?php if(puede("gestion-productos")): ?><a class="metric" href="#gestion-productos"><div class="metric-icon blue">📦</div><div><div class="metric-label">Productos</div><div class="metric-value" id="metricProductos"><?= $totalProductos ?></div><small>Catálogo activo</small></div></a><?php endif; ?>
  <?php if(puede("clientes")): ?><a class="metric" href="#clientes"><div class="metric-icon gold">👥</div><div><div class="metric-label">Clientes</div><div class="metric-value" id="metricClientes"><?= $totalUsuarios ?></div><small>Cuentas registradas</small></div></a><?php endif; ?>
@@ -2738,7 +2748,9 @@ select:focus-visible,textarea:focus-visible{
  <?php if(puede("reportes")): ?><a class="metric" href="#reportes"><div class="metric-icon orange">↗</div><div><div class="metric-label">Margen estimado</div><div class="metric-value">S/ <?= number_format($gananciaEstimada,2) ?></div><small>Según costos registrados</small></div></a><?php endif; ?>
 </section>
 
-<section class="ops-strip">
+<details class="dashboard-extras">
+ <summary>Ver más indicadores: stock, compras y cobros</summary>
+ <section class="ops-strip">
  <?php if(puede("inventario")): ?><a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong id="opsStockValue"><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a><?php endif; ?>
  <?php if(puede("proveedores")): ?><a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong id="opsProveedoresValue"><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a><?php endif; ?>
  <?php if(puede("compras")): ?><a href="#compras" class="ops-card"><span class="ops-icon green2">S/</span><div><small>COMPRAS</small><strong id="opsComprasValue">S/ <?= number_format($totalCompras,2) ?></strong><p>Total de abastecimiento</p></div><b>→</b></a><?php endif; ?>
@@ -2760,6 +2772,8 @@ select:focus-visible,textarea:focus-visible{
  </a>
 </section>
 <?php endif; ?>
+
+</details>
 
 <section class="grid-main">
  <article class="card">
@@ -2800,15 +2814,7 @@ select:focus-visible,textarea:focus-visible{
 </section>
 
 <section class="home-tools">
- <article class="card">
-  <div class="card-head"><h2>Acciones rápidas</h2><span class="badge">1 clic</span></div>
-  <div class="quick-actions quick-actions-clean">
-   <?php if(puede("gestion-productos")): ?><a class="quick blue" href="#gestion-productos" data-focus=".product-form input[name='nombre_producto']">📦<span>Nuevo producto</span></a><?php endif; ?>
-   <?php if(puede("pedidos")): ?><a class="quick purple" href="#pedidos" data-focus="#filtroEstadoPedido">🛒<span>Gestionar pedidos</span></a><?php endif; ?>
-   <?php if(puede("compras")): ?><a class="quick gold" href="#compras" data-focus="select[name='id_proveedor_compra']">＋<span>Registrar compra</span></a><?php endif; ?>
-   <?php if(puede("inventario")): ?><a class="quick green" href="#inventario" data-focus="select[name='id_producto_stock']">↕<span>Ajustar stock</span></a><?php endif; ?>
-  </div>
- </article>
+ 
 
  <?php if(puede("inventario")): ?>
  <article class="card">
@@ -2841,6 +2847,8 @@ select:focus-visible,textarea:focus-visible{
   <div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=productos">Exportar CSV</a><span class="badge"><?= $totalProductos ?> productos</span></div>
  </div>
 
+ <details id="formulario-gestion-productos" class="detail-card form-accordion" <?= $productoEditar ? "open" : "" ?>>
+ <summary><?= $productoEditar ? "Editar producto seleccionado" : "+ Registrar nuevo producto" ?></summary>
  <form method="POST" enctype="multipart/form-data" class="form-grid product-form">
   <?php if($productoEditar): ?>
    <input type="hidden" name="id_producto" value="<?= h($productoEditar["id_producto"]) ?>">
@@ -2887,6 +2895,7 @@ select:focus-visible,textarea:focus-visible{
    <?php endif; ?>
   </div>
  </form>
+</details>
 
  <div class="filter-toolbar">
   <div class="filter-title"><strong>Catálogo</strong><small>Filtra sin perderte entre los registros.</small></div>
@@ -3135,13 +3144,16 @@ select:focus-visible,textarea:focus-visible{
  </div>
  <div class="two-col inventory-layout">
   <div>
-   <form method="POST" class="form-grid" style="grid-template-columns:1fr">
+   <details id="formulario-inventario" class="detail-card form-accordion" >
+ <summary>+ Registrar movimiento de stock</summary>
+ <form method="POST" class="form-grid" style="grid-template-columns:1fr">
     <div class="field"><label>PRODUCTO</label><select name="id_producto_stock" required><option value="">Seleccione producto</option><?php foreach($productos as $prod): ?><option value="<?= h($prod["id_producto"]) ?>"><?= h($prod["nombre_producto"]) ?> — Stock: <?= (int)$prod["stock"] ?> / Mín: <?= (int)($prod["stock_minimo"]??5) ?></option><?php endforeach; ?></select></div>
     <div class="field"><label>TIPO DE MOVIMIENTO</label><select name="tipo_movimiento"><option>Entrada</option><option>Salida</option></select></div>
     <div class="field"><label>CANTIDAD</label><input type="number" min="1" name="cantidad_movimiento" required></div>
     <div class="field"><label>MOTIVO</label><input type="text" name="motivo_movimiento" placeholder="Ej. Ajuste, pérdida, ingreso manual"></div>
     <div class="form-actions"><button class="btn btn-primary" name="registrar_movimiento">Registrar movimiento</button></div>
    </form>
+</details>
    <div class="inventory-summary">
     <?php foreach(array_slice($productosStockBajo,0,5) as $sb): ?><div><span class="stock-dot <?= (int)$sb["stock"]<=0?"danger":"warning" ?>"></span><strong><?= h($sb["nombre_producto"]) ?></strong><small><?= (int)$sb["stock"] ?> / mín. <?= (int)$sb["stock_minimo"] ?></small></div><?php endforeach; ?>
     <?php if(!$productosStockBajo): ?><div class="empty-state">✓ No hay productos debajo del mínimo.</div><?php endif; ?>
@@ -3157,6 +3169,8 @@ select:focus-visible,textarea:focus-visible{
 <?php if(puede("proveedores")): ?>
 <section id="proveedores" class="card page-panel">
  <div class="section-intro"><div><h2>Proveedores</h2><p>Empresas que abastecen los repuestos de <?= h($configEmpresa["nombre_comercial"]??"Dorada Motors") ?>.</p></div><span class="badge"><?= $totalProveedores ?> registrados</span></div>
+ <details id="formulario-proveedores" class="detail-card form-accordion" <?= $proveedorEditar ? "open" : "" ?>>
+ <summary><?= $proveedorEditar ? "Editar proveedor seleccionado" : "+ Registrar proveedor" ?></summary>
  <form method="POST" class="form-grid">
   <?php if($proveedorEditar): ?><input type="hidden" name="id_proveedor" value="<?= h($proveedorEditar["id_proveedor"]) ?>"><?php endif; ?>
   <div class="field"><label>RAZÓN SOCIAL</label><input name="razon_social" value="<?= h($proveedorEditar["razon_social"]??"") ?>" required placeholder="Nombre del proveedor"></div>
@@ -3167,6 +3181,7 @@ select:focus-visible,textarea:focus-visible{
   <div class="field full"><label>DIRECCIÓN</label><input name="direccion_proveedor" value="<?= h($proveedorEditar["direccion"]??"") ?>"></div>
   <div class="form-actions"><button class="btn btn-primary" name="<?= $proveedorEditar ? "actualizar_proveedor" : "registrar_proveedor" ?>"><?= $proveedorEditar ? "Guardar cambios" : "+ Registrar proveedor" ?></button><?php if($proveedorEditar): ?><a class="btn btn-light" href="dashboard.php#proveedores">Cancelar</a><?php endif; ?></div>
  </form>
+</details>
  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Proveedor</th><th>RUC</th><th>Teléfono</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$proveedores): ?><tr><td colspan="7" class="empty-cell">No hay proveedores registrados.</td></tr><?php else: foreach($proveedores as $pr): ?><tr><td>#<?= h($pr["id_proveedor"]) ?></td><td><strong><?= h($pr["razon_social"]) ?></strong></td><td><?= h($pr["ruc"]) ?></td><td><?= h($pr["telefono"]) ?></td><td><?= h($pr["correo"]) ?></td><td><span class="status-pill <?= strtolower((string)$pr["estado"])==="activo"?"success":"danger" ?>"><?= h($pr["estado"]) ?></span></td><td><div class="actions"><a class="btn btn-light btn-small" href="dashboard.php?editar_proveedor=<?= h($pr["id_proveedor"]) ?>#proveedores">Editar</a><form method="POST" onsubmit="return confirm('¿Eliminar proveedor?');"><input type="hidden" name="id_proveedor" value="<?= h($pr["id_proveedor"]) ?>"><button class="btn btn-danger btn-small" name="eliminar_proveedor">Eliminar</button></form></div></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
@@ -3176,6 +3191,8 @@ select:focus-visible,textarea:focus-visible{
 <?php if(puede("compras")): ?>
 <section id="compras" class="card page-panel">
  <div class="section-intro"><div><h2>Compras y abastecimiento</h2><p>Registra la reposición de mercadería; el stock aumenta automáticamente.</p></div><div class="section-actions"><a class="btn btn-light" href="exportar_csv.php?tipo=compras">Exportar CSV</a><span class="badge">S/ <?= number_format($totalCompras,2) ?></span></div></div>
+ <details id="formulario-compras" class="detail-card form-accordion" >
+ <summary>+ Registrar compra</summary>
  <form method="POST" class="form-grid">
   <div class="field"><label>PROVEEDOR</label><select name="id_proveedor_compra" required><option value="">Seleccione proveedor</option><?php foreach($proveedores as $pr): ?><option value="<?= h($pr["id_proveedor"]) ?>"><?= h($pr["razon_social"]) ?></option><?php endforeach; ?></select></div>
   <div class="field full"><label>PRODUCTOS DE LA COMPRA</label>
@@ -3191,6 +3208,7 @@ select:focus-visible,textarea:focus-visible{
   </div>
   <div class="form-actions"><button class="btn btn-primary" name="registrar_compra">+ Registrar compra</button></div>
  </form>
+</details>
  <div class="table-wrap"><table id="tablaCompras"><thead><tr><th>ID</th><th>Proveedor</th><th>Productos</th><th>Unidades</th><th>Total</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
  <?php if(!$compras): ?><tr><td colspan="8" class="empty-cell">No hay compras registradas.</td></tr><?php else: foreach($compras as $co): ?><tr data-status="<?= h(strtolower((string)$co["estado"])) ?>"><td>#<?= h($co["id_compra"]) ?></td><td><strong><?= h($co["razon_social"]) ?></strong></td><td><?= h($co["nombre_producto"]??"-") ?></td><td><?= (int)($co["cantidad"]??0) ?></td><td class="price">S/ <?= number_format((float)$co["total"],2) ?></td><td><?= h($co["fecha_compra"]) ?></td><td><span class="status-pill <?= strtolower((string)$co["estado"])==="anulado"?"danger":"success" ?>"><?= h($co["estado"]) ?></span></td><td><form method="POST" class="inline-form"><input type="hidden" name="id_compra" value="<?= h($co["id_compra"]) ?>"><select name="estado_compra"><option value="Registrado" <?= $co["estado"]==="Registrado"?"selected":"" ?>>Registrado</option><option value="Anulado" <?= $co["estado"]==="Anulado"?"selected":"" ?>>Anulado</option></select><button class="btn btn-light btn-small" name="actualizar_estado_compra">Guardar</button></form></td></tr><?php endforeach; endif; ?>
  </tbody></table></div>
