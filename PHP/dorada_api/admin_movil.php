@@ -131,6 +131,7 @@ try {
     // CRUD móvil adicional; aquí el token y rol ya están validados.
     require_once __DIR__ . '/admin_movil_ext.php';
     require_once __DIR__ . '/admin_movil_finanzas.php';
+    require_once __DIR__ . '/admin_movil_personas.php';
     if ($metodo === 'POST' && $accion === 'logout') {
         $hash = hash('sha256',movilBearer());
         $s = $conexion->prepare("DELETE FROM sesion_admin_movil WHERE token_hash=?");
