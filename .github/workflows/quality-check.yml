@@ -98,6 +98,8 @@ jobs:
             exit 1
           fi
           DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php PHP/tests/dashboard_revision_smoke.php
+          # Crear una base EFÍMERA, reproducir columnas faltantes y restaurarlas.
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_schema_ci_test DB_PORT=3306 php PHP/tests/schema_legacy_smoke.php
 
   mariadb-integration:
     name: PHP + MariaDB (XAMPP)
@@ -134,6 +136,8 @@ jobs:
             exit 1
           fi
           DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_motors DB_PORT=3306 php PHP/tests/dashboard_revision_smoke.php
+          # Crear una base EFÍMERA, reproducir columnas faltantes y restaurarlas.
+          DB_HOST=127.0.0.1 DB_USER=root DB_PASS=testpass DB_NAME=dorada_schema_ci_test DB_PORT=3306 php PHP/tests/schema_legacy_smoke.php
 
   windows-scripts:
     name: PowerShell scripts syntax
