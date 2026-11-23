@@ -1229,10 +1229,22 @@ class _AdminMobileDashboardScreenState
               Text('S/ ' + p['precio'].toString() +
                   ' · Stock: ' + p['stock'].toString()),
               Align(alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: guardando ? null : () => editarProducto(p),
-                  icon: const Icon(Icons.edit, size: 17),
-                  label: const Text('Editar'))),
+                child: Wrap(spacing: 4, children: [
+                  TextButton.icon(
+                    onPressed: guardando ? null : () => editarProducto(p),
+                    icon: const Icon(Icons.edit, size: 17),
+                    label: const Text('Editar')),
+                  if (widget.modoLocal) TextButton.icon(
+                    onPressed: guardando ? null : () async {
+                      if (await confirmar('¿Archivar este producto local? '
+                          'Conservará su historial de movimientos.') && mounted) {
+                        await ejecutar({'accion': 'producto_archivar',
+                            'id_producto': p['id_producto']});
+                      }
+                    },
+                    icon: const Icon(Icons.archive_outlined, size: 17),
+                    label: const Text('Archivar')),
+                ])),
             ])),
         ]),
       )),
@@ -1305,7 +1317,9 @@ class _AdminMobileDashboardScreenState
       ];
     }
     if (vista == 'clientes') return [
-      encabezado('Clientes', 'Registra, edita, bloquea y revisa direcciones.'),
+      encabezado('Clientes', widget.modoLocal
+          ? 'Clientes locales de este celular, sin cuenta PHP/MySQL.'
+          : 'Registra, edita, bloquea y revisa direcciones.'),
       botonAgregar('Registrar cliente', () => guardarCliente()),
       for (final p in items) registro(
         p['nombres'].toString() + ' ' + p['apellidos'].toString(),
@@ -1388,7 +1402,9 @@ class _AdminMobileDashboardScreenState
       if (items.isEmpty) const Text('Sin movimientos.'),
     ];
     if (vista == 'proveedores') return [
-      encabezado('Proveedores', 'Registrar o actualizar datos de MySQL.'),
+      encabezado('Proveedores', widget.modoLocal
+          ? 'Proveedores guardados en este teléfono.'
+          : 'Registrar o actualizar datos de MySQL.'),
       botonAgregar('Nuevo proveedor', () => guardarProveedor()),
       for (final p in items) Card(child: Column(children: [
         ListTile(
@@ -1412,8 +1428,9 @@ class _AdminMobileDashboardScreenState
       if (items.isEmpty) const Text('No hay proveedores.'),
     ];
     if (vista == 'compras') return [
-      encabezado('Compras a proveedores',
-          'Registra compras y gestiona el stock con transacciones MySQL.'),
+      encabezado('Compras a proveedores', widget.modoLocal
+          ? 'Compras y existencias guardadas en la base SQLite.'
+          : 'Registra compras y gestiona el stock con transacciones MySQL.'),
       botonAgregar('Registrar compra', registrarCompra),
       for (final p in items) registro(
         'Compra #' + p['id_compra'].toString() +
