@@ -2603,7 +2603,7 @@ select:focus-visible,textarea:focus-visible{
 .cashflow-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#65c982)}
 @media(max-width:620px){.cashflow-strip{grid-template-columns:1fr}.cashflow-amount{font-size:22px}}
 </style>
-<link rel="stylesheet" href="dashboard_profesional_2026.css?v=1">
+<link rel="stylesheet" href="dashboard_profesional_2026.css?v=2">
 </head>
 <body>
 
@@ -2621,7 +2621,7 @@ select:focus-visible,textarea:focus-visible{
 
   <?php if(puede("pedidos") || puede("pagos") || puede("comprobantes")): ?>
   <div class="nav-folder" data-nav-folder="ventas">
-   <button type="button" class="nav-main nav-toggle" data-nav-toggle="ventas">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="ventas" aria-expanded="false">
     <span class="nav-icon">🛒</span><span>Ventas</span><b class="nav-chevron">›</b>
    </button>
    <div class="nav-submenu">
@@ -2634,7 +2634,7 @@ select:focus-visible,textarea:focus-visible{
 
   <?php if(puede("gestion-productos") || puede("categorias") || puede("marcas")): ?>
   <div class="nav-folder" data-nav-folder="catalogo">
-   <button type="button" class="nav-main nav-toggle" data-nav-toggle="catalogo">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="catalogo" aria-expanded="false">
     <span class="nav-icon">◇</span><span>Catálogo</span><b class="nav-chevron">›</b>
    </button>
    <div class="nav-submenu">
@@ -2647,7 +2647,7 @@ select:focus-visible,textarea:focus-visible{
 
   <?php if(puede("inventario") || puede("compras") || puede("proveedores")): ?>
   <div class="nav-folder" data-nav-folder="inventario">
-   <button type="button" class="nav-main nav-toggle" data-nav-toggle="inventario">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="inventario" aria-expanded="false">
     <span class="nav-icon">▤</span><span>Inventario</span><b class="nav-chevron">›</b>
    </button>
    <div class="nav-submenu">
@@ -2660,7 +2660,7 @@ select:focus-visible,textarea:focus-visible{
 
   <?php if(puede("clientes")): ?>
   <div class="nav-folder" data-nav-folder="clientes">
-   <button type="button" class="nav-main nav-toggle" data-nav-toggle="clientes">
+   <button type="button" class="nav-main nav-toggle" data-nav-toggle="clientes" aria-expanded="false">
     <span class="nav-icon">👤</span><span>Clientes</span><b class="nav-chevron">›</b>
    </button>
    <div class="nav-submenu">
@@ -2751,7 +2751,7 @@ select:focus-visible,textarea:focus-visible{
   <p>Pagos confirmados por administración, sin contar pedidos cancelados.</p>
   <div class="cashflow-track" role="progressbar" aria-label="Porcentaje cobrado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int)round($porcentajeCobrado) ?>" id="cobrosProgreso"><div class="cashflow-fill" id="cobrosBarra" style="width:<?= number_format($porcentajeCobrado,1,'.','') ?>%"></div></div>
  </a>
- <a class="cashflow-card" href="#pedidos">
+ <a class="cashflow-card" href="<?= puede("pedidos") ? "#pedidos" : "#reportes" ?>">
   <div class="cashflow-top"><span class="cashflow-label">◷ Saldo por cobrar</span><span class="badge">Pedidos activos</span></div>
   <div class="cashflow-amount" id="metricPorCobrar">S/ <?= number_format($porCobrar,2) ?></div>
   <p>Ventas activas menos abonos confirmados. Pagos pendientes no cuentan como cobrados.</p>
@@ -3421,6 +3421,9 @@ document.querySelectorAll('[data-nav-toggle]').forEach(btn=>{
   const estabaAbierto=folder?.classList.contains('open');
   document.querySelectorAll('.nav-folder').forEach(f=>f.classList.remove('open'));
   if(folder && !estabaAbierto) folder.classList.add('open');
+  document.querySelectorAll('.nav-folder').forEach(f=>{
+   f.querySelector('.nav-main')?.setAttribute('aria-expanded',String(f.classList.contains('open')));
+  });
  });
 });
 
@@ -3431,7 +3434,9 @@ function actualizarMenuAgrupado(id){
  document.querySelectorAll('.nav-folder').forEach(folder=>{
   const contiene=[...folder.querySelectorAll('.nav-submenu a')].some(a=>a.getAttribute('href')==='#'+id);
   folder.classList.toggle('open',contiene);
-  folder.querySelector('.nav-main')?.classList.toggle('active',contiene);
+  const boton=folder.querySelector('.nav-main');
+  boton?.classList.toggle('active',contiene);
+  boton?.setAttribute('aria-expanded',String(folder.classList.contains('open')));
  });
 }
 
