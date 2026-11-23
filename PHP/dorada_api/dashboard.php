@@ -2683,7 +2683,7 @@ select:focus-visible,textarea:focus-visible{
   <?php endif; ?>
  </nav>
  <div class="motto">“Potencia, Calidad y Confianza en Cada Repuesto”</div>
- <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v4.2<br>Interfaz simplificada · PHP + MySQL</div>
+ <div class="sidebar-bottom"><strong>ADN Import's</strong>Dorada Motors · Panel v5.0<br>Interfaz simplificada · PHP + MySQL</div>
 </aside>
 
 <main class="main">
@@ -2749,7 +2749,7 @@ select:focus-visible,textarea:focus-visible{
 </section>
 
 <details class="dashboard-extras">
- <summary>Ver más indicadores: stock, compras y cobros</summary>
+ <summary>Ver información adicional</summary>
  <section class="ops-strip">
  <?php if(puede("inventario")): ?><a href="#inventario" class="ops-card"><span class="ops-icon warn">!</span><div><small>STOCK BAJO</small><strong id="opsStockValue"><?= $stockBajo ?></strong><p>Productos bajo su stock mínimo</p></div><b>→</b></a><?php endif; ?>
  <?php if(puede("proveedores")): ?><a href="#proveedores" class="ops-card"><span class="ops-icon blue2">P</span><div><small>PROVEEDORES</small><strong id="opsProveedoresValue"><?= $totalProveedores ?></strong><p>Proveedores registrados</p></div><b>→</b></a><?php endif; ?>
