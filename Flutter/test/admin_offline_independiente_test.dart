@@ -243,4 +243,59 @@ void main() {
     }
   });
 
+  test('Cliente creado y bloqueado por administrador entra a la tienda local',
+      () async {
+    const scope = AdminOfflineRepository.scope;
+    await OfflineDatabase.limpiarScope(scope);
+    try {
+      final registro = await AdminOfflineRepository.operar({
+        'accion':'cliente_guardar','id_usuario':0,
+        'nombres':'Alicia','apellidos':'Compradora',
+        'correo':'ALICIA@ejemplo.test','telefono':'900123456',
+        'contrasena':'ClienteLocal2026!',
+      });
+      expect(registro['estado'],true);
+      final items = (await AdminOfflineRepository.consultar('clientes'))
+          ['items'] as List;
+      expect(items,hasLength(1));
+      final id = (items.single as Map)['id_usuario'] as int;
+      expect(items.single['correo'],'alicia@ejemplo.test');
+      expect(items.single.containsKey('contrasena'),false);
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'alicia@ejemplo.test','ClienteLocal2026!'),id);
+      await AdminOfflineRepository.operar({
+        'accion':'cliente_estado','id_usuario':id,'estado':'Bloqueado',
+      });
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'alicia@ejemplo.test','ClienteLocal2026!'),isNull);
+      await AdminOfflineRepository.operar({
+        'accion':'cliente_estado','id_usuario':id,'estado':'Activo',
+      });
+      await AdminOfflineRepository.operar({
+        'accion':'cliente_guardar','id_usuario':id,
+        'nombres':'Alicia','apellidos':'Compradora',
+        'correo':'alicia@ejemplo.test','telefono':'900123456',
+        'contrasena':'NuevaClaveLocal2026!',
+      });
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'alicia@ejemplo.test','ClienteLocal2026!'),isNull);
+      expect(await AdminOfflineRepository.autenticarComprador(
+        'alicia@ejemplo.test','NuevaClaveLocal2026!'),id);
+
+      final productos = (await AdminOfflineRepository.consultar('productos'))
+          ['items'] as List;
+      final idProducto = (productos.first as Map)['id_producto'];
+      await AdminOfflineRepository.operar({
+        'accion':'producto_archivar','id_producto':idProducto,
+      });
+      await expectLater(AdminOfflineRepository.operar({
+        'accion':'pedido_manual','id_usuario':id,
+        'tipo_entrega':'Recojo en tienda','metodo_pago':'Efectivo',
+        'items':[{'id_producto':idProducto,'cantidad':1}],
+      }),throwsStateError);
+    } finally {
+      await OfflineDatabase.limpiarScope(scope);
+    }
+  });
+
 }
