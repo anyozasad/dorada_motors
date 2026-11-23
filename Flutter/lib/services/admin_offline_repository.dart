@@ -588,7 +588,7 @@ class AdminOfflineRepository {
       nuevo.remove('accion');
       if (i < 0) { lista.add(nuevo); } else { lista[i]=nuevo; }
       base['direcciones']=lista;
-      return mensaje;
+      return {...mensaje, 'id_direccion': nuevo['id_direccion']};
     }
     if (accion == 'direccion_eliminar') {
       final id = _entero(datos['id_direccion']);
