@@ -1094,16 +1094,74 @@ class _AdminMobileDashboardScreenState
       ];
     }
     if (vista == 'clientes') return [
-      encabezado('Clientes', 'Cuentas reales. Activa o bloquea el acceso.'),
+      encabezado('Clientes', 'Registra, edita, bloquea y revisa direcciones.'),
+      botonAgregar('Registrar cliente', () => guardarCliente()),
       for (final p in items) registro(
         p['nombres'].toString() + ' ' + p['apellidos'].toString(),
         p['correo'].toString() + '\n' +
-        p['telefono'].toString() + ' · ' + p['estado'].toString(),
+        (p['telefono']?.toString() ?? '') + ' · ' + p['estado'].toString(),
         Icons.person_outline, cifra: 'ID ' + p['id_usuario'].toString(),
-        accion: TextButton(
-          onPressed: guardando ? null : () => cambiarEstadoCliente(p),
-          child: Text(p['estado'] == 'Activo' ? 'Bloquear' : 'Activar'))),
+        accion: PopupMenuButton<String>(
+          tooltip: 'Acciones del cliente',
+          onSelected: (opcion) {
+            if (opcion == 'editar') {
+              guardarCliente(p);
+            } else if (opcion == 'direcciones') {
+              abrirDirecciones(p);
+            } else if (opcion == 'estado') {
+              cambiarEstadoCliente(p);
+            }
+          },
+          itemBuilder: (ctx) => [
+            const PopupMenuItem(value: 'editar', child: Text('Editar datos')),
+            const PopupMenuItem(value: 'direcciones', child: Text('Direcciones')),
+            PopupMenuItem(value: 'estado',
+                child: Text(p['estado'] == 'Activo' ? 'Bloquear' : 'Activar')),
+          ],
+          icon: const Icon(Icons.more_vert),
+        )),
       if (items.isEmpty) const Text('No hay clientes.'),
+    ];
+    if (vista == 'direcciones') return [
+      encabezado('Direcciones del cliente',
+          'Registra y actualiza direcciones de entrega.'),
+      botonAgregar('Nueva dirección', () => guardarDireccion()),
+      for (final p in items) Card(child: ListTile(
+        leading: const Icon(Icons.location_on_outlined),
+        title: Text(p['direccion_detalle']?.toString() ?? ''),
+        subtitle: Text(
+          p['distrito'].toString() + ', ' +
+          p['provincia'].toString() + ', ' +
+          p['departamento'].toString() +
+          '\n' + (p['referencia']?.toString() ?? '')),
+        trailing: PopupMenuButton<String>(
+          onSelected: (opcion) {
+            if (opcion == 'editar') guardarDireccion(p);
+            if (opcion == 'eliminar') eliminarDireccion(p);
+          },
+          itemBuilder: (ctx) => const [
+            PopupMenuItem(value: 'editar', child: Text('Editar')),
+            PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+          ],
+        ),
+      )),
+      if (items.isEmpty) const Text('El cliente no tiene direcciones.'),
+    ];
+    if (vista == 'personal') return [
+      encabezado('Personal administrativo',
+          'Gestiona roles y accesos de empleados desde el celular.'),
+      botonAgregar('Crear empleado', () => guardarPersonal()),
+      for (final p in items) registro(
+        p['nombres'].toString() + ' ' + p['apellidos'].toString(),
+        p['correo'].toString() + '\n' +
+        p['rol_sistema'].toString() + ' · ' + p['estado'].toString(),
+        Icons.manage_accounts_outlined,
+        accion: TextButton.icon(
+          onPressed: guardando ? null : () => guardarPersonal(p),
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Editar')),
+      ),
+      if (items.isEmpty) const Text('No hay personal administrativo.'),
     ];
     if (vista == 'inventario') return [
       encabezado('Kardex', 'Stock anterior, stock nuevo y motivo del cambio.'),
