@@ -84,7 +84,10 @@ function movilMovimiento(mysqli $db,int $id,int $anterior,int $nuevo,string $mot
 try {
     movilSesiones($conexion);
     $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $datos = $metodo === 'POST' ? json_decode(file_get_contents('php://input'),true) : null;
+    $esMultipart = $metodo === 'POST' && str_starts_with(
+        strtolower((string)($_SERVER['CONTENT_TYPE'] ?? '')), 'multipart/form-data;');
+    $datos = $esMultipart ? $_POST
+        : ($metodo === 'POST' ? json_decode(file_get_contents('php://input'),true) : null);
     if ($metodo === 'POST' && !is_array($datos)) {
         movilResponder(['estado'=>false,'mensaje'=>'JSON inválido'],400);
     }
@@ -242,6 +245,22 @@ try {
         if (!in_array($nuevo,$transiciones[$estado] ?? [],true)) {
             $conexion->rollback();
             movilResponder(['estado'=>false,'mensaje'=>'El cambio de estado no está permitido'],409);
+        }
+        if (in_array($nuevo,['Pagado','Completado'],true)) {
+            $s = $conexion->prepare("SELECT p.total,
+              COALESCE(SUM(CASE WHEN pg.estado_pago='Pagado'
+                THEN pg.monto ELSE 0 END),0) pagado
+              FROM pedido p LEFT JOIN pago pg ON pg.id_pedido=p.id_pedido
+              WHERE p.id_pedido=? GROUP BY p.id_pedido,p.total");
+            $s->bind_param('i',$id);
+            $s->execute();
+            $finanzas = $s->get_result()->fetch_assoc();
+            if (!$finanzas ||
+              (float)$finanzas['pagado']+0.009 < (float)$finanzas['total']) {
+                $conexion->rollback();
+                movilResponder(['estado'=>false,'mensaje'=>
+                  'No se puede completar: el pedido tiene saldo pendiente'],409);
+            }
         }
         $s = $conexion->prepare('UPDATE pedido SET estado_pedido=? WHERE id_pedido=?');
         $s->bind_param('si',$nuevo,$id);
