@@ -3953,12 +3953,21 @@ async function actualizarDashboardEnVivo(manual=false){
    return;
   }
   if(cambiaronDatos){
-   // Actualizar métricas sin recargar la pantalla ni cerrar formularios.
+   // Sin cambios locales, volver a consultar PHP para actualizar las TABLAS
+   // de clientes, pedidos, pagos, productos y Kardex. La URL con #módulo se
+   // mantiene, de modo que la persona sigue donde estaba.
+   // Si está editando algún formulario, JAMÁS descartamos sus datos.
+   if(!formularioAdminModificado && document.visibilityState==='visible'){
+    const estado=document.getElementById('liveStatus');
+    if(estado) estado.textContent='● Sincronizando registros con MySQL...';
+    window.location.reload();
+    return;
+   }
    const aviso=document.getElementById('liveStatus');
    if(aviso){
     aviso.textContent=formularioAdminModificado
-      ? '● Datos nuevos · guarda tus cambios antes de actualizar'
-      : '● Datos nuevos disponibles · pulsa ↻ para actualizar';
+      ? '● Hay datos nuevos · guarda tu formulario antes de actualizar'
+      : '● Hay datos nuevos · actualiza al volver a esta ventana';
     aviso.style.opacity='1';
    }
   }
