@@ -36,8 +36,12 @@ try {
   $Cambios = @(& git status --porcelain --untracked-files=no)
   Verificar 'git status'
   if ($Cambios.Count -gt 0) {
-    Write-Host ($Cambios -join [Environment]::NewLine) -ForegroundColor Yellow
-    throw 'Tienes cambios locales sin guardar. No se hizo pull para protegerlos.'
+    # No sobrescribir trabajo del estudiante. Guardar cambios rastreados en Git
+    # sin incluir fotos nuevas, .env, bases SQLite ni otros archivos sin seguimiento.
+    $FechaRespaldo = Get-Date -Format 'yyyyMMdd_HHmmss'
+    & git stash push -m ("respaldo_dorada_antes_de_actualizar_" + $FechaRespaldo)
+    Verificar 'respaldo git stash'
+    Write-Host 'Se protegieron tus modificaciones locales en git stash.' -ForegroundColor Yellow
   }
   & git pull --ff-only origin main
   Verificar 'git pull --ff-only origin main'
@@ -46,30 +50,74 @@ try {
     exit 0
   }
 
-  Paso '2. Copiar PHP a XAMPP sin borrar datos propios'
+  Paso '2. Validar PHP y actualizar XAMPP sin borrar datos'
   $XamppRoots = @('C:\xampp\htdocs','D:\xampp\htdocs')
-  $Htdocs = @($XamppRoots | Where-Object { Test-Path $_ } | Select-Object -First 1)
-  if ($Htdocs.Count -gt 0) {
+  $Raices = @($XamppRoots | Where-Object { Test-Path $_ })
+  if ($Raices.Count -gt 0) {
     $Origen = Join-Path $Raiz 'PHP\dorada_api'
-    $Destino = Join-Path $Htdocs[0] 'dorada_api'
-    New-Item -ItemType Directory -Path $Destino -Force | Out-Null
-    foreach ($Entrada in @(Get-ChildItem -LiteralPath $Origen -Force)) {
-      if ($Entrada.Name -eq '.env') { continue }
-      if ($Entrada.Name -eq 'data' -and $Entrada.PSIsContainer) {
-        $Datos = Join-Path $Destino 'data'
-        New-Item -ItemType Directory -Path $Datos -Force | Out-Null
-        foreach ($Archivo in @(Get-ChildItem -LiteralPath $Entrada.FullName -Force)) {
-          if ($Archivo.Name -eq 'config_empresa.json') { continue }
-          Copy-Item -LiteralPath $Archivo.FullName -Destination $Datos -Recurse -Force
+    $Sitios = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($Htdocs in $Raices) {
+      $Existentes = @()
+      foreach ($Relativa in @('dorada_api','dorada_motors\PHP\dorada_api','dorada_motors\dorada_api')) {
+        $Ruta = Join-Path $Htdocs $Relativa
+        if (Test-Path (Join-Path $Ruta 'dashboard.php')) {
+          $Existentes += $Ruta
         }
-        continue
       }
-      Copy-Item -LiteralPath $Entrada.FullName -Destination $Destino -Recurse -Force
+      if ($Existentes.Count -eq 0) {
+        $Existentes += (Join-Path $Htdocs 'dorada_api')
+      }
+      foreach ($Sitio in $Existentes) { $Sitios.Add($Sitio) }
     }
-    Write-Host ('Dashboard actualizado: ' + $Destino) -ForegroundColor Green
-    Write-Host 'Se conservaron MySQL, imagenes uploads y configuracion local.'
+
+    foreach ($Htdocs in $Raices) {
+      $PhpExe = Join-Path (Split-Path $Htdocs -Parent) 'php\php.exe'
+      if (Test-Path $PhpExe) {
+        Paso 'Comprobar sintaxis de PHP antes de desplegar'
+        foreach ($PhpFile in @(Get-ChildItem -LiteralPath $Origen -Recurse -Filter '*.php' -File)) {
+          & $PhpExe -l $PhpFile.FullName | Out-Null
+          Verificar ('PHP ' + $PhpFile.Name)
+        }
+        break
+      }
+    }
+
+    foreach ($Destino in $Sitios) {
+      New-Item -ItemType Directory -Path $Destino -Force | Out-Null
+      foreach ($Entrada in @(Get-ChildItem -LiteralPath $Origen -Force)) {
+        if ($Entrada.Name -eq '.env') { continue }
+        if ($Entrada.Name -eq 'uploads' -and $Entrada.PSIsContainer) {
+          # Conservar fotos que el administrador ya subio a su instalacion.
+          $CarpetaFotos = Join-Path $Destino 'uploads'
+          if (!(Test-Path $CarpetaFotos)) {
+            Copy-Item -LiteralPath $Entrada.FullName -Destination $Destino -Recurse -Force
+          }
+          continue
+        }
+        if ($Entrada.Name -eq 'data' -and $Entrada.PSIsContainer) {
+          $Datos = Join-Path $Destino 'data'
+          New-Item -ItemType Directory -Path $Datos -Force | Out-Null
+          foreach ($Archivo in @(Get-ChildItem -LiteralPath $Entrada.FullName -Force)) {
+            if ($Archivo.Name -in @('config_empresa.json','auditoria.jsonl')) { continue }
+            if (!(Test-Path (Join-Path $Datos $Archivo.Name))) {
+              Copy-Item -LiteralPath $Archivo.FullName -Destination $Datos -Recurse -Force
+            }
+          }
+          continue
+        }
+        Copy-Item -LiteralPath $Entrada.FullName -Destination $Destino -Recurse -Force
+      }
+      $FuenteSha = (Get-FileHash -LiteralPath (Join-Path $Origen 'dashboard.php') -Algorithm SHA256).Hash
+      $CopiaSha = (Get-FileHash -LiteralPath (Join-Path $Destino 'dashboard.php') -Algorithm SHA256).Hash
+      if ($FuenteSha -ne $CopiaSha) {
+        throw ('El dashboard instalado no coincide con GitHub en ' + $Destino)
+      }
+      Write-Host ('Dashboard PHP actualizado y verificado: ' + $Destino) -ForegroundColor Green
+    }
+    Write-Host 'Se preservaron bases MySQL, fotos y configuraciones locales.' -ForegroundColor Green
+    Write-Host 'Abre http://localhost/dorada_api/admin_login.php y pulsa Ctrl+F5.' -ForegroundColor Cyan
   } else {
-    Write-Host 'No se detecto XAMPP en C: o D:. Se omite el despliegue PHP.' -ForegroundColor Yellow
+    Write-Host 'XAMPP no existe en C:\xampp o D:\xampp. PHP queda actualizado solo en Git.' -ForegroundColor Yellow
   }
 
   Paso '3. Compilar APK actualizado'
