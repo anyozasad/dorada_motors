@@ -3463,6 +3463,13 @@ function actualizarMenuAgrupado(id){
  });
 }
 
+// En escritorio, abrir alta de productos al entrar al módulo.
+// En celulares se conserva el acordeón compacto para mostrar el catálogo.
+const acordeonProductos=document.getElementById('formulario-gestion-productos');
+if(acordeonProductos && window.matchMedia('(min-width:1100px)').matches){
+ acordeonProductos.open=true;
+}
+
 const filtroCategoriaProducto=document.getElementById('filtroCategoriaProducto');
 const filtroStockProducto=document.getElementById('filtroStockProducto');
 const filtroEstadoPedido=document.getElementById('filtroEstadoPedido');
