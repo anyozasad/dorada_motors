@@ -33,18 +33,21 @@ class AdminMobileApi {
     };
   }
 
-  static Future<Map<String, dynamic>> consultar(String vista) =>
-      _request('GET', vista, null, false);
+  static Future<Map<String, dynamic>> consultar(String vista,
+      {Map<String, String> parametros = const {}}) =>
+      _request('GET', vista, null, false, parametros);
 
   static Future<Map<String, dynamic>> operar(Map<String, dynamic> data) =>
       _request('POST', '', data, false);
 
   static Future<Map<String, dynamic>> _request(String method, String view,
-      Map<String, dynamic>? data, bool login) async {
+      Map<String, dynamic>? data, bool login,
+      [Map<String, String> parametros = const {}]) async {
     final p = await SharedPreferences.getInstance();
     final token = login ? '' : p.getString(keyToken) ?? '';
     final uri = Uri.parse(ApiService.baseUrl + '/admin_movil.php')
-        .replace(queryParameters: method == 'GET' ? {'vista': view} : null);
+        .replace(queryParameters: method == 'GET'
+            ? {'vista': view, ...parametros} : null);
     final headers = <String, String>{
       'Accept': 'application/json',
       if (method == 'POST') 'Content-Type': 'application/json',
@@ -280,6 +283,7 @@ class _AdminMobileDashboardScreenState
   String rol = '';
   String nombre = '';
   String vista = 'resumen';
+  int? clienteDirecciones;
   Map<String, dynamic> datos = {};
   bool cargando = true;
   bool guardando = false;
@@ -327,7 +331,9 @@ class _AdminMobileDashboardScreenState
     }
     setState(() { cargando = true; error = null; });
     try {
-      final r = await AdminMobileApi.consultar(vista);
+      final r = await AdminMobileApi.consultar(vista,
+          parametros: vista == 'direcciones' && clienteDirecciones != null
+              ? {'id_usuario': clienteDirecciones.toString()} : const {});
       if (!mounted) return;
       setState(() { datos = r; cargando = false; });
     } catch (e) {
@@ -342,6 +348,11 @@ class _AdminMobileDashboardScreenState
   void navegar(String destino) {
     setState(() { vista = destino; datos = {}; error = null; });
     cargar();
+  }
+
+  void abrirDirecciones(Map<String, dynamic> cliente) {
+    clienteDirecciones = int.tryParse(cliente['id_usuario'].toString());
+    navegar('direcciones');
   }
 
   Future<void> salir() async {
@@ -702,6 +713,7 @@ class _AdminMobileDashboardScreenState
     'categorias' => 'Categorías', 'marcas' => 'Marcas',
     'compras' => 'Compras', 'comprobantes' => 'Comprobantes',
     'soporte' => 'Soporte', 'configuracion' => 'Configuración',
+    'personal' => 'Personal', 'direcciones' => 'Direcciones',
     _ => 'Más módulos',
   };
 
@@ -854,6 +866,9 @@ class _AdminMobileDashboardScreenState
           Icons.description_outlined, 'comprobantes'),
       if (permitido('reportes')) modulo('Reportes',
           'Ventas y más vendidos', Icons.bar_chart, 'reportes'),
+      if (rol == 'Administrador') modulo('Personal',
+          'Cuentas, roles y permisos', Icons.manage_accounts_outlined,
+          'personal'),
       if (rol == 'Administrador') modulo('Configuración',
           'Datos de empresa y delivery', Icons.settings_outlined,
           'configuracion'),
