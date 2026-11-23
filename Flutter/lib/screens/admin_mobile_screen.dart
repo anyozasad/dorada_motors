@@ -1164,6 +1164,42 @@ class _AdminMobileDashboardScreenState
       Text(detalle, style: const TextStyle(color: AppColors.muted)),
     ]));
 
+  Widget graficaVentas(List<Map<String,dynamic>> puntos) {
+    if (puntos.isEmpty) return const SizedBox.shrink();
+    final importes=puntos.map((p)=>double.tryParse(
+      p['ventas']?.toString()??'')??0.0).toList();
+    final maximo=importes.fold<double>(1,(a,b)=>b>a?b:a);
+    return Card(child:Padding(padding:const EdgeInsets.all(12),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Ventas por día (S/)',
+          style:TextStyle(fontWeight:FontWeight.w800)),
+        const SizedBox(height:10),
+        SizedBox(height:148,child:ListView(
+          scrollDirection:Axis.horizontal,children:[
+          for(var i=0;i<puntos.length;i++)
+            Padding(padding:const EdgeInsets.only(right:12),
+              child:SizedBox(width:64,child:Column(
+                mainAxisAlignment:MainAxisAlignment.end,children:[
+                  Text('S/ '+importes[i].toStringAsFixed(0),
+                    style:const TextStyle(fontSize:11),
+                    maxLines:1,overflow:TextOverflow.ellipsis),
+                  const SizedBox(height:4),
+                  Container(width:34,
+                    height:82*(importes[i]/maximo).clamp(0.04,1.0),
+                    decoration:BoxDecoration(
+                      color:AppColors.goldDark,
+                      borderRadius:const BorderRadius.vertical(
+                        top:Radius.circular(5)))),
+                  const SizedBox(height:5),
+                  Text(puntos[i]['fecha'].toString().length>=10
+                    ? puntos[i]['fecha'].toString().substring(5,10)
+                    : puntos[i]['fecha'].toString(),
+                    style:const TextStyle(fontSize:11)),
+                ]))),
+        ])),
+      ])));
+  }
+
   Widget registro(String heading, String detalle, IconData icon,
       {String? cifra, Widget? accion}) => Card(
     child: Padding(padding: const EdgeInsets.all(12),
@@ -1567,6 +1603,8 @@ class _AdminMobileDashboardScreenState
       final top = ((datos['top'] as List?) ?? const []).whereType<Map>();
       return [
         encabezado('Ventas', 'Pedidos no cancelados de esta base de datos.'),
+        if (diario.isNotEmpty) graficaVentas(
+          diario.map((p)=>Map<String,dynamic>.from(p)).toList()),
         for (final p in diario) registro(p['fecha'].toString(),
             p['pedidos'].toString() + ' pedidos', Icons.calendar_month,
             cifra: 'S/ ' + p['ventas'].toString()),
