@@ -81,7 +81,9 @@ class _AdminMobileFormState extends State<AdminMobileForm> {
               for (final field in widget.fields) Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: field.choices == null ? TextFormField(
-                  initialValue: _values[field.keyName]?.toString() ?? '',
+                  initialValue: field.keyName.contains('contrasena') ? ''
+                      : _values[field.keyName]?.toString() ?? '',
+                  obscureText: field.keyName.contains('contrasena'),
                   maxLines: field.keyName.contains('respuesta') ? 4 : 1,
                   keyboardType: field.numeric
                       ? const TextInputType.numberWithOptions(decimal: true)
