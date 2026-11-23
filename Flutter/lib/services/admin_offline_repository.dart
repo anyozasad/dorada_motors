@@ -565,7 +565,449 @@ class AdminOfflineRepository {
       if (id > 0 && i < 0) throw StateError('Registro no encontrado');
       if (cliente) {
         final email = (datos['correo'] ?? '').toString().trim().toLowerCase();
-        if (!email.contains('@')) throw StateError('Correo no válido');
+        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+
+        if (lista.any((p) => p['correo']==email && _entero(p[idCol])!=id)) {
+          throw StateError('Correo ya registrado');
+        }
+      }
+      final nuevo = <String, dynamic>{
+        ...?(i >= 0 ? lista[i] : null),
+        ...datos,
+        if (cliente) 'apellidos': datos['apellidos'] ?? '',
+        if (cliente) 'telefono': datos['telefono'] ?? '',
+        idCol: i >= 0 ? id : _id(base),
+        'estado': (datos['estado'] ?? (i>=0 ? lista[i]['estado'] : 'Activo')),
+      };
+      nuevo.remove('accion');
+      nuevo.remove('contrasena');
+      if (cliente) {
+        nuevo['correo'] = nuevo['correo'].toString().trim().toLowerCase();
+      }
+      // Una cuenta local creada por el administrador ahora puede ingresar
+      // a la tienda con esa misma contraseña, sin ninguna red ni laptop.
+      if (cliente) {
+        final contrasena = datos['contrasena']?.toString() ?? '';
+        if (contrasena.isNotEmpty) {
+          if (contrasena.length < 8 || contrasena.length > 128) {
+            throw StateError('La contraseña requiere entre 8 y 128 caracteres');
+          }
+          final random = Random.secure();
+          final salt = base64Encode(List<int>.generate(24,
+              (_) => random.nextInt(256)));
+          final credenciales = _filas(base, 'accesos_clientes');
+          credenciales.removeWhere((p) =>
+              _entero(p['id_usuario']) == _entero(nuevo['id_usuario']));
+          credenciales.add({
+            'id_usuario':nuevo['id_usuario'],
+            'salt':salt,'hash':_hash(contrasena,salt),
+          });
+          base['accesos_clientes'] = credenciales;
+        }
+      }
+      if (i < 0) { lista.add(nuevo); } else { lista[i] = nuevo; }
+      base[tabla] = lista;
+      return mensaje;
+    }
+    if (accion == 'cliente_estado') {
+      final id = _entero(datos['id_usuario']);
+      final estado = datos['estado'] ?? datos['estado_usuario'];
+      if (!['Activo','Bloqueado'].contains(estado)) {
+        throw StateError('Estado inválido');
+      }
+      final lista = _filas(base, 'clientes');
+      final i = lista.indexWhere((p) => _entero(p['id_usuario'])==id);
+      if (i < 0) throw StateError('Cliente no encontrado');
+      lista[i]['estado'] = estado;
+      base['clientes'] = lista;
+      return mensaje;
+    }
+    if (accion == 'proveedor_eliminar') {
+      final id = _entero(datos['id_proveedor']);
+      if (_filas(base, 'compras').any((p) =>
+          _entero(p['id_proveedor']) == id)) {
+        throw StateError('Proveedor con compras asociadas');
+      }
+      final lista = _filas(base, 'proveedores');
+      lista.removeWhere((p) => _entero(p['id_proveedor']) == id);
+      base['proveedores'] = lista;
+      return mensaje;
+    }
+    if (accion == 'direccion_guardar') {
+      final id = _entero(datos['id_direccion'] ?? 0);
+      final cliente = _entero(datos['id_usuario']);
+      if (!_filas(base,'clientes').any((p) =>
+          _entero(p['id_usuario']) == cliente)) {
+        throw StateError('Cliente no encontrado');
+      }
+      final detalle = (datos['direccion_detalle'] ?? '').toString().trim();
+      if (detalle.isEmpty) throw StateError('Escribe la dirección');
+      final lista = _filas(base,'direcciones');
+      final i = lista.indexWhere((p) => _entero(p['id_direccion'])==id);
+      final nuevo = <String,dynamic>{...datos,
+        'id_direccion': i>=0?id:_id(base)};
+      nuevo.remove('accion');
+      if (i < 0) { lista.add(nuevo); } else { lista[i]=nuevo; }
+      base['direcciones']=lista;
+      return {...mensaje, 'id_direccion': nuevo['id_direccion']};
+    }
+    if (accion == 'direccion_eliminar') {
+      final id = _entero(datos['id_direccion']);
+      if (_filas(base,'pedidos').any((p) =>
+          _entero(p['id_direccion'])==id)) {
+        throw StateError('Dirección asociada a un pedido');
+      }
+      final lista=_filas(base,'direcciones');
+      lista.removeWhere((p)=>_entero(p['id_direccion'])==id);
+      base['direcciones']=lista;
+      return mensaje;
+    }
+    if (accion == 'pedido_manual' || accion == 'compra_registrar') {
+      final compra = accion=='compra_registrar';
+      final personaId = _entero(datos[compra ? 'id_proveedor':'id_usuario']);
+      final tablaPersona = compra ? 'proveedores':'clientes';
+      final idCol = compra ? 'id_proveedor':'id_usuario';
+      if (!_filas(base,tablaPersona).any((p) =>
+          _entero(p[idCol])==personaId && p['estado']=='Activo')) {
+        throw StateError('Cliente o proveedor no disponible');
+      }
+      final items = datos['items'];
+      if (items is! List || items.isEmpty || items.length>50) {
+        throw StateError('Agrega al menos un repuesto');
+      }
+      final productos=_filas(base,'productos');
+      final lineas=<Map<String,dynamic>>[];
+      final distintos=<int>{};
+      var total=0.0;
+      for (final item in items) {
+        if (item is! Map) throw StateError('Detalle inválido');
+        final idProducto=_entero(item['id_producto']);
+        final cantidad=_entero(item['cantidad']);
+        final pos=productos.indexWhere((p) =>
+          _entero(p['id_producto'])==idProducto &&
+          p['archivado'] != true);
+        if (cantidad<=0 || cantidad>100000 || pos<0 ||
+          !distintos.add(idProducto)) {
+          throw StateError('Repuesto o cantidad inválidos/duplicados');
+        }
+        final p=productos[pos];
+        final anterior=_entero(p['stock']);
+        if (!compra && anterior<cantidad) {
+          throw StateError('Stock insuficiente: ' +
+              p['nombre_producto'].toString());
+        }
+        final precio = compra ? _decimal(item['precio_compra'])
+          : (_decimal(p['precio_oferta'])>0 &&
+               _decimal(p['precio_oferta']) < _decimal(p['precio'])
+            ? _decimal(p['precio_oferta']) : _decimal(p['precio']));
+        if (precio.isNaN || precio < 0 || precio > 10000000) {
+          throw StateError('Precio inválido');
+        }
+        final parcial=double.parse((precio*cantidad).toStringAsFixed(2));
+        total+=parcial;
+        lineas.add({
+          'id_producto': idProducto, 'nombre_producto': p['nombre_producto'],
+          'cantidad': cantidad, 'precio_unitario': precio,
+          'precio_compra': precio, 'subtotal': parcial,
+          'stock_anterior': anterior,
+        });
+      }
+      final entrega=datos['tipo_entrega']??'Recojo en tienda';
+      if (!compra &&
+          !['Delivery','Recojo en tienda'].contains(entrega)) {
+        throw StateError('Tipo de entrega no permitido');
+      }
+      if (!compra && !['Efectivo','Yape','Plin','Transferencia']
+          .contains(datos['metodo_pago'])) {
+        throw StateError('Método de pago no válido');
+      }
+      final direccionId=_entero(datos['id_direccion']??0);
+      if (!compra && entrega=='Delivery') {
+        if (!_filas(base,'direcciones').any((d)=>
+            _entero(d['id_direccion'])==direccionId &&
+            _entero(d['id_usuario'])==personaId)) {
+          throw StateError('Elige una dirección válida del cliente');
+        }
+        final config=Map<String,dynamic>.from(base['configuracion'] as Map);
+        final costo=_decimal(config['costo_delivery']);
+        total+=costo.isNaN?0:costo;
+      }
+      total=double.parse(total.toStringAsFixed(2));
+      final idPedido=_id(base);
+      if (compra) {
+        final compras=_filas(base,'compras');
+        compras.add({'id_compra':idPedido,'id_proveedor':personaId,
+          'fecha_compra':ahora, 'total':total,'estado':'Registrado'});
+        base['compras']=compras;
+      } else {
+        final cliente=_filas(base,'clientes').firstWhere((p)=>
+            _entero(p['id_usuario'])==personaId);
+        final pedidos=_filas(base,'pedidos');
+        pedidos.add({
+          'id_pedido':idPedido,'id_usuario':personaId,
+          'id_direccion':entrega=='Delivery'?direccionId:null,
+          'fecha_pedido':ahora,'estado_pedido':'Pendiente','total':total,
+          'tipo_entrega':entrega,'nombres':cliente['nombres'],
+          'apellidos':cliente['apellidos']??'','correo':cliente['correo']??'',
+        });
+        base['pedidos']=pedidos;
+        final pagos=_filas(base,'pagos');
+        pagos.add({'id_pago':_id(base),'id_pedido':idPedido,'monto':total,
+          'metodo_pago':datos['metodo_pago']??'Efectivo',
+          'estado_pago':'Pendiente','fecha_pago':ahora});
+        base['pagos']=pagos;
+      }
+      final detalles=_filas(base,compra?'detalle_compra':'detalle_pedido');
+      for (final item in lineas) {
+        final pos=productos.indexWhere((p)=>_entero(p['id_producto'])==
+            _entero(item['id_producto']));
+        final previo=_entero(productos[pos]['stock']);
+        final nuevo=compra?previo+_entero(item['cantidad'])
+            :previo-_entero(item['cantidad']);
+        productos[pos]['stock']=nuevo;
+        _movimiento(base,_entero(item['id_producto']),previo,nuevo,
+          (compra?'Compra local #':'Venta local #')+idPedido.toString());
+        detalles.add({...item,
+          compra?'id_compra':'id_pedido':idPedido});
+      }
+      base['productos']=productos;
+      base[compra?'detalle_compra':'detalle_pedido']=detalles;
+      return {...mensaje, compra?'id_compra':'id_pedido':idPedido,
+        'total':total};
+    }
+    if (accion == 'compra_estado') {
+      final id = _entero(datos['id_compra']);
+      final nuevo = (datos['estado'] ?? '').toString();
+      if (!['Registrado', 'Anulado'].contains(nuevo)) {
+        throw StateError('Estado de compra inválido');
+      }
+      final compras = _filas(base, 'compras');
+      final index = compras.indexWhere((p) => _entero(p['id_compra'])==id);
+      if (index < 0) throw StateError('Compra no encontrada');
+      if (compras[index]['estado'] == nuevo) {
+        throw StateError('La compra ya tiene ese estado');
+      }
+      final productos = _filas(base,'productos');
+      final cambios = <Map<String,int>>[];
+      for (final detalle in _filas(base,'detalle_compra')
+          .where((p)=>_entero(p['id_compra'])==id)) {
+        final prodId = _entero(detalle['id_producto']);
+        final i = productos.indexWhere((p)=>
+          _entero(p['id_producto'])==prodId);
+        if (i < 0) throw StateError('Producto de compra no encontrado');
+        final previo = _entero(productos[i]['stock']);
+        final cambio = _entero(detalle['cantidad']);
+        final actual = nuevo == 'Anulado'
+            ? previo - cambio : previo + cambio;
+        if (actual < 0) {
+          throw StateError('Stock insuficiente para anular esta compra');
+        }
+        cambios.add({'id':prodId,'index':i,'antes':previo,'nuevo':actual});
+      }
+      for (final item in cambios) {
+        productos[item['index']!]['stock']=item['nuevo']!;
+        _movimiento(base,item['id']!,item['antes']!,item['nuevo']!,
+          (nuevo=='Anulado'?'Anular compra local #'
+            :'Reactivar compra local #')+id.toString());
+      }
+      compras[index]['estado']=nuevo;
+      base['compras']=compras;
+      base['productos']=productos;
+      return mensaje;
+    }
+    if (accion == 'pedido_estado' || accion == 'pedido_cancelar') {
+      final id=_entero(datos['id_pedido']);
+      final pedidos=_filas(base,'pedidos');
+      final index=pedidos.indexWhere((p)=>_entero(p['id_pedido'])==id);
+      if (index<0) throw StateError('Pedido no encontrado');
+      final pedido=pedidos[index];
+      final anterior=pedido['estado_pedido'].toString();
+      final nuevo=accion=='pedido_cancelar'?'Cancelado':
+        datos['estado_pedido'].toString();
+      final transiciones={
+        'Pendiente':['Procesando','Cancelado'],
+        'Pagado':['Procesando','Enviado'],
+        'Procesando':['Enviado','Cancelado'],
+        'Enviado':['Completado'],
+      };
+      if (!(transiciones[anterior]??[]).contains(nuevo)) {
+        throw StateError('Cambio de estado no permitido');
+      }
+      if (nuevo=='Cancelado') {
+        if (_filas(base,'pagos').any((p)=>
+            _entero(p['id_pedido'])==id && p['estado_pago']=='Pagado')) {
+          throw StateError('La venta ya recibió pagos');
+        }
+        final productos=_filas(base,'productos');
+        for (final linea in _filas(base,'detalle_pedido').where(
+            (l)=>_entero(l['id_pedido'])==id)) {
+          final prodId=_entero(linea['id_producto']);
+          final pos=productos.indexWhere((p)=>
+              _entero(p['id_producto'])==prodId);
+          if (pos<0) throw StateError('Producto no encontrado');
+          final antes=_entero(productos[pos]['stock']);
+          final despues=antes+_entero(linea['cantidad']);
+          productos[pos]['stock']=despues;
+          _movimiento(base,prodId,antes,despues,
+            'Devolución por cancelación local #'+id.toString());
+        }
+        base['productos']=productos;
+      }
+      if (nuevo=='Completado') {
+        final pagado=_filas(base,'pagos').where((p)=>
+            _entero(p['id_pedido'])==id && p['estado_pago']=='Pagado')
+          .fold<double>(0,(a,p)=>a+_decimal(p['monto']));
+        if (pagado+0.009<_decimal(pedido['total'])) {
+          throw StateError('Pedido tiene saldo sin pagar');
+        }
+      }
+      pedidos[index]['estado_pedido']=nuevo;
+      base['pedidos']=pedidos;
+      return mensaje;
+    }
+    if (accion == 'pago_manual' || accion == 'pago_estado' ||
+        accion == 'pago_confirmar') {
+      final pagos=_filas(base,'pagos');
+      final nuevo=accion=='pago_manual';
+      final idPago=_entero(datos['id_pago']);
+      final index=pagos.indexWhere((p)=>_entero(p['id_pago'])==idPago);
+      if (!nuevo && index<0) throw StateError('Pago no encontrado');
+      final pedidoId=nuevo?_entero(datos['id_pedido'])
+          :_entero(pagos[index]['id_pedido']);
+      final pedido=_filas(base,'pedidos').where((p)=>
+          _entero(p['id_pedido'])==pedidoId);
+      if (pedido.isEmpty || pedido.first['estado_pedido']=='Cancelado') {
+        throw StateError('Pedido no encontrado o cancelado');
+      }
+      final estadoPago=accion=='pago_confirmar'?'Pagado':
+          (datos['estado_pago']??'Pendiente').toString();
+      if (!['Pendiente','Pagado','Rechazado'].contains(estadoPago)) {
+        throw StateError('Estado inválido');
+      }
+      final monto=nuevo?_decimal(datos['monto']):_decimal(pagos[index]['monto']);
+      if (monto.isNaN || monto<=0) throw StateError('Monto inválido');
+      if (nuevo && !['Efectivo','Yape','Plin','Transferencia']
+          .contains(datos['metodo_pago'])) {
+        throw StateError('Método no válido');
+      }
+      final pagado=pagos.where((p)=>
+          _entero(p['id_pedido'])==pedidoId &&
+          p['estado_pago']=='Pagado' &&
+          (nuevo || _entero(p['id_pago'])!=idPago))
+        .fold<double>(0,(a,p)=>a+_decimal(p['monto']));
+      if (estadoPago=='Pagado' &&
+          pagado+monto>_decimal(pedido.first['total'])+0.009) {
+        throw StateError('El pago excede el saldo');
+      }
+      if (nuevo) {
+        pagos.add({'id_pago':_id(base),'id_pedido':pedidoId,
+          'monto':monto,'metodo_pago':datos['metodo_pago'],
+          'estado_pago':estadoPago,'fecha_pago':ahora});
+      } else { pagos[index]['estado_pago']=estadoPago; }
+      base['pagos']=pagos;
+      _sincronizarPago(base,pedidoId);
+      return mensaje;
+    }
+    if (accion == 'comprobante_emitir') {
+      final idPedido = _entero(datos['id_pedido']);
+      final tipo = datos['tipo_comprobante']?.toString() ?? '';
+      if (idPedido <= 0 || !['Boleta','Factura'].contains(tipo)) {
+        throw StateError('Selecciona un pedido y un tipo de comprobante');
+      }
+      final pedidos = _filas(base,'pedidos');
+      final encontrados = pedidos.where((p) =>
+          _entero(p['id_pedido']) == idPedido);
+      if (encontrados.isEmpty ||
+          encontrados.first['estado_pedido'] == 'Cancelado') {
+        throw StateError('Pedido no disponible para comprobante');
+      }
+      final pedido = encontrados.first;
+      final total = _decimal(pedido['total']);
+      final abonado = _filas(base,'pagos').where((p) =>
+          _entero(p['id_pedido']) == idPedido &&
+          p['estado_pago'] == 'Pagado').fold<double>(0,
+            (a,p) => a+_decimal(p['monto']));
+      if (!total.isFinite || total <= 0 || abonado+0.009 < total) {
+        throw StateError('Primero confirma el pago íntegro del pedido');
+      }
+      final comprobantes = _filas(base, 'comprobantes');
+      if (comprobantes.any((p)=>
+          _entero(p['id_pedido']) == idPedido &&
+          p['tipo_comprobante'] == tipo)) {
+        throw StateError('Ya existe un comprobante local de ese tipo');
+      }
+      final serie = tipo == 'Boleta' ? 'B001' : 'F001';
+      var correlativo = 0;
+      for (final p in comprobantes) {
+        if (p['tipo_comprobante'] != tipo) continue;
+        final numero = p['numero_comprobante']?.toString() ?? '';
+        if (!numero.startsWith(serie + '-')) continue;
+        final valor = int.tryParse(numero.substring(serie.length+1)) ?? 0;
+        if (valor > correlativo) correlativo = valor;
+      }
+      final numero = serie + '-' +
+          (correlativo+1).toString().padLeft(8,'0');
+      comprobantes.add({
+        'id_comprobante': _id(base), 'id_pedido': idPedido,
+        'tipo_comprobante': tipo, 'numero_comprobante': numero,
+        'total': total, 'fecha_emision': ahora,
+        'observacion': 'Documento de demostración. Sin validez SUNAT.',
+      });
+      base['comprobantes'] = comprobantes;
+      return {...mensaje, 'numero_comprobante':numero,
+        'mensaje':'Comprobante DEMO local ' + numero +
+            '. No emitido ante SUNAT.'};
+    }
+    if (accion == 'configuracion_guardar') {
+      final actual=Map<String,dynamic>.from(base['configuracion'] as Map);
+      final nuevo={...actual,...datos}..remove('accion');
+      if (datos.containsKey('direccion_empresa')) {
+        nuevo['direccion'] = datos['direccion_empresa'];
+      }
+      if (datos.containsKey('telefono_empresa')) {
+        nuevo['telefono'] = datos['telefono_empresa'];
+      }
+      if (datos.containsKey('correo_empresa')) {
+        nuevo['correo'] = datos['correo_empresa'];
+      }
+      final delivery=_decimal(nuevo['costo_delivery']);
+      if (delivery.isNaN || delivery<0) throw StateError('Delivery inválido');
+      base['configuracion']=nuevo;
+      return mensaje;
+    }
+    throw StateError('Operación no disponible en el dashboard local');
+  });
+
+  static Future<String> guardarFoto(XFile foto) async {
+    _soloDispositivo();
+    final bytes=await foto.readAsBytes();
+    if (bytes.length>3*1024*1024 || bytes.isEmpty) {
+      throw StateError('La fotografía debe pesar menos de 3 MB');
+    }
+    final inicio=bytes.length>12 ? bytes.take(12).toList():bytes;
+    final png=inicio.length>7 && inicio[0]==137 && inicio[1]==80 &&
+        inicio[2]==78 && inicio[3]==71;
+    final jpeg=inicio.length>2 && inicio[0]==255 && inicio[1]==216;
+    final webp=inicio.length>11 &&
+        ascii.decode(inicio.sublist(0,4),allowInvalid:true)=='RIFF' &&
+        ascii.decode(inicio.sublist(8,12),allowInvalid:true)=='WEBP';
+    if (!png && !jpeg && !webp) {
+      throw StateError('Usa una foto JPEG, PNG o WebP');
+    }
+    final extension=png?'png':jpeg?'jpg':'webp';
+    final directorio=Directory(path.join(await getDatabasesPath(),
+      'dorada_fotos_locales'));
+    await directorio.create(recursive:true);
+    final random=Random.secure();
+    final nombre=List<int>.generate(12,(_)=>random.nextInt(256))
+      .map((n)=>n.toRadixString(16).padLeft(2,'0')).join();
+    final archivo=File(path.join(directorio.path,'foto_$nombre.$extension'));
+    await archivo.writeAsBytes(bytes,flush:true);
+    return archivo.path;
+  }
+}
+).hasMatch(email)) {
+          throw StateError('Correo no válido');
+        }
         if (lista.any((p) => p['correo']==email && _entero(p[idCol])!=id)) {
           throw StateError('Correo ya registrado');
         }
