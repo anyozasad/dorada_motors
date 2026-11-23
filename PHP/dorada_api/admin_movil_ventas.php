@@ -20,8 +20,16 @@ function movilSincronizarPedido(mysqli $db, int $id): void {
     if (!$pedido) throw new RuntimeException('Pedido inexistente');
     $actual=(string)$pedido['estado_pedido'];
     if (in_array($actual,['Cancelado','Enviado','Completado'],true)) return;
-    $nuevo=(float)$pedido['pagado']+0.009>=(float)$pedido['total']
-      ? 'Pagado' : ($actual==='Pagado' ? 'Procesando' : $actual);
+    // Cobrar no cambia a "Pagado" un pedido que ya esta "Procesando".
+    // El estado logistico y el registro financiero no son equivalentes.
+    $nuevo=$actual;
+    if ($actual==='Pendiente' &&
+        (float)$pedido['pagado']+0.009>=(float)$pedido['total']) {
+        $nuevo='Pagado';
+    } elseif ($actual==='Pagado' &&
+        (float)$pedido['pagado']+0.009<(float)$pedido['total']) {
+        $nuevo='Pendiente';
+    }
     if ($nuevo!==$actual) {
         $s=$db->prepare('UPDATE pedido SET estado_pedido=? WHERE id_pedido=?');
         $s->bind_param('si',$nuevo,$id);
