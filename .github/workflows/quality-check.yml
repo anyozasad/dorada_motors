@@ -153,7 +153,8 @@ jobs:
             'PHP/tests/scripts/PREPARAR_ENTREGA_INDICADOR_IV.ps1',
             'PHP/tests/scripts/COMPILAR_APK_CELULAR.ps1',
             'PHP/tests/scripts/CONECTAR_APK_XAMPP.ps1',
-            'ACTUALIZAR_DORADA_MOTORS.ps1'
+            'ACTUALIZAR_DORADA_MOTORS.ps1',
+            'PHP/tests/scripts/ACTUALIZAR_PHP_MYSQL_XAMPP.ps1'
           )
           foreach ($archivo in $archivos) {
             $tokens = $null
