@@ -68,7 +68,27 @@ try {
     if ($actual !== "dorada_schema_ci_test") {
         throw new RuntimeException("La migración cambió de base de datos");
     }
-    echo "OK: instalación DB_NAME temporal, 18 tablas, columnas antiguas reparadas y precio preservado.\n";
+
+    // Reproducir el caso real que provoca "Unknown column" en XAMPP:
+    // falta una tabla, la conexión ejecuta el SQL de instalación pero
+    // producto es antiguo y carece de imagen_url. El catálogo de ejemplo
+    // no se debe insertar antes de reparar esa columna.
+    $conexion->query("DROP TABLE favorito");
+    $conexion->query("ALTER TABLE producto DROP COLUMN imagen_url");
+    $conexion->close();
+
+    $comando = escapeshellarg(PHP_BINARY) . " " .
+        escapeshellarg(__DIR__ . "/schema_reimport_child.php");
+    $salida = [];
+    $codigo = 0;
+    exec($comando . " 2>&1", $salida, $codigo);
+    if ($codigo !== 0) {
+        throw new RuntimeException(
+            "No se pudo reimportar el esquema antiguo: " . implode("\n", $salida)
+        );
+    }
+    echo implode("\n", $salida) . "\n";
+    echo "OK: columnas antiguas y tabla faltante reparadas sin perder productos.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "ERROR PRUEBA ESQUEMA HEREDADO: " . $e->getMessage() . "\n");
     exit(1);
