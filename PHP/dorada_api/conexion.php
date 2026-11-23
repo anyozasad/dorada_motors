@@ -83,26 +83,32 @@ if (!preg_match('/^[A-Za-z0-9_]{1,64}$/D', $dbName)) {
 }
 $nombreSeguro = $dbName;
 
-if (!$conexion->query(
-    "CREATE DATABASE IF NOT EXISTS `" . $nombreSeguro . "`
-     CHARACTER SET utf8mb4
-     COLLATE utf8mb4_unicode_ci"
-)) {
-    error_log("Dorada Motors CREATE DATABASE: " . $conexion->error);
-    http_response_code(500);
-    echo json_encode([
-        "estado" => false,
-        "mensaje" => "No se pudo crear la base de datos dorada_motors."
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+// Reutilizar una base existente SIN exigir privilegio CREATE DATABASE.
+// Un usuario de MySQL limitado a dorada_motors puede leer/escribir
+// normalmente aunque no tenga permisos administrativos globales.
+$baseSeleccionada = false;
+try {
+    $baseSeleccionada = $conexion->select_db($nombreSeguro);
+} catch (Throwable $e) {
+    error_log("Dorada Motors SELECT DB inicial: " . $e->getMessage());
 }
-
-if (!$conexion->select_db($nombreSeguro)) {
-    error_log("Dorada Motors SELECT DB: " . $conexion->error);
-    http_response_code(500);
+if (!$baseSeleccionada) {
+    try {
+        $conexion->query(
+            "CREATE DATABASE IF NOT EXISTS `" . $nombreSeguro . "` " .
+            "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        );
+        $baseSeleccionada = $conexion->select_db($nombreSeguro);
+    } catch (Throwable $e) {
+        error_log("Dorada Motors CREATE/SELECT DB: " . $e->getMessage());
+    }
+}
+if (!$baseSeleccionada) {
+    http_response_code(503);
     echo json_encode([
         "estado" => false,
-        "mensaje" => "No se pudo seleccionar la base de datos dorada_motors."
+        "mensaje" => "No se pudo abrir la base de datos configurada. " .
+            "Verifica que exista y que DB_USER tenga permisos sobre ella."
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
