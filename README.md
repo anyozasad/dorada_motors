@@ -10,6 +10,45 @@ La carpeta técnica `.github/` conserva las pruebas automáticas de GitHub. No e
 ## Archivos del proyecto
 En `PHP/` solo verás **dos carpetas**: `dorada_api/` (dashboard PHP, API y MySQL) y `tests/` (pruebas, scripts y documentos del Indicador IV). Los scripts se conservan en `PHP/tests/scripts/` porque se necesitan para iniciar, verificar y entregar el proyecto.
 
+## Actualizar desde GitHub con un solo archivo
+
+El código de la rama **main** se actualiza directamente en este repositorio. Si estás trabajando en
+la laptop, usa [ACTUALIZAR_DORADA_MOTORS.ps1](ACTUALIZAR_DORADA_MOTORS.ps1),
+ubicado en la raíz. El script comprueba que no perderás cambios locales,
+ejecuta `git pull --ff-only`, copia PHP a XAMPP **sin eliminar la base de datos
+ni los archivos subidos**, y compila el APK cuando Flutter está instalado.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\ACTUALIZAR_DORADA_MOTORS.ps1 -EjecutarPruebas
+```
+
+El APK resultante se copia al Escritorio como `DORADA_MOTORS_LOCAL_ACTUALIZADO.apk`.
+Si Flutter no está instalado, descarga el APK ya compilado desde
+[GitHub Actions → Flutter CI](https://github.com/anyozasad/dorada_motors/actions/workflows/flutter.yml).
+También puedes usar `-SoloCodigo` o `-SinCompilarApk` sin alterar datos locales.
+
+**Importante:** ninguna actualización desde GitHub puede entrar a una laptop apagada o
+modificar sus archivos por sí sola; el script debe ejecutarse en ella.
+
+## Dos modalidades diferentes dentro del APK
+
+- **Administrador sin laptop + tienda del cliente sin internet:** ambas pantallas usan
+  **la misma SQLite privada del mismo dispositivo Android**. El administrador
+  puede dar de alta un cliente con contraseña local, actualizar repuestos,
+  ventas, compras, pagos, stock, Kardex y comprobantes de **demostración**.
+  El cliente puede entrar con esa cuenta, consultar precios, registrar pedidos
+  y ver el estado. Los cobros Yape/Plin **se verifican manualmente**.
+- **Administrador / tienda con PHP + MySQL:** usa el panel PHP y la API del servidor.
+  El celular necesita conectividad al servidor (red local con XAMPP encendido,
+  o servidor remoto disponible). La SQLite local y esa MySQL son **bases separadas**,
+  sin sincronización automática de pedidos, pagos, stock ni usuarios entre ambas.
+
+No desinstales una aplicación que contenga datos reales sin antes tener un
+respaldo. El APK de Android se firma con clave de desarrollo para la presentación;
+las pruebas automáticas no reemplazan la validación en el Samsung físico.
+La lista de 150 requisitos es una **matriz de revisión**, no una certificación
+de funcionamiento de los 150 puntos.
+
 ## Iniciar desde PowerShell
 Enciende **Apache** y **MySQL** en XAMPP. Desde la raíz del repositorio:
 
