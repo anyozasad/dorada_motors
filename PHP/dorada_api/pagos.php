@@ -104,7 +104,7 @@ if ($metodo === "POST") {
         // Nunca retroceder un envío ni una venta completada.
         if ($estado === "Pagado"
             && $saldoNuevo <= 0.009
-            && !in_array($estadoPedido,["Pagado","Enviado","Completado"],true)) {
+            && $estadoPedido === "Pendiente") {
             $estadoPedido = "Pagado";
             $stmt = $conexion->prepare(
                 "UPDATE pedido SET estado_pedido=? WHERE id_pedido=?"
