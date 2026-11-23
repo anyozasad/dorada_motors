@@ -41,7 +41,7 @@ if ($metodo === 'GET') {
               ON p.id_proveedor=c.id_proveedor
               ORDER BY c.id_compra DESC LIMIT 200")]);
         case 'comprobantes':
-            movilExigir($u,'resumen');
+            movilExigir($u,'pagos');
             movilResponder(['estado'=>true,'items'=>movilFilas($conexion,
               "SELECT c.id_comprobante,c.id_pedido,c.tipo_comprobante,
               c.numero_comprobante,c.fecha_emision,c.subtotal,c.igv,c.total,
