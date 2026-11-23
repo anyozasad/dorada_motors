@@ -185,6 +185,55 @@ if ($faltanTablas) {
         exit;
     }
 
+    // Primero instalar las tablas, luego corregir las columnas heredadas,
+    // y SOLO DESPUÉS insertar datos iniciales. En bases antiguas faltaban
+    // columnas como producto.imagen_url; el INSERT fallaba antes de llegar
+    // a sistema_bootstrap.php y aparecía "Unknown column" en el dashboard.
+    $inicioDatos = strpos($sql, 'INSERT IGNORE INTO categoria (nombre_categoria) VALUES');
+    if ($inicioDatos === false) {
+        error_log("Dorada Motors: falta el límite de datos iniciales en el SQL");
+        http_response_code(500);
+        echo json_encode([
+            "estado" => false,
+            "mensaje" => "El archivo SQL no tiene el formato esperado."
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $definiciones = substr($sql, 0, $inicioDatos);
+    $datosIniciales = substr($sql, $inicioDatos);
+
+    try {
+        // Este lote contiene únicamente CREATE DATABASE/USE/CREATE TABLE.
+        if (!$conexion->multi_query($definiciones)) {
+            throw new RuntimeException("No se pudo crear el esquema: " . $conexion->error);
+        }
+        do {
+            if ($resultado = $conexion->store_result()) {
+                $resultado->free();
+            }
+        } while ($conexion->more_results() && $conexion->next_result());
+        if ($conexion->errno) {
+            throw new RuntimeException("No se pudo completar el esquema: " . $conexion->error);
+        }
+        // No dejar desactivadas las claves foráneas al migrar ni al fallar.
+        $conexion->query("SET FOREIGN_KEY_CHECKS=1");
+
+        // Migrar únicamente columnas/índices faltantes de instalaciones
+        // antiguas, sin borrar inventario, pedidos ni clientes existentes.
+        require_once __DIR__ . "/sistema_bootstrap.php";
+
+        $sql = $datosIniciales;
+    } catch (Throwable $e) {
+        error_log("Dorada Motors SQL: " . $e->getMessage());
+        http_response_code(503);
+        echo json_encode([
+            "estado" => false,
+            "mensaje" => "La estructura MySQL no se pudo completar. " .
+                "Revisa permisos y el registro PHP; no se borraron registros."
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if (!$conexion->multi_query($sql)) {
         error_log("Dorada Motors IMPORT SQL: " . $conexion->error);
         http_response_code(500);
