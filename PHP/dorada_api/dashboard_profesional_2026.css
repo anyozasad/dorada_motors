@@ -56,3 +56,47 @@ tbody tr:nth-child(even){background:#fcfdff}tbody tr:hover{background:#f2f6ff}
 @media(max-width:760px){.app{display:block}.sidebar{width:252px;position:fixed;left:-270px;top:0;height:100vh;transition:left .22s}.sidebar.open{left:0}.topbar{height:64px;padding:0 14px}.content{padding:16px}.metrics,.ops-strip,.system-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.brand-hero{grid-template-columns:1fr}.hero-brand{display:none}.metric{min-height:100px;padding:14px;gap:10px}.metric-value{font-size:21px}.metric-icon{width:40px;height:40px;flex-basis:40px;font-size:19px}.search{width:min(330px,45vw)}.chart{height:190px}.form-grid{grid-template-columns:1fr}.field.full,.form-actions{grid-column:auto}}
 @media(max-width:480px){.metrics,.ops-strip,.system-grid{grid-template-columns:1fr}.metric{min-height:88px}.heading{align-items:flex-start;flex-direction:column}.search{display:none}.card{padding:14px}.chart{gap:6px}.top-actions{gap:7px}.admin strong{max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 @media print{.app{display:block}.sidebar,.topbar,.mobile-bottom,.section-actions{display:none!important}.content{max-width:none;padding:0}.metric,.card{box-shadow:none;break-inside:avoid}}
+
+
+/* UI/UX: acciones legibles, controles táctiles y líneas de pedido/compra utilizables. */
+.btn,.icon-btn,.action-btn,.nav-main,.nav-submenu a{cursor:pointer}
+.btn{font-size:13px;min-height:44px;padding:10px 15px}
+.btn-small{font-size:12px;min-height:38px;padding:8px 12px}
+.action-btn{width:40px;height:40px;font-size:17px}
+.icon-btn{min-width:44px;min-height:44px}
+.field input,.field select,.field textarea,.inline-form input,.inline-form select{
+ font-size:13px;min-height:44px
+}
+.field label,.filter-title small{font-size:12px;line-height:1.4}
+th{font-size:11px}td{font-size:13px}
+.product-cell small,.table-sub{font-size:11px}
+.nav-submenu a{padding:9px 14px;min-height:40px}
+.nav-folder>.nav-main{width:100%;text-align:left}
+.nav-main:focus-visible,.nav-submenu a:focus-visible,.btn:focus-visible{
+ outline:3px solid #fdba74;outline-offset:2px
+}
+#pedidoItems .line-item-row,#compraItems .line-item-row{
+ display:grid;align-items:center;gap:10px;margin-bottom:10px
+}
+#pedidoItems .line-item-row{grid-template-columns:minmax(190px,3fr) minmax(95px,1fr) auto}
+#compraItems .line-item-row{
+ grid-template-columns:minmax(190px,2fr) minmax(90px,.7fr) minmax(110px,.8fr) auto
+}
+#pedidoItems .line-item-row :is(input,select,button),
+#compraItems .line-item-row :is(input,select,button){min-width:0;width:100%;min-height:44px}
+#pedidoItems .line-item-row button,#compraItems .line-item-row button{width:auto}
+button[disabled]{opacity:.55;cursor:not-allowed!important;transform:none!important}
+@media(max-width:690px){
+ #pedidoItems .line-item-row,#compraItems .line-item-row{
+  grid-template-columns:repeat(2,minmax(0,1fr));padding:12px;
+  background:#fff;border:1px solid #e3e8f0;border-radius:12px
+ }
+ #pedidoItems .line-item-row select,#compraItems .line-item-row select{grid-column:1/-1}
+ #pedidoItems .line-item-row button,#compraItems .line-item-row button{
+  grid-column:1/-1;justify-self:stretch;width:100%
+ }
+ .order-actions{gap:9px}
+ .order-actions .btn{min-height:40px}
+ .section-actions{flex-wrap:wrap}
+ .filter-toolbar select{font-size:13px}
+}
