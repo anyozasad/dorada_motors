@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures, use_null_aware_elements
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
+import '../services/local_store.dart';
 import '../services/product_image_url.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_image.dart';
@@ -91,6 +93,10 @@ class AdminMobileApi {
     await p.setString(keyRole, u['rol_sistema'].toString());
     await p.setString(keyName,
         (u['nombres'].toString() + ' ' + u['apellidos'].toString()).trim());
+    // Nunca dejar la sesión de comprador abierta al cambiar de rol.
+    await LocalStore.logout();
+    await LocalStore.clearCart();
+    await LocalStore.saveFavorites(<int>{});
   }
 
   static Future<bool?> verificar() async {
