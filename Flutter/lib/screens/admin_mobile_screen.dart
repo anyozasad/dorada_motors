@@ -636,8 +636,10 @@ class _AdminMobileDashboardScreenState
         AdminMobileField('apellidos', 'Apellidos'),
         AdminMobileField('correo', 'Correo', requiredValue: true),
         AdminMobileField('telefono', 'Teléfono'),
-        if (!widget.modoLocal) AdminMobileField('contrasena', cliente == null
-            ? 'Contraseña (mínimo 8)' : 'Nueva contraseña (dejar vacío para mantener)',
+        AdminMobileField('contrasena', cliente == null
+            ? (widget.modoLocal ? 'Contraseña local para la tienda (mínimo 8)'
+                : 'Contraseña (mínimo 8)')
+            : 'Nueva contraseña (dejar vacío para mantener)',
             requiredValue: cliente == null),
       ]);
     if (form != null && mounted) {
