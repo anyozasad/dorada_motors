@@ -881,7 +881,7 @@ class _AdminMobileDashboardScreenState
         p['fecha_pedido'].toString(),
         Icons.receipt_long_outlined,
         cifra: 'S/ ' + p['total'].toString(),
-        accion: Wrap(mainAxisSize: MainAxisSize.min, children: [
+        accion: Wrap(spacing: 4, children: [
           if (['Pendiente', 'Pagado', 'Procesando'].contains(
               p['estado_pedido']?.toString()))
             TextButton(
@@ -928,7 +928,7 @@ class _AdminMobileDashboardScreenState
         for (final item in items) Card(child: ListTile(
           title: Text(item[nombreCampo]?.toString() ?? ''),
           subtitle: Text('Código ' + item[idCampo].toString()),
-          trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+          trailing: Wrap(spacing: 4, children: [
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Editar',
