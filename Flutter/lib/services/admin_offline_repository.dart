@@ -157,6 +157,67 @@ class AdminOfflineRepository {
     };
   }
 
+  // Registro de clientes en el mismo SQLite del administrador local.
+  // Las huellas de contraseña no se incluyen en las vistas comerciales.
+  static Future<int> registrarComprador({
+    required String nombres,
+    required String apellidos,
+    required String correo,
+    required String telefono,
+    required String contrasena,
+  }) => _mutar((base) async {
+    final email = correo.trim().toLowerCase();
+    if (nombres.trim().isEmpty || !email.contains('@') ||
+        contrasena.length < 8 || contrasena.length > 128) {
+      throw StateError('Nombres, correo o contraseña local inválidos');
+    }
+    final usuarios = _filas(base, 'clientes');
+    if (usuarios.any((p) => p['correo'] == email)) {
+      throw StateError('Ya existe ese correo en la tienda local');
+    }
+    final random = Random.secure();
+    final salt = base64Encode(List<int>.generate(24,
+        (_) => random.nextInt(256)));
+    final id = _id(base);
+    usuarios.add({
+      'id_usuario': id, 'nombres': nombres.trim(),
+      'apellidos': apellidos.trim(),
+      'correo': email, 'telefono': telefono.trim(), 'estado': 'Activo',
+    });
+    base['clientes'] = usuarios;
+    final llaves = _filas(base, 'accesos_clientes');
+    llaves.add({'id_usuario': id,
+      'salt': salt, 'hash': _hash(contrasena, salt)});
+    base['accesos_clientes'] = llaves;
+    return id;
+  });
+
+  static Future<int?> autenticarComprador(String correo,
+      String contrasena) async {
+    final base = await estado();
+    final email = correo.trim().toLowerCase();
+    final usuarios = _filas(base, 'clientes');
+    final filtro = usuarios.where((p) =>
+        p['correo'] == email && p['estado'] == 'Activo');
+    if (filtro.isEmpty) return null;
+    final id = _entero(filtro.first['id_usuario']);
+    final llaves = _filas(base,'accesos_clientes').where((p) =>
+        _entero(p['id_usuario']) == id);
+    if (llaves.isEmpty) return null;
+    final salt = llaves.first['salt']?.toString() ?? '';
+    final huella = llaves.first['hash']?.toString() ?? '';
+    if (salt.isEmpty || huella.isEmpty) return null;
+    final actual = _hash(contrasena, salt);
+    final a = utf8.encode(actual);
+    final b = utf8.encode(huella);
+    if (a.length != b.length) return null;
+    var diferencia = 0;
+    for (var i=0; i<a.length; i++) {
+      diferencia |= a[i] ^ b[i];
+    }
+    return diferencia == 0 ? id : null;
+  }
+
   static Future<Map<String, dynamic>> estado() async {
     _soloDispositivo();
     final contenido = await OfflineDatabase.leer(scope, _estadoNombre);
