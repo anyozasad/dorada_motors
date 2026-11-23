@@ -28,6 +28,12 @@ try {
   if (!(Get-Command git -ErrorAction SilentlyContinue)) {
     throw 'No se detecto Git en PowerShell.'
   }
+  # Impedir actualizar otro repositorio por accidente.
+  $OrigenGit = (& git remote get-url origin).Trim()
+  Verificar 'git remote'
+  if ($OrigenGit -notmatch '(?i)github\.com[:/]anyozasad/dorada_motors(?:\.git)?/?$') {
+    throw ('Esta carpeta no corresponde a Dorada Motors. Git origin: ' + $OrigenGit)
+  }
   $Rama = (& git branch --show-current).Trim()
   Verificar 'git branch'
   if ($Rama -ne 'main') {
@@ -45,6 +51,10 @@ try {
   }
   & git pull --ff-only origin main
   Verificar 'git pull --ff-only origin main'
+  $CommitActual = (& git rev-parse --short HEAD).Trim()
+  Verificar 'git rev-parse'
+  Write-Host ('Version de GitHub instalada: ' + $CommitActual) -ForegroundColor Green
+
   if ($SoloCodigo) {
     Write-Host 'El codigo de Flutter y PHP esta actualizado.' -ForegroundColor Green
     exit 0
