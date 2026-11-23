@@ -654,6 +654,89 @@ def probar_dashboard_admin(id_pedido, id_usuario, token, id_producto, stock_orig
     assert api("admin_movil.php?vista=configuracion",
                token=token_admin)["configuracion"]["nombre_comercial"]
     print("OK APK ADMIN: CRUD catalogo, proveedor, Kardex, permisos y módulos.")
+
+    # Compra multiproducto, anulación/reactivación y Kardex compensatorio.
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "proveedor_guardar", "id_proveedor": 0,
+        "razon_social": "Proveedor de compras APK",
+        "ruc": "20601234567", "estado": "Activo",
+    })
+    compra_prov = api("admin_movil.php?vista=proveedores", token=token_admin)
+    proveedor_compra = next(p["id_proveedor"] for p in compra_prov["items"]
+                            if p["razon_social"] == "Proveedor de compras APK")
+    stock_repuesto = int(api(f"productos.php?id={id_movil}")["stock"])
+    compra = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "compra_registrar", "id_proveedor": proveedor_compra,
+        "items": [
+            {"id_producto": id_movil, "cantidad": 3, "precio_compra": 10},
+            {"id_producto": id_producto, "cantidad": 2, "precio_compra": 9.50},
+        ],
+    })
+    id_compra_movil = int(compra["id_compra"])
+    assert abs(float(compra["total"]) - 49) < .01
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_repuesto + 3
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "compra_estado", "id_compra": id_compra_movil,
+        "estado": "Anulado",
+    })
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_repuesto
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "compra_estado", "id_compra": id_compra_movil,
+        "estado": "Registrado",
+    })
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_repuesto + 3
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "compra_estado", "id_compra": id_compra_movil,
+        "estado": "Anulado",
+    })
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_repuesto
+    print("OK APK ADMIN: compra multiproducto y restauración de existencias.")
+
+    # Pedidos cancelados desde administración móvil deben devolver stock.
+    pedido_cancelar = api("pedidos.php", method="POST", token=token,
+        status=201, body={"id_usuario": id_usuario, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_movil, "cantidad": 1}]})
+    id_cancelar = int(pedido_cancelar["id_pedido"])
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_repuesto-1
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pedido_cancelar", "id_pedido": id_cancelar})
+    assert int(api(f"productos.php?id={id_movil}")["stock"]) == stock_repuesto
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pedido_cancelar", "id_pedido": id_cancelar
+    }, status=409)["estado"] is False
+
+    # Comprobantes solo para pedidos cobrados y sin doble emisión.
+    pedido_pagado = api("pedidos.php", method="POST", token=token,
+        status=201, body={"id_usuario": id_usuario, "tipo_entrega": "Recojo en tienda",
+        "metodo_pago": "Efectivo",
+        "items": [{"id_producto": id_movil, "cantidad": 1}]})
+    id_pagado = int(pedido_pagado["id_pedido"])
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "comprobante_emitir", "id_pedido": id_pagado,
+        "tipo_comprobante": "Boleta",
+    }, status=409)["estado"] is False
+    pagos_compra = api("admin_movil.php?vista=pagos", token=token_admin)
+    id_pago_movil = next(p["id_pago"] for p in pagos_compra["items"]
+                         if int(p["id_pedido"]) == id_pagado)
+    api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pago_confirmar", "id_pago": id_pago_movil})
+    documento = api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "comprobante_emitir", "id_pedido": id_pagado,
+        "tipo_comprobante": "Boleta",
+    })
+    assert documento["numero_comprobante"].startswith("B001-")
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "comprobante_emitir", "id_pedido": id_pagado,
+        "tipo_comprobante": "Boleta",
+    }, status=409)["estado"] is False
+    assert api("admin_movil.php", method="POST", token=token_admin, body={
+        "accion": "pedido_cancelar", "id_pedido": id_pagado
+    }, status=409)["estado"] is False
+    assert any(int(p["id_pedido"]) == id_pagado for p in
+               api("admin_movil.php?vista=comprobantes", token=token_admin)["items"])
+    print("OK APK ADMIN: cancelar pedido y emitir comprobante solo si está pagado.")
+
     assert api("admin_movil.php", method="POST", token=token_admin,
                body={"accion": "logout"})["estado"] is True
     assert api("admin_movil.php?vista=resumen", token=token_admin,
