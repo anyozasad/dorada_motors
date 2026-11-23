@@ -806,7 +806,8 @@ class _AdminMobileDashboardScreenState
           'Historial de proveedores', Icons.shopping_cart_outlined, 'compras'),
       if (permitido('proveedores')) modulo('Proveedores',
           'Gestionar proveedores', Icons.local_shipping_outlined, 'proveedores'),
-      modulo('Comprobantes', 'Boletas y facturas de demostración',
+      if (permitido('pagos')) modulo('Comprobantes',
+          'Boletas y facturas de demostración',
           Icons.description_outlined, 'comprobantes'),
       if (permitido('reportes')) modulo('Reportes',
           'Ventas y más vendidos', Icons.bar_chart, 'reportes'),
@@ -880,10 +881,18 @@ class _AdminMobileDashboardScreenState
         p['fecha_pedido'].toString(),
         Icons.receipt_long_outlined,
         cifra: 'S/ ' + p['total'].toString(),
-        accion: ['Pendiente', 'Pagado', 'Procesando', 'Enviado']
-          .contains(p['estado_pedido']?.toString())
-          ? TextButton(onPressed: guardando ? null : () => cambiarEstado(p),
-              child: const Text('Cambiar estado')) : null),
+        accion: Wrap(mainAxisSize: MainAxisSize.min, children: [
+          if (['Pendiente', 'Pagado', 'Procesando'].contains(
+              p['estado_pedido']?.toString()))
+            TextButton(
+              onPressed: guardando ? null : () => cancelarPedido(p),
+              child: const Text('Cancelar')),
+          if (['Pendiente', 'Pagado', 'Procesando', 'Enviado']
+              .contains(p['estado_pedido']?.toString()))
+            TextButton(
+              onPressed: guardando ? null : () => cambiarEstado(p),
+              child: const Text('Estado')),
+        ])),
       if (items.isEmpty) const Text('No hay pedidos.'),
     ];
     if (vista == 'pagos') return [
@@ -984,18 +993,23 @@ class _AdminMobileDashboardScreenState
     ];
     if (vista == 'compras') return [
       encabezado('Compras a proveedores',
-          'Historial registrado en MySQL; los registros nuevos se '
-          'gestionan desde el panel PHP.'),
+          'Registra compras y gestiona el stock con transacciones MySQL.'),
+      botonAgregar('Registrar compra', registrarCompra),
       for (final p in items) registro(
         'Compra #' + p['id_compra'].toString() +
         ' · ' + p['razon_social'].toString(),
         p['estado'].toString() + ' · ' + p['fecha_compra'].toString(),
-        Icons.shopping_cart_outlined, cifra: 'S/ ' + p['total'].toString()),
+        Icons.shopping_cart_outlined, cifra: 'S/ ' + p['total'].toString(),
+        accion: TextButton(
+          onPressed: guardando ? null : () => cambiarCompra(p),
+          child: Text(p['estado'] == 'Anulado' ?
+              'Reactivar' : 'Anular'))),
       if (items.isEmpty) const Text('Aún no hay compras.'),
     ];
     if (vista == 'comprobantes') return [
       encabezado('Comprobantes',
-          'Boletas y facturas de demostración emitidas en PHP.'),
+          'Boletas y facturas de demostración. No equivale a SUNAT.'),
+      botonAgregar('Emitir comprobante', emitirComprobante),
       for (final p in items) registro(
         p['tipo_comprobante'].toString() +
         ' ' + p['numero_comprobante'].toString(),
