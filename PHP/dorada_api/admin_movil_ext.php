@@ -63,6 +63,42 @@ if ($metodo === 'GET') {
 }
 if ($metodo !== 'POST') return;
 
+if ($accion==='imagen_producto') {
+    movilExigir($u,'productos');
+    $archivo=$_FILES['imagen'] ?? null;
+    if (!is_array($archivo) || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        movilError('Selecciona una fotografía JPEG, PNG o WebP');
+    }
+    $tmp=(string)($archivo['tmp_name'] ?? '');
+    $tam=(int)($archivo['size'] ?? 0);
+    if ($tmp==='' || !is_uploaded_file($tmp) ||
+        $tam<100 || $tam>3*1024*1024) {
+        movilError('La fotografía debe pesar menos de 3 MB');
+    }
+    $dimension=@getimagesize($tmp);
+    if (!is_array($dimension) || $dimension[0]<1 || $dimension[1]<1 ||
+        (float)$dimension[0]*(float)$dimension[1]>24000000) {
+        movilError('La fotografía está dañada o es demasiado grande');
+    }
+    $formatos=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+    if (!isset($formatos[$mime]) || ($dimension['mime'] ?? '')!==$mime) {
+        movilError('Formato de fotografía no permitido');
+    }
+    $carpeta=__DIR__.'/uploads/productos';
+    if (!is_dir($carpeta) && !mkdir($carpeta,0775,true) && !is_dir($carpeta)) {
+        throw new RuntimeException('No se pudo preparar la carpeta de imágenes');
+    }
+    $nombre='producto_movil_'.bin2hex(random_bytes(16)).'.'.$formatos[$mime];
+    $destino=$carpeta.'/'.$nombre;
+    if (!move_uploaded_file($tmp,$destino)) {
+        throw new RuntimeException('No se pudo guardar la fotografía');
+    }
+    chmod($destino,0644);
+    movilResponder(['estado'=>true,'mensaje'=>'Fotografía guardada',
+      'imagen_url'=>'uploads/productos/'.$nombre]);
+}
+
 if ($accion === 'catalogo_guardar' || $accion === 'catalogo_eliminar') {
     movilExigir($u,'productos');
     $tipo=(string)($datos['tipo'] ?? '');
